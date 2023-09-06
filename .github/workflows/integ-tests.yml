@@ -1,0 +1,52 @@
+name: integ-tests
+
+on:
+  workflow_dispatch:
+  push:
+
+concurrency:
+  group: csi-pr-integ-test
+
+jobs:
+  integ-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Log in to Docker Hub
+        uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - run: git submodule update --init --recursive go.mk
+
+      - uses: ./go.mk/.github/actions/setup
+
+      - name: Build Docker image
+        run: make docker
+
+      - name: Tag Docker Image
+        run: |
+          docker tag exoscale/csi-driver:latest exoscale/csi-driver-integ-test:csi-pr-integ-test
+
+      - name: Push Docker Image
+        run: |
+          docker push exoscale/csi-driver-integ-test:csi-pr-integ-test
+
+      - name: run integ tests
+        run: |
+          cd internal/integ/ && go test \
+            -v \
+            --create-cluster \
+            --tear-down-csi \
+            --image exoscale/csi-driver-integ-test:csi-pr-integ-test \
+            --cluster-name csi-pr-integ-test \
+            --zone ch-gva-2
+        shell: bash
+        env:
+          EXOSCALE_API_KEY: ${{ secrets.EXOSCALE_API_KEY }}
+          EXOSCALE_API_SECRET: ${{ secrets.EXOSCALE_API_SECRET }}

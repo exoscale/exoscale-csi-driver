@@ -1,0 +1,18 @@
+include go.mk/version.mk
+
+.PHONY: docker
+docker:
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(MAKE) build
+	docker build --rm \
+	  -t exoscale/csi-driver \
+	  --build-arg VERSION="${VERSION}" \
+	  --build-arg VCS_REF="${GIT_REVISION}" \
+	  --build-arg BUILD_DATE="$(shell date -u +"%Y-%m-%dT%H:%m:%SZ")" \
+      -f ./Dockerfile \
+      bin/
+	docker tag exoscale/csi-driver:latest exoscale/csi-driver:${VERSION}
+
+.PHONY: docker-push
+docker-push:
+	docker push exoscale/csi-driver:latest \
+	  && docker push exoscale/csi-driver:${VERSION}
