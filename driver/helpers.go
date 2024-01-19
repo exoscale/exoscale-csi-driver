@@ -1,6 +1,7 @@
 package driver
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -93,4 +94,54 @@ func createMountPoint(path string, file bool) error {
 
 func convertBytesToGibiBytes(nBytes int64) int64 {
 	return nBytes / (1024 * 1024 * 1024)
+}
+
+func getNewVolumeSize(capacityRange *csi.CapacityRange) (int64, error) {
+	if capacityRange == nil {
+		return MinimalVolumeSizeBytes, nil
+	}
+
+	requiredBytes := capacityRange.GetRequiredBytes()
+	requiredSet := requiredBytes > 0
+
+	limitBytes := capacityRange.GetLimitBytes()
+	limitSet := limitBytes > 0
+
+	if !requiredSet && !limitSet {
+		return MinimalVolumeSizeBytes, nil
+	}
+
+	if requiredSet && limitSet && limitBytes < requiredBytes {
+		return 0, errors.New("limit size is less than required size")
+	}
+
+	if requiredSet && !limitSet && requiredBytes < MinimalVolumeSizeBytes {
+		return 0, errors.New("required size is less than the minimun size")
+	}
+
+	if limitSet && limitBytes < MinimalVolumeSizeBytes {
+		return 0, errors.New("limit size is less than the minimun size")
+	}
+
+	if requiredSet && requiredBytes > MaximumVolumeSizeBytes {
+		return 0, errors.New("required size is greater than the maximum size")
+	}
+
+	if !requiredSet && limitSet && limitBytes > MaximumVolumeSizeBytes {
+		return 0, errors.New("limit size is greater than the maximum size")
+	}
+
+	if requiredSet && limitSet && requiredBytes == limitBytes {
+		return requiredBytes, nil
+	}
+
+	if requiredSet {
+		return requiredBytes, nil
+	}
+
+	if limitSet {
+		return limitBytes, nil
+	}
+
+	return MinimalVolumeSizeBytes, nil
 }
