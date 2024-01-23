@@ -6,6 +6,7 @@ require (
 	github.com/container-storage-interface/spec v1.8.0
 	github.com/exoscale/egoscale v0.102.4-0.20240117105256-1ace995a320f
 	github.com/golang/protobuf v1.5.3
+	github.com/stretchr/testify v1.8.2
 	golang.org/x/sys v0.15.0
 	google.golang.org/grpc v1.58.0
 	google.golang.org/protobuf v1.31.0
@@ -39,6 +40,7 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
 	golang.org/x/crypto v0.17.0 // indirect
 	golang.org/x/net v0.13.0 // indirect
 	golang.org/x/oauth2 v0.10.0 // indirect

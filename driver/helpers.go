@@ -1,7 +1,6 @@
 package driver
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -112,23 +111,23 @@ func getNewVolumeSize(capacityRange *csi.CapacityRange) (int64, error) {
 	}
 
 	if requiredSet && limitSet && limitBytes < requiredBytes {
-		return 0, errors.New("limit size is less than required size")
+		return 0, errLimitLessThanRequiredBytes
 	}
 
 	if requiredSet && !limitSet && requiredBytes < MinimalVolumeSizeBytes {
-		return 0, errors.New("required size is less than the minimun size")
+		return 0, errRequiredBytesLessThanMinimun
 	}
 
 	if limitSet && limitBytes < MinimalVolumeSizeBytes {
-		return 0, errors.New("limit size is less than the minimun size")
+		return 0, errLimitLessThanMinimum
 	}
 
 	if requiredSet && requiredBytes > MaximumVolumeSizeBytes {
-		return 0, errors.New("required size is greater than the maximum size")
+		return 0, errRequiredBytesGreaterThanMaximun
 	}
 
 	if !requiredSet && limitSet && limitBytes > MaximumVolumeSizeBytes {
-		return 0, errors.New("limit size is greater than the maximum size")
+		return 0, errLimitGreaterThanMaximum
 	}
 
 	if requiredSet && limitSet && requiredBytes == limitBytes {
