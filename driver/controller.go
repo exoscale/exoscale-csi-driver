@@ -622,6 +622,19 @@ func (d *controllerService) ControllerExpandVolume(ctx context.Context, req *csi
 		return nil, err
 	}
 
+	nodeExpansionRequired := true
+	volumeCapability := req.GetVolumeCapability()
+	if volumeCapability != nil {
+		err := validateVolumeCapability(volumeCapability)
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "volumeCapabilities not supported: %s", err)
+		}
+
+		if _, ok := volumeCapability.GetAccessType().(*csi.VolumeCapability_Block); ok {
+			nodeExpansionRequired = false
+		}
+	}
+
 	newSize, err := getNewVolumeSize(req.GetCapacityRange())
 	if err != nil {
 		return nil, status.Errorf(codes.OutOfRange, "invalid capacity range: %v", err)
@@ -636,19 +649,6 @@ func (d *controllerService) ControllerExpandVolume(ctx context.Context, req *csi
 	})
 	if err != nil {
 		return nil, err
-	}
-
-	nodeExpansionRequired := true
-	volumeCapability := req.GetVolumeCapability()
-	if volumeCapability != nil {
-		err := validateVolumeCapability(volumeCapability)
-		if err != nil {
-			return nil, status.Errorf(codes.InvalidArgument, "volumeCapabilities not supported: %s", err)
-		}
-
-		if _, ok := volumeCapability.GetAccessType().(*csi.VolumeCapability_Block); ok {
-			nodeExpansionRequired = false
-		}
 	}
 
 	return &csi.ControllerExpandVolumeResponse{
