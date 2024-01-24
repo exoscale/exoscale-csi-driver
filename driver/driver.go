@@ -2,6 +2,7 @@ package driver
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/url"
@@ -176,6 +177,15 @@ type nodeMetadata struct {
 	InstanceID v3.UUID
 }
 
+func customZones(customZonesStr string) (map[string]v3.URL, error) {
+	zonesMap := map[string]v3.URL{}
+	err := json.Unmarshal([]byte(customZonesStr), &zonesMap)
+	if err != nil {
+		return nil, err
+	}
+	return zonesMap, nil
+}
+
 func getExoscaleNodeMetadata() (*nodeMetadata, error) {
 	podName := os.Getenv("POD_NAME")
 	namespace := os.Getenv("POD_NAMESPACE")
@@ -213,7 +223,19 @@ func getExoscaleNodeMetadata() (*nodeMetadata, error) {
 		return nil, fmt.Errorf("node meta data Instance ID %s: %w", node.Spec.ProviderID, err)
 	}
 
-	zone, ok := v3.Zones[region]
+	zonesToURL := map[string]v3.URL{}
+
+	customZonesStr := os.Getenv("ZONE_TO_URL")
+	if customZonesStr != "" {
+		zonesToURL, err = customZones(customZonesStr)
+		if err != nil {
+			return nil, fmt.Errorf("couldn't read custom zone mapping %w", err)
+		}
+	} else {
+		zonesToURL = v3.Zones
+	}
+
+	zone, ok := zonesToURL[region]
 	if !ok {
 		return nil, fmt.Errorf("invalid region zone name: %s", region)
 	}
