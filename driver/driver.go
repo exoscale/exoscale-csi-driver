@@ -223,7 +223,7 @@ func getExoscaleNodeMetadata() (*nodeMetadata, error) {
 		return nil, fmt.Errorf("node meta data Instance ID %s: %w", node.Spec.ProviderID, err)
 	}
 
-	zonesToURL := map[string]v3.URL{}
+	var zonesToURL map[string]v3.URL
 
 	customZonesStr := os.Getenv("ZONE_TO_URL")
 	if customZonesStr != "" {
