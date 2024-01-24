@@ -164,7 +164,7 @@ func (d *controllerService) CreateVolume(ctx context.Context, req *csi.CreateVol
 		BlockStorageSnapshot: snapshotTarget,
 	}
 
-	if err := v3.Validate(request); err != nil {
+	if err := d.client.Validate(request); err != nil {
 		klog.Errorf("create block storage volume validation: %v", err)
 		return nil, err
 	}
