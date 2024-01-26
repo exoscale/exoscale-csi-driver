@@ -42,6 +42,7 @@ jobs:
           cd internal/integ/ && go test \
             -v \
             --create-cluster \
+            --create-csi-secret \
             --tear-down-csi \
             --image exoscale/csi-driver-integ-test:csi-pr-integ-test \
             --cluster-name csi-pr-integ-test \
