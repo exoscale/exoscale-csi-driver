@@ -11,12 +11,13 @@ import (
 	v3 "github.com/exoscale/egoscale/v3"
 )
 
-func exoscaleID(zone v3.URL, id v3.UUID) string {
-	z, _ := zone.Zone()
-	return fmt.Sprintf("%s/%s", z, id)
+// TODO (pej) multizone: Add v3.URL back once url environment are fixed.
+func exoscaleID(zoneName string, id v3.UUID) string {
+	return fmt.Sprintf("%s/%s", zoneName, id)
 }
 
-func getExoscaleID(exoID string) (v3.URL, v3.UUID, error) {
+// TODO (pej) multizone: Add v3.URL back once url environment are fixed.
+func getExoscaleID(exoID string) (string, v3.UUID, error) {
 	s := strings.Split(exoID, "/")
 	if len(s) != 2 {
 		return "", "", fmt.Errorf("malformed exoscale id")
@@ -27,19 +28,14 @@ func getExoscaleID(exoID string) (v3.URL, v3.UUID, error) {
 		return "", "", err
 	}
 
-	zone, ok := v3.Zones[s[0]]
-	if !ok {
-		return "", "", fmt.Errorf("invalid zone name: %s", s[0])
-	}
-
-	return zone, id, nil
+	return s[0], id, nil
 }
 
-func newZoneTopology(zone v3.URL) []*csi.Topology {
-	z, _ := zone.Zone()
+// TODO (pej) multizone: Add v3.URL back once url environment are fixed.
+func newZoneTopology(zoneName string) []*csi.Topology {
 	return []*csi.Topology{
 		{
-			Segments: map[string]string{ZoneTopologyKey: z},
+			Segments: map[string]string{ZoneTopologyKey: zoneName},
 		},
 	}
 }
