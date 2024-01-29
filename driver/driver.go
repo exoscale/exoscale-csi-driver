@@ -48,6 +48,7 @@ type DriverConfig struct {
 	Mode              Mode
 	APIKey, APISecret string
 	RestConfig        *rest.Config
+	Zone              v3.URL
 }
 
 // Driver implements the interfaces csi.IdentityServer, csi.ControllerServer and csi.NodeServer
@@ -71,10 +72,14 @@ func NewDriver(config *DriverConfig) (*Driver, error) {
 		config: config,
 	}
 
+	var zone = nodeMeta.zone
+	if config.Zone != "" {
+		zone = config.Zone
+	}
 	var client *v3.Client
 	if config.Mode != NodeMode {
 		client, err = v3.NewClient(config.APIKey, config.APISecret,
-			v3.ClientOptWithURL(nodeMeta.zone),
+			v3.ClientOptWithURL(zone),
 		)
 		if err != nil {
 			return nil, fmt.Errorf("new driver: %w", err)
@@ -173,6 +178,7 @@ func (d *Driver) Run() error {
 
 type nodeMetadata struct {
 	zone       v3.URL
+	zoneName   string
 	InstanceID v3.UUID
 }
 
@@ -220,6 +226,7 @@ func getExoscaleNodeMetadata() (*nodeMetadata, error) {
 
 	return &nodeMetadata{
 		zone:       zone,
+		zoneName:   region,
 		InstanceID: instanceID,
 	}, nil
 }

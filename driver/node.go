@@ -22,6 +22,7 @@ const (
 type nodeService struct {
 	nodeID    v3.UUID
 	zone      v3.URL
+	zoneName  string
 	diskUtils *diskUtils
 }
 
@@ -29,6 +30,7 @@ func newNodeService(meta *nodeMetadata) nodeService {
 	return nodeService{
 		nodeID:    meta.InstanceID,
 		zone:      meta.zone,
+		zoneName:  meta.zoneName,
 		diskUtils: newDiskUtils(),
 	}
 }
@@ -413,11 +415,11 @@ func (d *nodeService) NodeGetInfo(ctx context.Context, req *csi.NodeGetInfoReque
 	klog.V(4).Infof("NodeGetInfo")
 	return &csi.NodeGetInfoResponse{
 		// Store the zone and the instanceID to let the CSI controller know the zone of the node.
-		NodeId: exoscaleID(d.zone, d.nodeID),
+		NodeId: exoscaleID(d.zoneName, d.nodeID),
 		// TODO Will depend on Exoscale account limit, (remove const)
 		MaxVolumesPerNode: maxVolumesPerNode,
 		// newZoneTopology returns always len(1).
-		AccessibleTopology: newZoneTopology(d.zone)[0],
+		AccessibleTopology: newZoneTopology(d.zoneName)[0],
 	}, nil
 }
 
