@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	v3 "github.com/exoscale/egoscale/v3"
 	"github.com/exoscale/exoscale-csi-driver/cmd/exoscale-csi-driver/buildinfo"
 	"github.com/exoscale/exoscale-csi-driver/driver"
 
@@ -42,6 +43,7 @@ func main() {
 
 	apiKey := os.Getenv("EXOSCALE_API_KEY")
 	apiSecret := os.Getenv("EXOSCALE_API_SECRET")
+	apiURL := os.Getenv("EXOSCALE_API_URL")
 
 	// The node mode don't need secrets and do not interact with Exoscale API.
 	if *mode != string(driver.NodeMode) && (apiKey == "" || apiSecret == "") {
@@ -54,6 +56,7 @@ func main() {
 		Prefix:    *prefix,
 		APIKey:    apiKey,
 		APISecret: apiSecret,
+		Zone:      v3.URL(apiURL),
 	})
 	if err != nil {
 		klog.Error(err)

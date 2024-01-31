@@ -39,6 +39,7 @@ Since one `exoscale-csi-node` is deployed per node, you should see one pod per n
 You can deploy a test App example to try it out.
 ```Bash
 # You should see an Exoscale Block Storage Volume created in your Organization.
+kubectl apply -f doc/examples/namespace.yaml
 kubectl apply -f doc/examples/pvc.yaml
 # You should see your example App pod running and the Volume attached to one of your nodes.
 kubectl apply -f doc/examples/deployment.yaml

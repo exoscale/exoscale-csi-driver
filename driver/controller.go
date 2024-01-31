@@ -79,14 +79,16 @@ const (
 )
 
 type controllerService struct {
-	client *v3.Client
-	zone   v3.URL
+	client   *v3.Client
+	zone     v3.URL
+	zoneName string
 }
 
 func newControllerService(client *v3.Client, nodeMeta *nodeMetadata) controllerService {
 	return controllerService{
-		client: client,
-		zone:   nodeMeta.zone,
+		client:   client,
+		zone:     nodeMeta.zone,
+		zoneName: nodeMeta.zoneName,
 	}
 }
 
@@ -109,10 +111,10 @@ func (d *controllerService) CreateVolume(ctx context.Context, req *csi.CreateVol
 		if v.Name == req.Name {
 			return &csi.CreateVolumeResponse{
 				Volume: &csi.Volume{
-					VolumeId: exoscaleID(d.zone, v.ID),
+					VolumeId: exoscaleID(d.zoneName, v.ID),
 					// API reply in bytes then send it without conversion
 					CapacityBytes:      v.Size,
-					AccessibleTopology: newZoneTopology(d.zone),
+					AccessibleTopology: newZoneTopology(d.zoneName),
 				},
 			}, nil
 		}
@@ -129,14 +131,13 @@ func (d *controllerService) CreateVolume(ctx context.Context, req *csi.CreateVol
 		if srcSnapshot == nil {
 			return nil, status.Error(codes.Internal, "error retrieving snapshot from the volumeContentSource")
 		}
-		zone, snapshotID, err := getExoscaleID(srcSnapshot.SnapshotId)
+		_, snapshotID, err := getExoscaleID(srcSnapshot.SnapshotId)
 		if err != nil {
 			klog.Errorf("create volume from snapshot: %v", err)
 			return nil, err
 		}
-		client := d.client.WithURL(zone)
 
-		snapshot, err := client.GetBlockStorageSnapshot(ctx, snapshotID)
+		snapshot, err := d.client.GetBlockStorageSnapshot(ctx, snapshotID)
 		if err != nil {
 			if errors.Is(err, v3.ErrNotFound) {
 				klog.Errorf("create volume get snapshot not found: %v", err)
@@ -166,7 +167,7 @@ func (d *controllerService) CreateVolume(ctx context.Context, req *csi.CreateVol
 		BlockStorageSnapshot: snapshotTarget,
 	}
 
-	if err := v3.Validate(request); err != nil {
+	if err := d.client.Validate(request); err != nil {
 		klog.Errorf("create block storage volume validation: %v", err)
 		return nil, err
 	}
@@ -184,9 +185,9 @@ func (d *controllerService) CreateVolume(ctx context.Context, req *csi.CreateVol
 
 	return &csi.CreateVolumeResponse{
 		Volume: &csi.Volume{
-			VolumeId:           exoscaleID(d.zone, opDone.Reference.ID),
+			VolumeId:           exoscaleID(d.zoneName, opDone.Reference.ID),
 			CapacityBytes:      sizeInBytes,
-			AccessibleTopology: newZoneTopology(d.zone),
+			AccessibleTopology: newZoneTopology(d.zoneName),
 			ContentSource:      req.GetVolumeContentSource(),
 		},
 	}, nil
@@ -197,14 +198,13 @@ func (d *controllerService) CreateVolume(ctx context.Context, req *csi.CreateVol
 func (d *controllerService) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest) (*csi.DeleteVolumeResponse, error) {
 	klog.V(4).Infof("DeleteVolume")
 
-	zone, volumeID, err := getExoscaleID(req.VolumeId)
+	_, volumeID, err := getExoscaleID(req.VolumeId)
 	if err != nil {
 		klog.Errorf("parse exoscale volume ID %s: %v", req.VolumeId, err)
 		return nil, err
 	}
-	client := d.client.WithURL(zone)
 
-	op, err := client.DeleteBlockStorageVolume(ctx, volumeID)
+	op, err := d.client.DeleteBlockStorageVolume(ctx, volumeID)
 	if err != nil {
 		if errors.Is(err, v3.ErrNotFound) {
 			return &csi.DeleteVolumeResponse{}, nil
@@ -228,12 +228,11 @@ func (d *controllerService) DeleteVolume(ctx context.Context, req *csi.DeleteVol
 func (d *controllerService) ControllerPublishVolume(ctx context.Context, req *csi.ControllerPublishVolumeRequest) (*csi.ControllerPublishVolumeResponse, error) {
 	klog.V(4).Infof("ControllerPublishVolume")
 
-	zone, instanceID, err := getExoscaleID(req.NodeId)
+	_, instanceID, err := getExoscaleID(req.NodeId)
 	if err != nil {
 		klog.Errorf("parse node ID %s: %v", req.NodeId, err)
 		return nil, err
 	}
-	client := d.client.WithURL(zone)
 
 	_, volumeID, err := getExoscaleID(req.VolumeId)
 	if err != nil {
@@ -241,7 +240,7 @@ func (d *controllerService) ControllerPublishVolume(ctx context.Context, req *cs
 		return nil, err
 	}
 
-	volume, err := client.GetBlockStorageVolume(ctx, volumeID)
+	volume, err := d.client.GetBlockStorageVolume(ctx, volumeID)
 	if err != nil {
 		if errors.Is(err, v3.ErrNotFound) {
 			return nil, status.Errorf(codes.NotFound, "volume %s not found", volumeID)
@@ -257,13 +256,13 @@ func (d *controllerService) ControllerPublishVolume(ctx context.Context, req *cs
 				PublishContext: map[string]string{
 					exoscaleVolumeName: volume.Name,
 					exoscaleVolumeID:   volume.ID.String(),
-					exoscaleVolumeZone: string(zone),
+					exoscaleVolumeZone: string(d.zoneName),
 				},
 			}, nil
 		}
 	}
 
-	op, err := client.AttachBlockStorageVolumeToInstance(ctx, volumeID, v3.AttachBlockStorageVolumeToInstanceRequest{
+	op, err := d.client.AttachBlockStorageVolumeToInstance(ctx, volumeID, v3.AttachBlockStorageVolumeToInstanceRequest{
 		Instance: &v3.InstanceTarget{
 			ID: instanceID,
 		},
@@ -273,7 +272,7 @@ func (d *controllerService) ControllerPublishVolume(ctx context.Context, req *cs
 		return nil, err
 	}
 
-	_, err = client.Wait(ctx, op, v3.OperationStateSuccess)
+	_, err = d.client.Wait(ctx, op, v3.OperationStateSuccess)
 	if err != nil {
 		klog.Errorf("wait attach block storage volume %s to instance %s: %v", volumeID, instanceID, err)
 		return nil, err
@@ -283,7 +282,7 @@ func (d *controllerService) ControllerPublishVolume(ctx context.Context, req *cs
 		PublishContext: map[string]string{
 			exoscaleVolumeName: volume.Name,
 			exoscaleVolumeID:   volume.ID.String(),
-			exoscaleVolumeZone: string(zone),
+			exoscaleVolumeZone: string(d.zoneName),
 		},
 	}, nil
 }
@@ -294,14 +293,13 @@ func (d *controllerService) ControllerPublishVolume(ctx context.Context, req *cs
 func (d *controllerService) ControllerUnpublishVolume(ctx context.Context, req *csi.ControllerUnpublishVolumeRequest) (*csi.ControllerUnpublishVolumeResponse, error) {
 	klog.V(4).Infof("ControllerUnpublishVolume")
 
-	zone, volumeID, err := getExoscaleID(req.VolumeId)
+	_, volumeID, err := getExoscaleID(req.VolumeId)
 	if err != nil {
 		klog.Errorf("parse exoscale volume ID %s: %v", req.VolumeId, err)
 		return nil, err
 	}
-	client := d.client.WithURL(zone)
 
-	op, err := client.DetachBlockStorageVolume(ctx, volumeID)
+	op, err := d.client.DetachBlockStorageVolume(ctx, volumeID)
 	if err != nil {
 		if errors.Is(err, v3.ErrNotFound) ||
 			(errors.Is(err, v3.ErrInvalidRequest) && strings.Contains(err.Error(), "Volume not attached")) {
@@ -327,14 +325,13 @@ func (d *controllerService) ControllerUnpublishVolume(ctx context.Context, req *
 // This operation MUST be idempotent.
 func (d *controllerService) ValidateVolumeCapabilities(ctx context.Context, req *csi.ValidateVolumeCapabilitiesRequest) (*csi.ValidateVolumeCapabilitiesResponse, error) {
 	klog.V(4).Infof("ValidateVolumeCapabilities")
-	zone, volumeID, err := getExoscaleID(req.VolumeId)
+	_, volumeID, err := getExoscaleID(req.VolumeId)
 	if err != nil {
 		klog.Errorf("parse exoscale ID %s: %v", req.VolumeId, err)
 		return nil, err
 	}
-	client := d.client.WithURL(zone)
 
-	_, err = client.GetBlockStorageVolume(ctx, volumeID)
+	_, err = d.client.GetBlockStorageVolume(ctx, volumeID)
 	if err != nil {
 		klog.Errorf("get block storage volume %s: %v", volumeID, err)
 		return nil, err
@@ -404,15 +401,15 @@ func (d *controllerService) ListVolumes(ctx context.Context, req *csi.ListVolume
 	for _, v := range volumes {
 		var instancesID []string
 		if v.Instance != nil && v.Instance.ID != "" {
-			instancesID = append(instancesID, exoscaleID(d.zone, v.Instance.ID))
+			instancesID = append(instancesID, exoscaleID(d.zoneName, v.Instance.ID))
 		}
 
 		volumesEntries = append(volumesEntries, &csi.ListVolumesResponse_Entry{
 			Volume: &csi.Volume{
-				VolumeId: exoscaleID(d.zone, v.ID),
+				VolumeId: exoscaleID(d.zoneName, v.ID),
 				// API reply in bytes then send it without conversion
 				CapacityBytes:      v.Size,
-				AccessibleTopology: newZoneTopology(d.zone),
+				AccessibleTopology: newZoneTopology(d.zoneName),
 			},
 			Status: &csi.ListVolumesResponse_VolumeStatus{
 				PublishedNodeIds: instancesID,
@@ -453,20 +450,19 @@ func (d *controllerService) ControllerGetCapabilities(ctx context.Context, req *
 func (d *controllerService) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequest) (*csi.CreateSnapshotResponse, error) {
 	klog.V(4).Infof("CreateSnapshot")
 
-	zone, volumeID, err := getExoscaleID(req.SourceVolumeId)
+	_, volumeID, err := getExoscaleID(req.SourceVolumeId)
 	if err != nil {
 		klog.Errorf("parse exoscale ID %s: %v", req.SourceVolumeId, err)
 		return nil, err
 	}
-	client := d.client.WithURL(zone)
 
-	volume, err := client.GetBlockStorageVolume(ctx, volumeID)
+	volume, err := d.client.GetBlockStorageVolume(ctx, volumeID)
 	if err != nil {
 		klog.Errorf("create snapshot get volume %s: %v", volumeID, err)
 	}
 
 	for _, s := range volume.BlockStorageSnapshots {
-		snapshot, err := client.GetBlockStorageSnapshot(ctx, s.ID)
+		snapshot, err := d.client.GetBlockStorageSnapshot(ctx, s.ID)
 		if err != nil {
 			klog.Errorf("create snapshot get snapshot %s: %v", s.ID, err)
 		}
@@ -474,8 +470,8 @@ func (d *controllerService) CreateSnapshot(ctx context.Context, req *csi.CreateS
 		if snapshot.Name == req.Name {
 			return &csi.CreateSnapshotResponse{
 				Snapshot: &csi.Snapshot{
-					SnapshotId:     exoscaleID(zone, snapshot.ID),
-					SourceVolumeId: exoscaleID(zone, volume.ID),
+					SnapshotId:     exoscaleID(d.zoneName, snapshot.ID),
+					SourceVolumeId: exoscaleID(d.zoneName, volume.ID),
 					CreationTime:   timestamppb.New(snapshot.CreatedAT),
 					ReadyToUse:     true,
 					SizeBytes:      volume.Size,
@@ -484,7 +480,7 @@ func (d *controllerService) CreateSnapshot(ctx context.Context, req *csi.CreateS
 		}
 	}
 
-	op, err := client.CreateBlockStorageSnapshot(ctx, volume.ID, v3.CreateBlockStorageSnapshotRequest{
+	op, err := d.client.CreateBlockStorageSnapshot(ctx, volume.ID, v3.CreateBlockStorageSnapshotRequest{
 		Name: req.Name,
 	})
 	if err != nil {
@@ -512,8 +508,8 @@ func (d *controllerService) CreateSnapshot(ctx context.Context, req *csi.CreateS
 
 	return &csi.CreateSnapshotResponse{
 		Snapshot: &csi.Snapshot{
-			SnapshotId:     exoscaleID(zone, snapshot.ID),
-			SourceVolumeId: exoscaleID(zone, volume.ID),
+			SnapshotId:     exoscaleID(d.zoneName, snapshot.ID),
+			SourceVolumeId: exoscaleID(d.zoneName, volume.ID),
 			CreationTime:   timestamppb.New(snapshot.CreatedAT),
 			ReadyToUse:     true,
 			SizeBytes:      volume.Size,
@@ -525,14 +521,13 @@ func (d *controllerService) CreateSnapshot(ctx context.Context, req *csi.CreateS
 func (d *controllerService) DeleteSnapshot(ctx context.Context, req *csi.DeleteSnapshotRequest) (*csi.DeleteSnapshotResponse, error) {
 	klog.V(4).Infof("DeleteSnapshot")
 
-	zone, snapshotID, err := getExoscaleID(req.SnapshotId)
+	_, snapshotID, err := getExoscaleID(req.SnapshotId)
 	if err != nil {
 		klog.Errorf("parse exoscale snapshot ID %s: %v", req.SnapshotId, err)
 		return nil, err
 	}
-	client := d.client.WithURL(zone)
 
-	op, err := client.DeleteBlockStorageSnapshot(ctx, snapshotID)
+	op, err := d.client.DeleteBlockStorageSnapshot(ctx, snapshotID)
 	if err != nil {
 		if errors.Is(err, v3.ErrNotFound) {
 			return &csi.DeleteSnapshotResponse{}, nil
@@ -540,7 +535,7 @@ func (d *controllerService) DeleteSnapshot(ctx context.Context, req *csi.DeleteS
 		return nil, err
 	}
 
-	if _, err := client.Wait(ctx, op, v3.OperationStateSuccess); err != nil {
+	if _, err := d.client.Wait(ctx, op, v3.OperationStateSuccess); err != nil {
 		return nil, err
 	}
 
@@ -589,8 +584,8 @@ func (d *controllerService) ListSnapshots(ctx context.Context, req *csi.ListSnap
 	for _, s := range snapshots {
 		snapshotsEntries = append(snapshotsEntries, &csi.ListSnapshotsResponse_Entry{
 			Snapshot: &csi.Snapshot{
-				SourceVolumeId: exoscaleID(d.zone, s.BlockStorageVolume.ID),
-				SnapshotId:     exoscaleID(d.zone, s.ID),
+				SourceVolumeId: exoscaleID(d.zoneName, s.BlockStorageVolume.ID),
+				SnapshotId:     exoscaleID(d.zoneName, s.ID),
 				CreationTime:   timestamppb.New(s.CreatedAT),
 				ReadyToUse:     true,
 				// TODO SizeBytes
@@ -659,14 +654,13 @@ func (d *controllerService) ControllerExpandVolume(ctx context.Context, req *csi
 
 // ControllerGetVolume gets a volume and  return it.
 func (d *controllerService) ControllerGetVolume(ctx context.Context, req *csi.ControllerGetVolumeRequest) (*csi.ControllerGetVolumeResponse, error) {
-	zone, volumeID, err := getExoscaleID(req.VolumeId)
+	_, volumeID, err := getExoscaleID(req.VolumeId)
 	if err != nil {
 		klog.Errorf("parse exoscale ID %s: %v", req.VolumeId, err)
 		return nil, err
 	}
-	client := d.client.WithURL(zone)
 
-	volume, err := client.GetBlockStorageVolume(ctx, volumeID)
+	volume, err := d.client.GetBlockStorageVolume(ctx, volumeID)
 	if err != nil {
 		if errors.Is(err, v3.ErrNotFound) {
 			return nil, status.Errorf(codes.NotFound, "volume %s not found", volumeID)
@@ -678,12 +672,12 @@ func (d *controllerService) ControllerGetVolume(ctx context.Context, req *csi.Co
 
 	var instancesID []string
 	if volume.Instance != nil && volume.Instance.ID != "" {
-		instancesID = append(instancesID, exoscaleID(d.zone, volume.Instance.ID))
+		instancesID = append(instancesID, exoscaleID(d.zoneName, volume.Instance.ID))
 	}
 
 	return &csi.ControllerGetVolumeResponse{
 		Volume: &csi.Volume{
-			VolumeId: exoscaleID(zone, volume.ID),
+			VolumeId: exoscaleID(d.zoneName, volume.ID),
 			// API reply in bytes then send it without conversion
 			CapacityBytes: volume.Size,
 		},
