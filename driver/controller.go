@@ -599,7 +599,7 @@ func (d *controllerService) ListSnapshots(ctx context.Context, req *csi.ListSnap
 	}, nil
 }
 
-// ControllerExpandVolume resizes/updates the volume (not supported yet on Exoscale Public API)
+// ControllerExpandVolume resizes Block Storage volume.
 func (d *controllerService) ControllerExpandVolume(ctx context.Context, req *csi.ControllerExpandVolumeRequest) (*csi.ControllerExpandVolumeResponse, error) {
 	klog.V(4).Infof("ControllerExpandVolume")
 	_, volumeID, err := getExoscaleID(req.GetVolumeId())
