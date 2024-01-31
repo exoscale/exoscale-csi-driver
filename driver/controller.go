@@ -602,13 +602,12 @@ func (d *controllerService) ListSnapshots(ctx context.Context, req *csi.ListSnap
 // ControllerExpandVolume resizes/updates the volume (not supported yet on Exoscale Public API)
 func (d *controllerService) ControllerExpandVolume(ctx context.Context, req *csi.ControllerExpandVolumeRequest) (*csi.ControllerExpandVolumeResponse, error) {
 	klog.V(4).Infof("ControllerExpandVolume")
-	zone, volumeID, err := getExoscaleID(req.GetVolumeId())
+	_, volumeID, err := getExoscaleID(req.GetVolumeId())
 	if err != nil {
 		return nil, err
 	}
-	client := d.client.WithURL(zone)
 
-	volume, err := client.GetBlockStorageVolume(ctx, volumeID)
+	volume, err := d.client.GetBlockStorageVolume(ctx, volumeID)
 	if err != nil {
 		if errors.Is(err, v3.ErrNotFound) {
 			return nil, status.Errorf(codes.NotFound, "volume %s not found", volumeID)
@@ -639,7 +638,7 @@ func (d *controllerService) ControllerExpandVolume(ctx context.Context, req *csi
 		return nil, status.Error(codes.InvalidArgument, "new size must be bigger than actual volume size")
 	}
 
-	_, err = client.ResizeBlockStorageVolume(ctx, volumeID, v3.ResizeBlockStorageVolumeRequest{
+	_, err = d.client.ResizeBlockStorageVolume(ctx, volumeID, v3.ResizeBlockStorageVolumeRequest{
 		Size: newSize,
 	})
 	if err != nil {
