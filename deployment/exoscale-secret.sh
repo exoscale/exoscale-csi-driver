@@ -4,7 +4,7 @@ cat <<EOF | kubectl apply -f -
 apiVersion: v1
 kind: Secret
 metadata:
-  name: exoscale-csi-credentials
+  name: exoscale-credentials
   namespace: kube-system
 type: Opaque
 data:
