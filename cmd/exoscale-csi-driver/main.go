@@ -43,7 +43,8 @@ func main() {
 
 	apiKey := os.Getenv("EXOSCALE_API_KEY")
 	apiSecret := os.Getenv("EXOSCALE_API_SECRET")
-	apiURL := os.Getenv("EXOSCALE_API_URL")
+	// Mostly for internal use.
+	apiURL := os.Getenv("EXOSCALE_API_ENDPOINT")
 
 	// The node mode don't need secrets and do not interact with Exoscale API.
 	if *mode != string(driver.NodeMode) && (apiKey == "" || apiSecret == "") {

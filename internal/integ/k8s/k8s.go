@@ -268,7 +268,7 @@ func (k *K8S) applyManifest(ctx context.Context, manifest []byte) error {
 
 // ApplySecret creates the secret needed for the CSI to work if it doesn't exist already.
 func (k *K8S) ApplySecret(ctx context.Context, apiKey, apiSecret string) error {
-	name := "exoscale-csi-credentials"
+	name := "exoscale-credentials"
 	namespace := "kube-system"
 
 	secretData := map[string][]byte{
