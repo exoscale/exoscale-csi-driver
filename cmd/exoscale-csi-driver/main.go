@@ -44,7 +44,7 @@ func main() {
 	apiKey := os.Getenv("EXOSCALE_API_KEY")
 	apiSecret := os.Getenv("EXOSCALE_API_SECRET")
 	// Mostly for internal use.
-	apiURL := os.Getenv("EXOSCALE_API_ENDPOINT")
+	apiEndpoint := os.Getenv("EXOSCALE_API_ENDPOINT")
 
 	// The node mode don't need secrets and do not interact with Exoscale API.
 	if *mode != string(driver.NodeMode) && (apiKey == "" || apiSecret == "") {
@@ -52,12 +52,12 @@ func main() {
 	}
 
 	exoDriver, err := driver.NewDriver(&driver.DriverConfig{
-		Endpoint:  *endpoint,
-		Mode:      driver.Mode(*mode),
-		Prefix:    *prefix,
-		APIKey:    apiKey,
-		APISecret: apiSecret,
-		Zone:      v3.URL(apiURL),
+		Endpoint:     *endpoint,
+		Mode:         driver.Mode(*mode),
+		Prefix:       *prefix,
+		APIKey:       apiKey,
+		APISecret:    apiSecret,
+		ZoneEndpoint: v3.Endpoint(apiEndpoint),
 	})
 	if err != nil {
 		klog.Error(err)
