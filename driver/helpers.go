@@ -98,8 +98,8 @@ func getRequiredZone(requirements *csi.TopologyRequirement, defaultZone v3.ZoneN
 	}
 
 	// Since volume can only be handle by one zone
-	// and volumes/nodes are anounced with only one zone accessible topology,
-	// TopologyRequirement will always ask for one zome at a time.
+	// and volumes/nodes are announced with only one zone accessible topology,
+	// TopologyRequirement will always ask for one zone at a time.
 
 	if len(requirements.GetRequisite()) != 1 {
 		return "", fmt.Errorf("topology requisite must always be equal to one zone")
