@@ -113,7 +113,7 @@ func getRequiredZone(requirements *csi.TopologyRequirement, defaultZone v3.ZoneN
 
 	zone, ok := required.Segments[ZoneTopologyKey]
 	if !ok {
-		return "", fmt.Errorf("topology requisite must always be equal to one zone")
+		return "", fmt.Errorf("zone topology key %s not found", ZoneTopologyKey)
 	}
 
 	return v3.ZoneName(zone), nil
