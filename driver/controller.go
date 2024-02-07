@@ -135,13 +135,11 @@ func (d *controllerService) CreateVolume(ctx context.Context, req *csi.CreateVol
 		return nil, err
 	}
 
-	endpoint, err := d.client.GetZoneAPIEndpoint(ctx, zoneName)
+	client, err := newClientZone(ctx, d.client, zoneName)
 	if err != nil {
-		klog.Errorf("create block storage volume get zone endpoint: %v", err)
+		klog.Errorf("create volume: new client zone: %v", err)
 		return nil, err
 	}
-
-	client := d.client.WithEndpoint(endpoint)
 
 	// create the volume from a snapshot if a snapshot ID was provided.
 	var snapshotTarget *v3.BlockStorageSnapshotTarget
@@ -226,12 +224,11 @@ func (d *controllerService) DeleteVolume(ctx context.Context, req *csi.DeleteVol
 		return nil, err
 	}
 
-	endpoint, err := d.client.GetZoneAPIEndpoint(ctx, zoneName)
+	client, err := newClientZone(ctx, d.client, zoneName)
 	if err != nil {
-		klog.Errorf("delete volume: get zone endpoint: %v", err)
+		klog.Errorf("delete volume: new client zone: %v", err)
 		return nil, err
 	}
-	client := d.client.WithEndpoint(endpoint)
 
 	op, err := client.DeleteBlockStorageVolume(ctx, volumeID)
 	if err != nil {
@@ -263,12 +260,11 @@ func (d *controllerService) ControllerPublishVolume(ctx context.Context, req *cs
 		return nil, err
 	}
 
-	endpoint, err := d.client.GetZoneAPIEndpoint(ctx, zoneName)
+	client, err := newClientZone(ctx, d.client, zoneName)
 	if err != nil {
-		klog.Errorf("publish volume: get zone endpoint: %v", err)
+		klog.Errorf("publish volume: new client zone: %v", err)
 		return nil, err
 	}
-	client := d.client.WithEndpoint(endpoint)
 
 	_, volumeID, err := getExoscaleID(req.VolumeId)
 	if err != nil {
@@ -335,12 +331,11 @@ func (d *controllerService) ControllerUnpublishVolume(ctx context.Context, req *
 		return nil, err
 	}
 
-	endpoint, err := d.client.GetZoneAPIEndpoint(ctx, zoneName)
+	client, err := newClientZone(ctx, d.client, zoneName)
 	if err != nil {
-		klog.Errorf("unpublish volume: get zone endpoint: %v", err)
+		klog.Errorf("unpublish volume: new client zone: %v", err)
 		return nil, err
 	}
-	client := d.client.WithEndpoint(endpoint)
 
 	op, err := client.DetachBlockStorageVolume(ctx, volumeID)
 	if err != nil {
@@ -375,12 +370,11 @@ func (d *controllerService) ValidateVolumeCapabilities(ctx context.Context, req 
 		return nil, err
 	}
 
-	endpoint, err := d.client.GetZoneAPIEndpoint(ctx, zoneName)
+	client, err := newClientZone(ctx, d.client, zoneName)
 	if err != nil {
-		klog.Errorf("validate volume: get zone endpoint: %v", err)
+		klog.Errorf("validate volume capabilities: new client zone: %v", err)
 		return nil, err
 	}
-	client := d.client.WithEndpoint(endpoint)
 
 	_, err = client.GetBlockStorageVolume(ctx, volumeID)
 	if err != nil {
@@ -519,12 +513,11 @@ func (d *controllerService) CreateSnapshot(ctx context.Context, req *csi.CreateS
 		return nil, err
 	}
 
-	endpoint, err := d.client.GetZoneAPIEndpoint(ctx, zoneName)
+	client, err := newClientZone(ctx, d.client, zoneName)
 	if err != nil {
-		klog.Errorf("create snapshot: get zone endpoint: %v", err)
+		klog.Errorf("create snapshot: new client zone: %v", err)
 		return nil, err
 	}
-	client := d.client.WithEndpoint(endpoint)
 
 	volume, err := client.GetBlockStorageVolume(ctx, volumeID)
 	if err != nil {
@@ -597,12 +590,11 @@ func (d *controllerService) DeleteSnapshot(ctx context.Context, req *csi.DeleteS
 		return nil, err
 	}
 
-	endpoint, err := d.client.GetZoneAPIEndpoint(ctx, zoneName)
+	client, err := newClientZone(ctx, d.client, zoneName)
 	if err != nil {
-		klog.Errorf("delete snapshot: get zone endpoint: %v", err)
+		klog.Errorf("delete snapshot: new client zone: %v", err)
 		return nil, err
 	}
-	client := d.client.WithEndpoint(endpoint)
 
 	op, err := client.DeleteBlockStorageSnapshot(ctx, snapshotID)
 	if err != nil {
@@ -704,12 +696,11 @@ func (d *controllerService) ControllerGetVolume(ctx context.Context, req *csi.Co
 		return nil, err
 	}
 
-	endpoint, err := d.client.GetZoneAPIEndpoint(ctx, zoneName)
+	client, err := newClientZone(ctx, d.client, zoneName)
 	if err != nil {
-		klog.Errorf("get volume: get zone endpoint: %v", err)
+		klog.Errorf("expand volume: new client zone: %v", err)
 		return nil, err
 	}
-	client := d.client.WithEndpoint(endpoint)
 
 	volume, err := client.GetBlockStorageVolume(ctx, volumeID)
 	if err != nil {
@@ -736,4 +727,13 @@ func (d *controllerService) ControllerGetVolume(ctx context.Context, req *csi.Co
 			PublishedNodeIds: instancesID,
 		},
 	}, nil
+}
+
+func newClientZone(ctx context.Context, c *v3.Client, z v3.ZoneName) (*v3.Client, error) {
+	endpoint, err := c.GetZoneAPIEndpoint(ctx, z)
+	if err != nil {
+		return nil, fmt.Errorf("get zone api endpoint: %w", err)
+	}
+
+	return c.WithEndpoint(endpoint), nil
 }
