@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
+	"k8s.io/klog/v2"
 
 	v3 "github.com/exoscale/egoscale/v3"
 )
@@ -90,10 +91,12 @@ func convertBytesToGibiBytes(nBytes int64) int64 {
 
 func getRequiredZone(requirements *csi.TopologyRequirement, defaultZone v3.ZoneName) (v3.ZoneName, error) {
 	if requirements == nil {
+		klog.Warning("get required zone returned the default zone")
 		return defaultZone, nil
 	}
 
 	if requirements.GetRequisite() == nil {
+		klog.Warning("get required zone returned the default zone")
 		return defaultZone, nil
 	}
 

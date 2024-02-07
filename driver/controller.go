@@ -93,42 +93,6 @@ func newControllerService(client *v3.Client, nodeMeta *nodeMetadata) controllerS
 func (d *controllerService) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
 	klog.V(4).Infof("CreateVolume")
 
-	zones, err := d.client.ListZones(ctx)
-	if err != nil {
-		klog.Errorf("create block storage volume list zones: %v", err)
-		return nil, err
-	}
-
-	// Fetch all zones volumes
-	for _, zone := range zones.Zones {
-		client := d.client.WithEndpoint(zone.APIEndpoint)
-
-		resp, err := client.ListBlockStorageVolumes(ctx)
-		if err != nil {
-			// TODO: remove it when Block Storage is available in all zone.
-			if strings.Contains(err.Error(), "Availability of the block storage volumes") {
-				continue
-			}
-
-			klog.Errorf("create block storage volume list: %v", err)
-			return nil, err
-		}
-
-		// Make the call idempotent since CreateBlockStorageVolume is not.
-		for _, v := range resp.BlockStorageVolumes {
-			if v.Name == req.Name {
-				return &csi.CreateVolumeResponse{
-					Volume: &csi.Volume{
-						VolumeId: exoscaleID(zone.Name, v.ID),
-						// API reply in bytes then send it without conversion
-						CapacityBytes:      v.Size,
-						AccessibleTopology: newZoneTopology(zone.Name),
-					},
-				}, nil
-			}
-		}
-	}
-
 	zoneName, err := getRequiredZone(req.GetAccessibilityRequirements(), d.zoneName)
 	if err != nil {
 		klog.Errorf("create block storage volume get required zone: %v", err)
@@ -139,6 +103,26 @@ func (d *controllerService) CreateVolume(ctx context.Context, req *csi.CreateVol
 	if err != nil {
 		klog.Errorf("create volume: new client zone: %v", err)
 		return nil, err
+	}
+
+	resp, err := client.ListBlockStorageVolumes(ctx)
+	if err != nil {
+		klog.Errorf("create block storage volume list: %v", err)
+		return nil, err
+	}
+
+	// Make the call idempotent since CreateBlockStorageVolume is not.
+	for _, v := range resp.BlockStorageVolumes {
+		if v.Name == req.Name {
+			return &csi.CreateVolumeResponse{
+				Volume: &csi.Volume{
+					VolumeId: exoscaleID(zoneName, v.ID),
+					// API reply in bytes then send it without conversion
+					CapacityBytes:      v.Size,
+					AccessibleTopology: newZoneTopology(zoneName),
+				},
+			}, nil
+		}
 	}
 
 	// create the volume from a snapshot if a snapshot ID was provided.
