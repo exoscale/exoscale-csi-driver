@@ -27,7 +27,25 @@ const (
 )
 
 var (
-	mainManifest = util.GetRepoRootDir() + "deployment/exoscale-csi.yaml"
+	manifestDir                 = util.GetRepoRootDir() + "deployment/"
+	controllerRBACManifest      = "controller-rbac.yaml"
+	controllerManifest          = "controller.yaml"
+	crdsManifest                = "crds.yaml"
+	csiDriverManifest           = "csi-driver.yaml"
+	nodeDriverRBACManifest      = "node-driver-rbac.yaml"
+	nodeDriverManifest          = "node-driver.yaml"
+	storageClassManifest        = "storage-class.yaml"
+	volumeSnapshotClassManifest = "volume-snapshot-class.yaml"
+
+	allManifests = []string{
+		controllerRBACManifest,
+		controllerManifest,
+		csiDriverManifest,
+		nodeDriverRBACManifest,
+		nodeDriverManifest,
+		storageClassManifest,
+		volumeSnapshotClassManifest,
+	}
 )
 
 func ptr[T any](v T) *T {
@@ -241,9 +259,15 @@ func (c *Cluster) applyCSI() error {
 		}
 	}
 
-	err := c.K8s.ApplyManifest(c.exoV2Context, mainManifest)
-	if err != nil {
-		return fmt.Errorf("error applying CSI manifests: %w", err)
+	if *flags.Image != "" {
+		slog.Info("testing CSI image", "path", *flags.Image)
+	}
+
+	for _, manifestPath := range allManifests {
+		err := c.K8s.ApplyManifest(c.exoV2Context, manifestDir+manifestPath)
+		if err != nil {
+			return fmt.Errorf("error applying CSI manifest: %q %w", manifestPath, err)
+		}
 	}
 
 	// TODO(sauterp) this shouldn't be necessary anymore once the CSI addon is available.

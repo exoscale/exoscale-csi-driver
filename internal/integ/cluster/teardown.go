@@ -2,6 +2,7 @@ package cluster
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/exoscale/exoscale/csi-driver/internal/integ/flags"
 )
@@ -45,12 +46,18 @@ func (c *Cluster) TearDown() error {
 }
 
 func (c *Cluster) tearDownCSI() error {
-	err := c.K8s.DeleteManifest(c.exoV2Context, mainManifest)
-	if err != nil {
-		return err
+	var finalErr error = nil
+
+	for _, manifestPath := range allManifests {
+		err := c.K8s.DeleteManifest(c.exoV2Context, manifestDir+manifestPath)
+		if err != nil {
+			slog.Error("failed to delete manifest", "manifest", manifestPath)
+
+			finalErr = fmt.Errorf("errors while deleting manifests")
+		}
 	}
 
-	return err
+	return finalErr
 
 	// TODO (sauterp) reenable once we have a non-legacy key in GH
 	// return c.deleteAPIKeyAndRole()
