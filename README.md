@@ -16,7 +16,7 @@ Exoscale Block Storage Container Storage Interface Driver.
 ## Deployment
 
 ```
-kubectl apply -f deployment/exoscale-csi.yaml
+kubectl apply -k 'github.com/exoscale/exoscale-csi-driver/deployment?ref=main'
 ```
 
 ## Using it
