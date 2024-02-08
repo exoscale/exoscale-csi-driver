@@ -27,7 +27,8 @@ const (
 )
 
 var (
-	manifestDir                 = util.GetRepoRootDir() + "deployment/"
+	manifestDir = util.GetRepoRootDir() + "deployment/"
+
 	controllerRBACManifest      = "controller-rbac.yaml"
 	controllerManifest          = "controller.yaml"
 	crdsManifest                = "crds.yaml"
