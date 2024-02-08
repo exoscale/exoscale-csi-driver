@@ -241,7 +241,7 @@ func TestSnapshot(t *testing.T) {
 			return "error"
 		}
 
-		return pvc.Status.Phase
+		return string(pvc.Status.Phase)
 	})
 
 	// delete snapshot
