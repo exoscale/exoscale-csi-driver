@@ -39,6 +39,7 @@ var (
 	volumeSnapshotClassManifest = "volume-snapshot-class.yaml"
 
 	allManifests = []string{
+		crdsManifest,
 		controllerRBACManifest,
 		controllerManifest,
 		csiDriverManifest,
