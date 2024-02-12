@@ -73,7 +73,9 @@ var (
 )
 
 const (
+	// TODO: The API should return it.
 	MinimalVolumeSizeBytes = 100 * 1024 * 1024 * 1024
+	MaximumVolumeSizeBytes = 1000 * 1024 * 1024 * 1024
 )
 
 type controllerService struct {
@@ -597,11 +599,56 @@ func (d *controllerService) ListSnapshots(ctx context.Context, req *csi.ListSnap
 	}, nil
 }
 
-// ControllerExpandVolume resizes/updates the volume (not supported yet on Exoscale Public API)
+// ControllerExpandVolume resizes Block Storage volume.
 func (d *controllerService) ControllerExpandVolume(ctx context.Context, req *csi.ControllerExpandVolumeRequest) (*csi.ControllerExpandVolumeResponse, error) {
 	klog.V(4).Infof("ControllerExpandVolume")
+	_, volumeID, err := getExoscaleID(req.GetVolumeId())
+	if err != nil {
+		return nil, err
+	}
 
-	return nil, status.Error(codes.Unimplemented, "")
+	volume, err := d.client.GetBlockStorageVolume(ctx, volumeID)
+	if err != nil {
+		if errors.Is(err, v3.ErrNotFound) {
+			return nil, status.Errorf(codes.NotFound, "volume %s not found", volumeID)
+		}
+
+		return nil, err
+	}
+
+	nodeExpansionRequired := true
+	volumeCapability := req.GetVolumeCapability()
+	if volumeCapability != nil {
+		err := validateVolumeCapability(volumeCapability)
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "volumeCapabilities not supported: %s", err)
+		}
+
+		if _, ok := volumeCapability.GetAccessType().(*csi.VolumeCapability_Block); ok {
+			nodeExpansionRequired = false
+		}
+	}
+
+	newSize, err := getNewVolumeSize(req.GetCapacityRange())
+	if err != nil {
+		return nil, status.Errorf(codes.OutOfRange, "invalid capacity range: %v", err)
+	}
+
+	if newSize < volume.Size {
+		return nil, status.Error(codes.InvalidArgument, "new size must be bigger than actual volume size")
+	}
+
+	_, err = d.client.ResizeBlockStorageVolume(ctx, volumeID, v3.ResizeBlockStorageVolumeRequest{
+		Size: newSize,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &csi.ControllerExpandVolumeResponse{
+		CapacityBytes:         newSize,
+		NodeExpansionRequired: nodeExpansionRequired,
+	}, nil
 }
 
 // ControllerGetVolume gets a volume and  return it.

@@ -8,9 +8,12 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/exoscale/exoscale/csi-driver/internal/integ/cluster"
 	"github.com/exoscale/exoscale/csi-driver/internal/integ/k8s"
@@ -165,6 +168,57 @@ func TestDeleteVolume(t *testing.T) {
 	})
 
 	// TODO (sauterp) once ego v3 is available check if volume is deleted (and retainPolicy)
+}
+
+func TestVolumeExpand(t *testing.T) {
+	ns := k8s.CreateTestNamespace(t, cluster.Get().K8s, "vol-expand")
+
+	ns.Apply(basicPVC)
+	ns.Apply(basicDeployment)
+
+	go ns.K.PrintEvents(ns.CTX, ns.Name)
+
+	var storage1 resource.Quantity
+	awaitExpectation(t, "Bound", func() interface{} {
+		pvc, err := ns.K.ClientSet.CoreV1().PersistentVolumeClaims(ns.Name).Get(ns.CTX, "my-sbs-pvc", metav1.GetOptions{})
+		assert.NoError(t, err)
+
+		storage := pvc.Status.Capacity.Storage()
+		require.NotNil(t, storage)
+		storage1 = *storage
+
+		return pvc.Status.Phase
+	})
+
+	awaitExpectation(t, "Bound", func() interface{} {
+		updatedPVC, err := ns.K.ClientSet.CoreV1().PersistentVolumeClaims(ns.Name).Patch(
+			ns.CTX,
+			"my-sbs-pvc",
+			types.MergePatchType,
+			[]byte(`{"spec":{"resources":{"requests":{"storage":"300Gi"}}}}`),
+			metav1.PatchOptions{},
+		)
+		assert.NoError(t, err)
+
+		return updatedPVC.Status.Phase
+	})
+
+	var storage2 resource.Quantity
+	awaitExpectation(t, "Bound", func() interface{} {
+		pvc, err := ns.K.ClientSet.CoreV1().PersistentVolumeClaims(ns.Name).Get(ns.CTX, "my-sbs-pvc", metav1.GetOptions{})
+		assert.NoError(t, err)
+
+		storage := pvc.Status.Capacity.Storage()
+		require.NotNil(t, storage)
+		storage2 = *storage
+
+		return pvc.Status.Phase
+	})
+
+	// Cmp returns 0 if the quantity is equal to y,
+	// -1 if the quantity is less than y,
+	// or 1 if the quantity is greater than y.
+	require.Equal(t, 1, storage1.Cmp(storage2))
 }
 
 const basicSnapshot = `
