@@ -101,8 +101,6 @@ func (k *K8S) ApplyManifest(ctx context.Context, file string) error {
 
 	fileContentStr := string(fileContent)
 	if *flags.Image != "" {
-		slog.Info("testing CSI image", "path", *flags.Image)
-
 		fileContentStr = strings.ReplaceAll(fileContentStr, `exoscale/csi-driver:latest`, *flags.Image)
 	}
 
@@ -211,6 +209,15 @@ func (k *K8S) PrintEvents(ctx context.Context, ns string) {
 	}
 }
 
+func (k *K8S) UpdateResourceList() {
+	_, newResourceList, err := k.DiscoveryClient.ServerGroupsAndResources()
+	if err != nil {
+		slog.Warn("failed to update resource list", "err", err)
+	} else {
+		k.ResourceList = newResourceList
+	}
+}
+
 func (k *K8S) applyManifest(ctx context.Context, manifest []byte) error {
 	decoder := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
 	obj := &unstructured.Unstructured{}
@@ -219,20 +226,20 @@ func (k *K8S) applyManifest(ctx context.Context, manifest []byte) error {
 		return err
 	}
 
-	rrr := k.findResource(obj.GetKind())
-	if rrr == nil {
+	res := k.findResource(obj.GetKind())
+	if res == nil {
 		return nil
 	}
 
-	gvr := gvk.GroupVersion().WithResource(rrr.Name)
+	gvr := gvk.GroupVersion().WithResource(res.Name)
 	namespace := ""
-	if rrr.Namespaced {
+	if res.Namespaced {
 		namespace = obj.GetNamespace()
 		go k.PrintEvents(ctx, namespace)
 	}
 	resourceInterface := k.DynamicClient.Resource(gvr).Namespace(namespace)
 
-	res, err := resourceInterface.Get(ctx, obj.GetName(), metav1.GetOptions{})
+	resIf, err := resourceInterface.Get(ctx, obj.GetName(), metav1.GetOptions{})
 	if err != nil {
 		slog.Info("creating", "resource", gvr, "name", obj.GetName())
 
@@ -244,7 +251,7 @@ func (k *K8S) applyManifest(ctx context.Context, manifest []byte) error {
 	} else {
 		slog.Info("updating", "resource", gvr, "name", obj.GetName())
 
-		obj.SetResourceVersion(res.GetResourceVersion())
+		obj.SetResourceVersion(resIf.GetResourceVersion())
 
 		// If it exists, update it
 		retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
@@ -256,12 +263,9 @@ func (k *K8S) applyManifest(ctx context.Context, manifest []byte) error {
 		}
 	}
 
-	_, newResourceList, err := k.DiscoveryClient.ServerGroupsAndResources()
-	if err != nil {
-		slog.Warn("failed to update resource list", "err", err)
-	} else {
-		k.ResourceList = newResourceList
-	}
+	// The resources we just applied need to be fetched from the server
+	// so that the client can apply manifests that depend on these.
+	k.UpdateResourceList()
 
 	return nil
 }

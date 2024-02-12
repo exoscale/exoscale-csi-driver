@@ -235,9 +235,13 @@ func TestSnapshot(t *testing.T) {
 
 	awaitExpectation(t, "Bound", func() interface{} {
 		pvc, err := pvcClient.Get(ns.CTX, "my-snap-1-pvc", metav1.GetOptions{})
-		assert.NoError(t, err)
 
-		return pvc.Status.Phase
+		if err != nil {
+			assert.NoError(t, err)
+			return "error"
+		}
+
+		return string(pvc.Status.Phase)
 	})
 
 	// delete snapshot
@@ -246,7 +250,10 @@ func TestSnapshot(t *testing.T) {
 
 	awaitExpectation(t, 0, func() interface{} {
 		snapshots, err := snapshotClient.List(ns.CTX, v1.ListOptions{})
-		assert.NoError(t, err)
+		if err != nil {
+			assert.NoError(t, err)
+			return 0
+		}
 
 		return len(snapshots.Items)
 	})
