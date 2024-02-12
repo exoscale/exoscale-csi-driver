@@ -71,3 +71,6 @@ For example, CSI `0.99` would be compatible with Kubernetes versions `1.99`, `1.
 |-------------|-------------------------------|
 | 0.29        | 1.29, 1.28, 1.27              |
 
+## Project status
+
+We consider the CSI to be in Beta phase. Although it reliably performs its essential functions, missing features and bugs have to be expected.
