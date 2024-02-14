@@ -8,7 +8,7 @@ github.com/davecgh/go-spew/spew
 ## explicit; go 1.13
 github.com/emicklei/go-restful/v3
 github.com/emicklei/go-restful/v3/log
-# github.com/exoscale/egoscale v0.102.4-0.20240124100014-b414c838f92a
+# github.com/exoscale/egoscale v0.102.4-0.20240206093951-cf4abafe80df
 ## explicit; go 1.20
 github.com/exoscale/egoscale/v3
 github.com/exoscale/egoscale/version

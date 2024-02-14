@@ -48,7 +48,7 @@ type DriverConfig struct {
 	Mode              Mode
 	APIKey, APISecret string
 	RestConfig        *rest.Config
-	Zone              v3.URL
+	ZoneEndpoint      v3.Endpoint
 }
 
 // Driver implements the interfaces csi.IdentityServer, csi.ControllerServer and csi.NodeServer
@@ -72,25 +72,35 @@ func NewDriver(config *DriverConfig) (*Driver, error) {
 		config: config,
 	}
 
-	var zone = nodeMeta.zone
-	if config.Zone != "" {
-		zone = config.Zone
+	// Node Mode is not using client API.
+	// Config API credentials are not provided.
+	if config.Mode == NodeMode {
+		driver.nodeService = newNodeService(nodeMeta)
+		return driver, nil
 	}
+
 	var client *v3.Client
-	if config.Mode != NodeMode {
+	if config.ZoneEndpoint != "" {
 		client, err = v3.NewClient(config.APIKey, config.APISecret,
-			v3.ClientOptWithURL(zone),
+			v3.ClientOptWithEndpoint(config.ZoneEndpoint),
 		)
-		if err != nil {
-			return nil, fmt.Errorf("new driver: %w", err)
-		}
+	} else {
+		client, err = v3.NewClient(config.APIKey, config.APISecret)
 	}
+	if err != nil {
+		return nil, fmt.Errorf("new driver: %w", err)
+	}
+
+	// Setup the client with the same zone endpoint as the node zone.
+	endpoint, err := client.GetZoneAPIEndpoint(context.Background(), nodeMeta.zoneName)
+	if err != nil {
+		return nil, fmt.Errorf("new driver: %w", err)
+	}
+	client = client.WithEndpoint(endpoint)
 
 	switch config.Mode {
 	case ControllerMode:
 		driver.controllerService = newControllerService(client, nodeMeta)
-	case NodeMode:
-		driver.nodeService = newNodeService(nodeMeta)
 	case AllMode:
 		driver.controllerService = newControllerService(client, nodeMeta)
 		driver.nodeService = newNodeService(nodeMeta)
@@ -177,11 +187,11 @@ func (d *Driver) Run() error {
 }
 
 type nodeMetadata struct {
-	zone       v3.URL
-	zoneName   string
+	zoneName   v3.ZoneName
 	InstanceID v3.UUID
 }
 
+// TODO(pej): replace CCM metadata with Exoscale metadata server.
 func getExoscaleNodeMetadata() (*nodeMetadata, error) {
 	podName := os.Getenv("POD_NAME")
 	namespace := os.Getenv("POD_NAMESPACE")
@@ -219,14 +229,8 @@ func getExoscaleNodeMetadata() (*nodeMetadata, error) {
 		return nil, fmt.Errorf("node meta data Instance ID %s: %w", node.Spec.ProviderID, err)
 	}
 
-	zone, ok := v3.Zones[region]
-	if !ok {
-		return nil, fmt.Errorf("invalid region zone name: %s", region)
-	}
-
 	return &nodeMetadata{
-		zone:       zone,
-		zoneName:   region,
+		zoneName:   v3.ZoneName(region),
 		InstanceID: instanceID,
 	}, nil
 }

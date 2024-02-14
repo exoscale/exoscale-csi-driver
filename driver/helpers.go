@@ -7,17 +7,16 @@ import (
 	"strings"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
+	"k8s.io/klog/v2"
 
 	v3 "github.com/exoscale/egoscale/v3"
 )
 
-// TODO (pej) multizone: Add v3.URL back once url environment are fixed.
-func exoscaleID(zoneName string, id v3.UUID) string {
+func exoscaleID(zoneName v3.ZoneName, id v3.UUID) string {
 	return fmt.Sprintf("%s/%s", zoneName, id)
 }
 
-// TODO (pej) multizone: Add v3.URL back once url environment are fixed.
-func getExoscaleID(exoID string) (string, v3.UUID, error) {
+func getExoscaleID(exoID string) (v3.ZoneName, v3.UUID, error) {
 	s := strings.Split(exoID, "/")
 	if len(s) != 2 {
 		return "", "", fmt.Errorf("malformed exoscale id")
@@ -28,14 +27,13 @@ func getExoscaleID(exoID string) (string, v3.UUID, error) {
 		return "", "", err
 	}
 
-	return s[0], id, nil
+	return v3.ZoneName(s[0]), id, nil
 }
 
-// TODO (pej) multizone: Add v3.URL back once url environment are fixed.
-func newZoneTopology(zoneName string) []*csi.Topology {
+func newZoneTopology(zoneName v3.ZoneName) []*csi.Topology {
 	return []*csi.Topology{
 		{
-			Segments: map[string]string{ZoneTopologyKey: zoneName},
+			Segments: map[string]string{ZoneTopologyKey: string(zoneName)},
 		},
 	}
 }
@@ -89,4 +87,37 @@ func createMountPoint(path string, file bool) error {
 
 func convertBytesToGibiBytes(nBytes int64) int64 {
 	return nBytes / (1024 * 1024 * 1024)
+}
+
+func getRequiredZone(requirements *csi.TopologyRequirement, defaultZone v3.ZoneName) (v3.ZoneName, error) {
+	if requirements == nil {
+		klog.Warning("get required zone returned the default zone")
+		return defaultZone, nil
+	}
+
+	if requirements.GetRequisite() == nil {
+		klog.Warning("get required zone returned the default zone")
+		return defaultZone, nil
+	}
+
+	// Since volume can only be handle by one zone
+	// and volumes/nodes are announced with only one zone accessible topology,
+	// TopologyRequirement will always ask for one zone at a time.
+
+	if len(requirements.GetRequisite()) != 1 {
+		return "", fmt.Errorf("topology requisite must always be equal to one zone")
+	}
+
+	required := requirements.GetRequisite()[0]
+
+	if len(required.Segments) != 1 {
+		return "", fmt.Errorf("topology requisite segments must always be equal to one zone")
+	}
+
+	zone, ok := required.Segments[ZoneTopologyKey]
+	if !ok {
+		return "", fmt.Errorf("zone topology key %s not found", ZoneTopologyKey)
+	}
+
+	return v3.ZoneName(zone), nil
 }
