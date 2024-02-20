@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Bug fixes
+
+* controller: fix frequent sidecar restarts #12 
+
 ## 0.29.1
 
 ### Improvements

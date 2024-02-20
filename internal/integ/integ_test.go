@@ -63,7 +63,7 @@ func awaitExpectation(t *testing.T, expected interface{}, get getFunc) {
 	for i := 0; i < 10; i++ {
 		actual = get()
 
-		time.Sleep(5 * time.Second)
+		time.Sleep(10 * time.Second)
 
 		if assert.ObjectsAreEqualValues(expected, actual) {
 			break

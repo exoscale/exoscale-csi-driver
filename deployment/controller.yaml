@@ -66,6 +66,9 @@ spec:
             - "--v=5"
             - "--csi-address=$(CSI_ADDRESS)"
             - "--leader-election"
+            - "--leader-election-lease-duration=30s"
+            - "--leader-election-renew-deadline=20s"
+            - "--leader-election-retry-period=10s"
             - "--feature-gates=Topology=true"
             - "--default-fstype=ext4"
           env:
@@ -87,6 +90,9 @@ spec:
             - "--v=5"
             - "--csi-address=$(CSI_ADDRESS)"
             - "--leader-election"
+            - "--leader-election-lease-duration=30s"
+            - "--leader-election-renew-deadline=20s"
+            - "--leader-election-retry-period=10s"
           env:
             - name: CSI_ADDRESS
               value: /var/lib/csi/sockets/pluginproxy/csi.sock
@@ -106,6 +112,9 @@ spec:
             - "--v=5"
             - "--csi-address=$(CSI_ADDRESS)"
             - "--leader-election"
+            - "--leader-election-lease-duration=30s"
+            - "--leader-election-renew-deadline=20s"
+            - "--leader-election-retry-period=10s"
           env:
             - name: CSI_ADDRESS
               value: /var/lib/csi/sockets/pluginproxy/csi.sock
@@ -124,6 +133,9 @@ spec:
           args:
             - "--v=5"
             - "--leader-election"
+            - "--leader-election-lease-duration=30s"
+            - "--leader-election-renew-deadline=20s"
+            - "--leader-election-retry-period=10s"
           resources:
             limits:
               cpu: 400m
@@ -137,6 +149,9 @@ spec:
             - "--v=5"
             - "--csi-address=$(CSI_ADDRESS)"
             - "--leader-election"
+            - "--leader-election-lease-duration=30s"
+            - "--leader-election-renew-deadline=20s"
+            - "--leader-election-retry-period=10s"
           env:
             - name: CSI_ADDRESS
               value: /var/lib/csi/sockets/pluginproxy/csi.sock
