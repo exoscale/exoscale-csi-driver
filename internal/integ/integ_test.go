@@ -25,6 +25,8 @@ func TestMain(m *testing.M) {
 		exitCode = 1
 	}
 
+	time.Sleep(time.Minute)
+
 	if err == nil {
 		exitCode = m.Run()
 	}
