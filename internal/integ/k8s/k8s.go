@@ -44,6 +44,11 @@ func CreateClients(kubeconfig []byte) (*K8S, error) {
 		return nil, err
 	}
 
+	// we frequently encounter rate limiting from the test cluster
+	// to avoid this we set low values.
+	config.QPS = 1
+	config.Burst = 2
+
 	discoveryClient, err := discovery.NewDiscoveryClientForConfig(config)
 	if err != nil {
 		return nil, err
