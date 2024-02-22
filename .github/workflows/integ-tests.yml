@@ -44,8 +44,6 @@ jobs:
             --create-cluster \
             --create-csi-secret \
             --tear-down-csi \
-            --tear-down-cluster \
-            -run '^$' \
             --image exoscale/csi-driver-integ-test:csi-pr-integ-test \
             --cluster-name csi-pr-integ-test \
             --zone ch-gva-2
