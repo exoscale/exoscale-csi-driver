@@ -276,10 +276,79 @@ func (c *Cluster) applyCSI() error {
 	// the CSI controller needs to restart to pick up the new secrets
 	c.restartCSIController()
 
+	controllerName := "exoscale-csi-controller"
+	if err := c.awaitDeploymentReadiness(controllerName); err != nil {
+		slog.Warn("error while awaiting", "deployment", controllerName, "error", err)
+	}
+
+	nodeDriverName := "exoscale-csi-node"
+	if err := c.awaitDaemonSetReadiness(nodeDriverName); err != nil {
+		slog.Warn("error while awaiting", "DaemonSet", nodeDriverName, "error", err)
+	}
+
 	return nil
 }
 
+func retry(trial func() error, nRetries int, retryInterval time.Duration) error {
+	if nRetries == 0 {
+		nRetries = 10
+	}
+
+	if retryInterval == 0 {
+		retryInterval = 10 * time.Second
+	}
+
+	for i := 0; i < nRetries-1; i++ {
+		if trial() == nil {
+			return nil
+		}
+
+		time.Sleep(retryInterval)
+	}
+
+	return trial()
+}
+
+func (c *Cluster) awaitDeploymentReadiness(deploymentName string) error {
+	return retry(func() error {
+		deployment, err := c.K8s.ClientSet.AppsV1().Deployments(csiNamespace).Get(c.exoV2Context, deploymentName, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+
+		// check if deployment is ready
+		if deployment.Status.ReadyReplicas == *deployment.Spec.Replicas {
+			slog.Info("deployment %q is ready", deploymentName)
+
+			return nil
+		}
+
+		slog.Info("waiting for deployment to become ready", "deployment", deploymentName)
+		return fmt.Errorf("waiting for deployment %q to become ready", deploymentName)
+	}, 0, 0)
+}
+
+func (c *Cluster) awaitDaemonSetReadiness(name string) error {
+	return retry(func() error {
+		daemonSet, err := c.K8s.ClientSet.AppsV1().DaemonSets(csiNamespace).Get(c.exoV2Context, name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+
+		// check if DaemonSet is ready
+		if daemonSet.Status.DesiredNumberScheduled == daemonSet.Status.CurrentNumberScheduled {
+			slog.Info("DaemonSet %q is ready", name)
+
+			return nil
+		}
+
+		slog.Info("waiting for DaemonSet to become ready", "DaemonSet", name)
+		return fmt.Errorf("waiting for DaemonSet %q to become ready", name)
+	}, 0, 0)
+}
+
 func (c *Cluster) restartCSIController() {
+	deploymentName := "exoscale-csi-controller"
 	podsClient := c.K8s.ClientSet.CoreV1().Pods(csiNamespace)
 	pods, err := podsClient.List(c.exoV2Context, metav1.ListOptions{})
 	if err != nil {
@@ -287,7 +356,7 @@ func (c *Cluster) restartCSIController() {
 	}
 
 	for _, pod := range pods.Items {
-		if strings.HasPrefix(pod.Name, "exoscale-csi-controller") {
+		if strings.HasPrefix(pod.Name, deploymentName) {
 			err := podsClient.Delete(c.exoV2Context, pod.Name, metav1.DeleteOptions{})
 			if err != nil {
 				slog.Warn("failed to delete pod", "name", pod.Name, "err", err)
