@@ -13,6 +13,7 @@ import (
 	"syscall"
 
 	v3 "github.com/exoscale/egoscale/v3"
+	"github.com/exoscale/egoscale/v3/credentials"
 	"github.com/exoscale/exoscale-csi-driver/cmd/exoscale-csi-driver/buildinfo"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
@@ -79,13 +80,16 @@ func NewDriver(config *DriverConfig) (*Driver, error) {
 		return driver, nil
 	}
 
+	// TODO: Uses ENV credentials provider in the main func.
+	creds := credentials.NewStaticCredentials(config.APIKey, config.APISecret)
+
 	var client *v3.Client
 	if config.ZoneEndpoint != "" {
-		client, err = v3.NewClient(config.APIKey, config.APISecret,
+		client, err = v3.NewClient(creds,
 			v3.ClientOptWithEndpoint(config.ZoneEndpoint),
 		)
 	} else {
-		client, err = v3.NewClient(config.APIKey, config.APISecret)
+		client, err = v3.NewClient(creds)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("new driver: %w", err)
