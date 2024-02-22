@@ -318,7 +318,7 @@ func (c *Cluster) awaitDeploymentReadiness(deploymentName string) error {
 
 		// check if deployment is ready
 		if deployment.Status.ReadyReplicas == *deployment.Spec.Replicas {
-			slog.Info("deployment %q is ready", deploymentName)
+			slog.Info("ready", "deployment", deploymentName)
 
 			return nil
 		}
@@ -337,7 +337,7 @@ func (c *Cluster) awaitDaemonSetReadiness(name string) error {
 
 		// check if DaemonSet is ready
 		if daemonSet.Status.DesiredNumberScheduled == daemonSet.Status.CurrentNumberScheduled {
-			slog.Info("DaemonSet %q is ready", name)
+			slog.Info("ready", "DaemonSet", name)
 
 			return nil
 		}
