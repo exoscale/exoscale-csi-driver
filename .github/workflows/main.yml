@@ -24,7 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - run: git submodule update --init --recursive go.mk
+      - run: make go.mk
       - uses: ./go.mk/.github/actions/setup
       - name: Build Docker image
         run: make docker

@@ -22,7 +22,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - run: git submodule update --init --recursive go.mk
+      - run: make go.mk
 
       - uses: ./go.mk/.github/actions/setup
 

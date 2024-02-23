@@ -1,3 +1,4 @@
+go.mk/version.mk:
 include go.mk/version.mk
 
 .PHONY: docker
