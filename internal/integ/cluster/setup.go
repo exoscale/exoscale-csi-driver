@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"time"
 
 	"github.com/exoscale/exoscale/csi-driver/internal/integ/flags"
 
@@ -145,15 +144,21 @@ func Setup() error {
 		return err
 	}
 
+	calicoControllerName := "calico-kube-controllers"
+	if err := testCluster.awaitDeploymentReadiness(calicoControllerName); err != nil {
+		slog.Warn("error while awaiting", "deployment", calicoControllerName, "error", err)
+	}
+
+	calicoNodeName := "calico-node"
+	if err := testCluster.awaitDaemonSetReadiness(calicoNodeName); err != nil {
+		slog.Warn("error while awaiting", "DaemonSet", calicoNodeName, "error", err)
+	}
+
 	if !*flags.DontApplyCSI {
 		if err := testCluster.applyCSI(); err != nil {
 			return fmt.Errorf("error applying CSI: %w", err)
 		}
 	}
-
-	// give the CSI some time to become ready
-	// TODO find a more appropriate way to do this.
-	time.Sleep(30 * time.Second)
 
 	return nil
 }

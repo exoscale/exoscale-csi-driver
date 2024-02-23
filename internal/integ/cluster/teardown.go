@@ -51,14 +51,18 @@ func (c *Cluster) tearDownCSI() error {
 	for _, manifestPath := range allManifests {
 		err := c.K8s.DeleteManifest(c.exoV2Context, manifestDir+manifestPath)
 		if err != nil {
-			slog.Error("failed to delete manifest", "manifest", manifestPath)
+			slog.Error("failed to delete manifest", "manifest", manifestPath, "err", err)
 
-			finalErr = fmt.Errorf("errors while deleting manifests")
+			finalErr = fmt.Errorf("errors while deleting manifests: %w", err)
 		}
 	}
 
-	return finalErr
+	err := c.deleteAPIKeyAndRole()
+	if err != nil {
+		slog.Error("failed to clean up CSI API key and role", "err", err)
 
-	// TODO (sauterp) reenable once we have a non-legacy key in GH
-	// return c.deleteAPIKeyAndRole()
+		finalErr = fmt.Errorf("errors while cleaning up CSI API key and role: %w", err)
+	}
+
+	return finalErr
 }

@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Improvements
+
+* integ-tests: use IAMv3 API key #13 
+
 ## 0.29.2
 
 ### Bug fixes
