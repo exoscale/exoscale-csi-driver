@@ -47,6 +47,8 @@ jobs:
         run: |
           syft scan exoscale/csi-driver-integ-test:sscs
 
+      - uses: sigstore/cosign-installer@v3.3.0
+
       - name: attest the image
         shell: bash
         run: |
