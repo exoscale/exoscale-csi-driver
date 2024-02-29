@@ -6,6 +6,8 @@ on:
 
 jobs:
   gitsign:
+    permissions:
+      id-token: write # Enable OIDC
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
