@@ -59,12 +59,12 @@ jobs:
       - name: attach attestation
         shell: bash
         run: |
-          cosign attest --predicate sbom.json exoscale/csi-driver-integ-test:sscs
+          yes | cosign attest --predicate sbom.json exoscale/csi-driver-integ-test:sscs
 
       - name: verify the sbom attestation
         shell: bash
         run: |
-          yes | cosign verify-attestation exoscale/csi-driver-integ-test:sscs --certificate-identity=https://github.com/exoscale/exoscale-csi-driver/.github/workflows/sscs.yaml@refs/heads/philippsauter/sscs --certificate-oidc-issuer=https://token.actions.githubusercontent.com
+          cosign verify-attestation exoscale/csi-driver-integ-test:sscs --certificate-identity=https://github.com/exoscale/exoscale-csi-driver/.github/workflows/sscs.yaml@refs/heads/philippsauter/sscs --certificate-oidc-issuer=https://token.actions.githubusercontent.com
 
       - name: Scan image
         uses: anchore/scan-action@v3
