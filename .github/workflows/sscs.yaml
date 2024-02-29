@@ -7,15 +7,12 @@ on:
 jobs:
   gitsign:
     runs-on: ubuntu-latest
-
-    # permissions:
-    #   id-token: write # Enable OIDC
     steps:
       - uses: actions/checkout@v3
         with:
           ref: main
       - uses: chainguard-dev/actions/setup-gitsign@main
-      - name: Change files
+      - name: verify commit signature
         shell: bash
         run: |
           gitsign verify --certificate-identity-regexp='sauterp.*' --certificate-oidc-issuer='https://github.com/login/oauth' HEAD
