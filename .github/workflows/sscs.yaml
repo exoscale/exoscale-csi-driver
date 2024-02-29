@@ -51,7 +51,22 @@ jobs:
 
       - uses: sigstore/cosign-installer@v3.3.0
 
-      - name: attest the image
+      - name: generate sbom
         shell: bash
         run: |
-          syft attest exoscale/csi-driver-integ-test:sscs
+          syft scan --output spdx-json exoscale/csi-driver-integ-test:sscs > sbom.json
+
+      - name: attach attestation
+        shell: bash
+        run: |
+          cosign attest --predicate sbom.json exoscale/csi-driver-integ-test:sscs
+
+      - name: verify the sbom attestation
+        shell: bash
+        run: |
+          cosign verify-attestation exoscale/csi-driver-integ-test:sscs --certificate-identity=https://github.com/exoscale/exoscale-csi-driver/.github/workflows/sscs.yaml@refs/heads/philippsauter/sscs --certificate-oidc-issuer=https://token.actions.githubusercontent.com
+
+      - name: Scan image
+        uses: anchore/scan-action@v3
+        with:
+          image: "exoscale/csi-driver-integ-test:sscs"
