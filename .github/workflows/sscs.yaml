@@ -6,6 +6,8 @@ on:
 
 jobs:
   gitsign:
+    runs-on: ubuntu-latest
+
     # permissions:
     #   id-token: write # Enable OIDC
     steps:
