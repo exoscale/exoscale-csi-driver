@@ -26,19 +26,19 @@ jobs:
       - name: Build Docker image
         run: make docker
 
-      # - name: Log in to Docker Hub
-      #   uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a
-      #   with:
-      #     username: ${{ secrets.DOCKERHUB_USERNAME }}
-      #     password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Log in to Docker Hub
+        uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Tag Docker Image
         run: |
           docker tag exoscale/csi-driver:latest exoscale/csi-driver-integ-test:sscs
 
-      # - name: Push Docker Image
-      #   run: |
-      #     docker push exoscale/csi-driver-integ-test:sscs
+      - name: Push Docker Image
+        run: |
+          docker push exoscale/csi-driver-integ-test:sscs
 
       - uses: anchore/sbom-action/download-syft@v0
 
@@ -46,3 +46,8 @@ jobs:
         shell: bash
         run: |
           syft scan exoscale/csi-driver-integ-test:sscs
+
+      - name: attest the image
+        shell: bash
+        run: |
+          syft attest exoscale/csi-driver-integ-test:sscs
