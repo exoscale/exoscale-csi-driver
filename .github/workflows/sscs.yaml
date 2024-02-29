@@ -42,7 +42,7 @@ jobs:
 
       - uses: anchore/sbom-action/download-syft@v0
 
-      - uses: scan the image
+      - name: scan the image
         shell: bash
         run: |
           syft scan exoscale/csi-driver-integ-test:sscs
