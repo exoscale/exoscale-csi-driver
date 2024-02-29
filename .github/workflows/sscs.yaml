@@ -59,7 +59,7 @@ jobs:
       - name: attach attestation
         shell: bash
         run: |
-          yes | cosign attest --predicate sbom.json exoscale/csi-driver-integ-test:sscs
+          cosign attest --yes --predicate sbom.json exoscale/csi-driver-integ-test:sscs
 
       - name: verify the sbom attestation
         shell: bash
