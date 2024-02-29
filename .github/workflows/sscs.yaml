@@ -18,3 +18,31 @@ jobs:
           git config --local gpg.x509.program gitsign  # Use gitsign for signing
           git config --local gpg.format x509  # gitsign expects x509 args
           gitsign verify --certificate-identity-regexp='sauterp.*' --certificate-oidc-issuer='https://github.com/login/oauth' HEAD
+
+      # now that we verified the commit we build the image
+      - run: make go.mk
+      - uses: ./go.mk/.github/actions/setup
+
+      - name: Build Docker image
+        run: make docker
+
+      # - name: Log in to Docker Hub
+      #   uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a
+      #   with:
+      #     username: ${{ secrets.DOCKERHUB_USERNAME }}
+      #     password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Tag Docker Image
+        run: |
+          docker tag exoscale/csi-driver:latest exoscale/csi-driver-integ-test:sscs
+
+      # - name: Push Docker Image
+      #   run: |
+      #     docker push exoscale/csi-driver-integ-test:sscs
+
+      - uses: anchore/sbom-action/download-syft@v0
+
+      - uses: scan the image
+        shell: bash
+        run: |
+          syft scan exoscale/csi-driver-integ-test:sscs
