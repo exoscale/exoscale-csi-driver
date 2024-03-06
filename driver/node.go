@@ -14,11 +14,6 @@ import (
 	"k8s.io/klog/v2"
 )
 
-const (
-	// TODO: replace it to get from Exoscale account resource limit.
-	maxVolumesPerNode = 5
-)
-
 type nodeService struct {
 	nodeID    v3.UUID
 	zoneName  v3.ZoneName
@@ -414,8 +409,6 @@ func (d *nodeService) NodeGetInfo(ctx context.Context, req *csi.NodeGetInfoReque
 	return &csi.NodeGetInfoResponse{
 		// Store the zone and the instanceID to let the CSI controller know the zone of the node.
 		NodeId: exoscaleID(d.zoneName, d.nodeID),
-		// TODO Will depend on Exoscale account limit, (remove const)
-		MaxVolumesPerNode: maxVolumesPerNode,
 		// newZoneTopology returns always len(1).
 		AccessibleTopology: newZoneTopology(d.zoneName)[0],
 	}, nil
