@@ -226,8 +226,14 @@ func (c *Cluster) applyCSI() error {
 			return err
 		}
 
-		allow := exov2.IAMPolicyService{
-			Type: ptr("allow"),
+		onlyAllowBlockStorageOperations := exov2.IAMPolicyService{
+			Type: ptr("rules"),
+			Rules: []exov2.IAMPolicyServiceRule{
+				exov2.IAMPolicyServiceRule{
+					Action:     ptr("allow"),
+					Expression: ptr("operation in ['get-block-storage-volume', 'list-block-storage-volumes', 'create-block-storage-volume', 'delete-block-storage-volume', 'attach-block-storage-volume-to-instance', 'detach-block-storage-volume', 'update-block-storage-volume-labels', 'resize-block-storage-volume', 'get-block-storage-snapshot', 'list-block-storage-snapshots', 'create-block-storage-snapshot', 'delete-block-storage-snapshot']"),
+				},
+			},
 		}
 
 		role, err := c.Ego.CreateIAMRole(c.exoV2Context, *flags.Zone, &exov2.IAMRole{
@@ -237,7 +243,7 @@ func (c *Cluster) applyCSI() error {
 			Policy: &exov2.IAMPolicy{
 				DefaultServiceStrategy: "deny",
 				Services: map[string]exov2.IAMPolicyService{
-					"compute": allow,
+					"compute": onlyAllowBlockStorageOperations,
 				},
 			},
 		})
