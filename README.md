@@ -6,7 +6,25 @@ Exoscale Block Storage Container Storage Interface Driver.
 
 * Make sure you have the [CCM](https://github.com/exoscale/exoscale-cloud-controller-manager) deployed and running in your cluster.
 
-* Create secret with [exoscale-secret.sh](./deployment/exoscale-secret.sh).
+* An API key associated to an IAM role with at least those permissions:
+``` json
+{
+  "default-service-strategy": "deny",
+  "services": {
+    "compute": {
+      "type": "rules",
+      "rules": [
+        {
+          "expression": "operation in ['list-zones', 'get-block-storage-volume', 'list-block-storage-volumes', 'create-block-storage-volume', 'delete-block-storage-volume', 'attach-block-storage-volume-to-instance', 'detach-block-storage-volume', 'update-block-storage-volume-labels', 'resize-block-storage-volume', 'get-block-storage-snapshot', 'list-block-storage-snapshots', 'create-block-storage-snapshot', 'delete-block-storage-snapshot']",
+          "action": "allow"
+        },
+      ]
+    }
+  }
+}
+```
+
+* Create a kubernetes secret for the API key with [exoscale-secret.sh](./deployment/exoscale-secret.sh).
     ```Bash
     export EXOSCALE_API_KEY=EXOxxxxx
     export EXOSCALE_API_SECRET=xxxxx
