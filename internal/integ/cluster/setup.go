@@ -8,20 +8,35 @@ import (
 
 	"github.com/exoscale/exoscale/csi-driver/internal/integ/flags"
 
-	exov2 "github.com/exoscale/egoscale/v2"
+	exov3 "github.com/exoscale/egoscale/v3"
 )
 
 func (c *Cluster) getLatestSKSVersion() (string, error) {
-	versions, err := c.Ego.ListSKSClusterVersions(c.exoV2Context)
+	versions, err := c.Ego.ListSKSClusterVersions(c.context)
 	if err != nil {
 		return "", fmt.Errorf("error retrieving SKS versions: %w", err)
 	}
 
-	if len(versions) == 0 {
+	if len(versions.SKSClusterVersions) == 0 {
 		return "", fmt.Errorf("no SKS version returned by the API")
 	}
 
-	return versions[0], nil
+	return versions.SKSClusterVersions[0], nil
+}
+
+func (c *Cluster) getInstanceType(family, size string) (*exov3.InstanceType, error) {
+	instanceTypes, err := c.Ego.ListInstanceTypes(c.context)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, instanceType := range instanceTypes.InstanceTypes {
+		if instanceType.Family == exov3.InstanceTypeFamilyStandard && instanceType.Size == exov3.InstanceTypeSizeMedium {
+			return c.Ego.GetInstanceType(c.context, instanceType.ID)
+		}
+	}
+
+	return nil, fmt.Errorf("unable to find instance type %s.%s", family, size)
 }
 
 func (c *Cluster) provisionSKSCluster(zone string) error {
@@ -37,49 +52,40 @@ func (c *Cluster) provisionSKSCluster(zone string) error {
 	}
 
 	// intance type must be at least standard.medium for block storage volume attachment to work
-	instanceType, err := c.Ego.FindInstanceType(c.exoV2Context, zone, "standard.medium")
+	instanceType, err := c.getInstanceType("standard", "medium")
 	if err != nil {
 		return err
 	}
 
-	nodepool := exov2.SKSNodepool{
-		Name:           ptr(c.Name + "-nodepool"),
-		DiskSize:       ptr(int64(20)),
-		Size:           ptr(int64(2)),
-		InstancePrefix: ptr("pool"),
-		InstanceTypeID: instanceType.ID,
-	}
-
-	sksCluster := &exov2.SKSCluster{
-		AddOns: &[]string{
-			// TODO(sauterp) remove once the CCM is no longer necessary for the CSI.
+	newCluster, err := c.Ego.CreateSKSCluster(c.context, exov3.CreateSKSClusterRequest{
+		Addons: []string{
 			"exoscale-cloud-controller",
 		},
-		CNI:         ptr("calico"),
-		Description: ptr("This cluster was created to test the exoscale CSI driver in SKS."),
-		Name:        ptr(c.Name),
-		Nodepools: []*exov2.SKSNodepool{
-			ptr(nodepool),
-		},
-		ServiceLevel: ptr("pro"),
-		Version:      ptr(latestSKSVersion),
-		Zone:         ptr(zone),
-	}
-
-	newCluster, err := c.Ego.CreateSKSCluster(c.exoV2Context, zone, sksCluster)
+		Cni:         "calico",
+		Description: "This cluster was created to test the exoscale CSI driver in SKS.",
+		Name:        c.Name,
+		Level:       exov3.CreateSKSClusterRequestLevelPro,
+		Version:     latestSKSVersion,
+	})
 	if err != nil {
 		return err
 	}
 
-	c.ID = *newCluster.ID
-	slog.Info("successfully created cluster", "clusterID", c.ID)
+	c.ID = newCluster.ID
 
-	_, err = c.Ego.CreateSKSNodepool(c.exoV2Context, zone, newCluster, &nodepool)
+	_, err = c.Ego.CreateSKSNodepool(c.context, newCluster.ID, exov3.CreateSKSNodepoolRequest{
+		Name:           c.Name + "-nodepool",
+		DiskSize:       int64(20),
+		Size:           int64(2),
+		InstancePrefix: "pool",
+		InstanceType:   instanceType,
+	})
 	if err != nil {
 		// this can error even when the nodepool is successfully created
 		// it's probably a bug, so we're not returning the error
 		slog.Warn("error creating nodepool", "err", err)
 	}
+	slog.Info("successfully created cluster", "clusterID", c.ID)
 
 	return nil
 }
@@ -93,16 +99,16 @@ func exitApplication(msg string, err error) {
 }
 
 func ConfigureCluster(createCluster bool, name, zone string) (*Cluster, error) {
-	v2Client, ctx, ctxCancel, err := createV2ClientAndContext()
+	v3Client, ctx, ctxCancel, err := createV3ClientAndContext()
 	if err != nil {
-		return nil, fmt.Errorf("error creating egoscale v2 client: %w", err)
+		return nil, fmt.Errorf("error creating egoscale v3 client: %w", err)
 	}
 
 	cluster := &Cluster{
-		Ego:                v2Client,
-		Name:               name,
-		exoV2Context:       ctx,
-		exoV2ContextCancel: ctxCancel,
+		Ego:           v3Client,
+		Name:          name,
+		context:       ctx,
+		cancelContext: ctxCancel,
 	}
 
 	if createCluster {

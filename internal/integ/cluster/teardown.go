@@ -5,6 +5,8 @@ import (
 	"log/slog"
 
 	"github.com/exoscale/exoscale/csi-driver/internal/integ/flags"
+
+	exov3 "github.com/exoscale/egoscale/v3"
 )
 
 func (c *Cluster) tearDownCluster() error {
@@ -13,18 +15,28 @@ func (c *Cluster) tearDownCluster() error {
 		return fmt.Errorf("error getting cluster ID: %w", err)
 	}
 
-	cluster, err := c.Ego.GetSKSCluster(c.exoV2Context, *flags.Zone, id)
+	cluster, err := c.Ego.GetSKSCluster(c.context, id)
 	if err != nil {
 		return err
 	}
 
 	if len(cluster.Nodepools) > 0 {
-		if err := c.Ego.DeleteSKSNodepool(c.exoV2Context, *flags.Zone, cluster, cluster.Nodepools[0]); err != nil {
+		if err := c.awaitSuccess(c.Ego.DeleteSKSNodepool(c.context, cluster.ID, cluster.Nodepools[0].ID)); err != nil {
 			return fmt.Errorf("error deleting nodepool: %w", err)
 		}
 	}
 
-	return c.Ego.DeleteSKSCluster(c.exoV2Context, *flags.Zone, cluster)
+	return c.awaitSuccess(c.Ego.DeleteSKSCluster(c.context, cluster.ID))
+}
+
+func (c *Cluster) awaitSuccess(op *exov3.Operation, err error) error {
+	if err != nil {
+		return err
+	}
+
+	_, err = c.Ego.Wait(c.context, op, exov3.OperationStateSuccess)
+
+	return err
 }
 
 func (c *Cluster) TearDown() error {
@@ -40,7 +52,7 @@ func (c *Cluster) TearDown() error {
 		}
 	}
 
-	c.exoV2ContextCancel()
+	c.cancelContext()
 
 	return nil
 }
@@ -49,7 +61,7 @@ func (c *Cluster) tearDownCSI() error {
 	var finalErr error = nil
 
 	for _, manifestPath := range allManifests {
-		err := c.K8s.DeleteManifest(c.exoV2Context, manifestDir+manifestPath)
+		err := c.K8s.DeleteManifest(c.context, manifestDir+manifestPath)
 		if err != nil {
 			slog.Error("failed to delete manifest", "manifest", manifestPath, "err", err)
 

@@ -17,8 +17,8 @@ import (
 	"github.com/exoscale/exoscale/csi-driver/internal/integ/k8s"
 	"github.com/exoscale/exoscale/csi-driver/internal/integ/util"
 
-	exov2 "github.com/exoscale/egoscale/v2"
-	exov2api "github.com/exoscale/egoscale/v2/api"
+	exov3 "github.com/exoscale/egoscale/v3"
+	"github.com/exoscale/egoscale/v3/credentials"
 )
 
 const (
@@ -75,40 +75,50 @@ func getCredentialsFromEnv() (string, string, error) {
 	return apiKey, apiSecret, nil
 }
 
-func (c *Cluster) getClusterID() (string, error) {
+func (c *Cluster) getClusterID() (exov3.UUID, error) {
 	if err := flags.ValidateFlags(); err != nil {
 		return "", err
 	}
 
-	cluster, err := c.Ego.FindSKSCluster(c.exoV2Context, *flags.Zone, *flags.ClusterName)
+	clusterList, err := c.Ego.ListSKSClusters(c.context)
 	if err != nil {
 		return "", err
 	}
 
-	return *cluster.ID, nil
+	for _, cluster := range clusterList.SKSClusters {
+		if cluster.Name == *flags.ClusterName {
+			return cluster.ID, nil
+		}
+	}
+
+	return "", fmt.Errorf("failed to find cluster", "name", *flags.ClusterName)
 }
 
-func (c *Cluster) getCluster() (*exov2.SKSCluster, error) {
+func (c *Cluster) getCluster() (*exov3.SKSCluster, error) {
 	id, err := c.getClusterID()
 	if err != nil {
 		return nil, err
 	}
 
-	return c.Ego.GetSKSCluster(c.exoV2Context, *flags.Zone, id)
+	return c.Ego.GetSKSCluster(c.context, exov3.UUID(id))
 }
 
 func (c *Cluster) getKubeconfig() ([]byte, error) {
-	cluster, err := c.Ego.GetSKSCluster(c.exoV2Context, *flags.Zone, c.ID)
+	cluster, err := c.Ego.GetSKSCluster(c.context, c.ID)
 	if err != nil {
 		return nil, err
 	}
 
-	base64KubeConfig, err := c.Ego.GetSKSClusterKubeconfig(c.exoV2Context, *flags.Zone, cluster, "admin", []string{"system:masters"}, 1*time.Hour)
+	base64KubeConfig, err := c.Ego.GenerateSKSClusterKubeconfig(c.context, cluster.ID, exov3.SKSKubeconfigRequest{
+		Groups: []string{"system:masters"},
+		Ttl:    2 * 60 * 60,
+		User:   "admin",
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	return base64.StdEncoding.DecodeString(base64KubeConfig)
+	return base64.StdEncoding.DecodeString(base64KubeConfig.Kubeconfig)
 }
 
 func (c *Cluster) getK8sClients() (*k8s.K8S, error) {
@@ -121,33 +131,33 @@ func (c *Cluster) getK8sClients() (*k8s.K8S, error) {
 }
 
 func (c *Cluster) deleteAPIKeyAndRole() error {
-	keys, err := c.Ego.ListAPIKeys(c.exoV2Context, *flags.Zone)
+	keys, err := c.Ego.ListAPIKeys(c.context)
 	if err != nil {
 		return fmt.Errorf("error listing api keys: %w", err)
 	}
 
-	for _, key := range keys {
-		if *key.Name != c.APIKeyName {
+	for _, key := range keys.APIKeys {
+		if key.Name != c.APIKeyName {
 			continue
 		}
 
-		if err := c.Ego.DeleteAPIKey(c.exoV2Context, *flags.Zone, key); err != nil {
+		if err := c.awaitSuccess(c.Ego.DeleteAPIKey(c.context, key.Key)); err != nil {
 			return fmt.Errorf("error deleting existing IAM key: %w", err)
 		}
 	}
 
-	roles, err := c.Ego.ListIAMRoles(c.exoV2Context, *flags.Zone)
+	roles, err := c.Ego.ListIAMRoles(c.context)
 	if err != nil {
 		return fmt.Errorf("error listing iam roles: %w", err)
 	}
 
-	for _, role := range roles {
-		if *role.Name != c.APIRoleName {
+	for _, role := range roles.IAMRoles {
+		if role.Name != c.APIRoleName {
 			continue
 		}
 
-		if err := c.Ego.DeleteIAMRole(c.exoV2Context, *flags.Zone, role); err != nil {
-			slog.Error("deleting IAM role", "name", *role.Name, "err", err)
+		if err := c.awaitSuccess(c.Ego.DeleteIAMRole(c.context, role.ID)); err != nil {
+			slog.Error("deleting IAM role", "name", role.Name, "err", err)
 		}
 	}
 
@@ -191,10 +201,10 @@ func (c *Cluster) createImagePullSecret() {
 
 	secretsClient := c.K8s.ClientSet.CoreV1().Secrets("kube-system")
 
-	_, err := secretsClient.Get(c.exoV2Context, secret.Name, metav1.GetOptions{})
+	_, err := secretsClient.Get(c.context, secret.Name, metav1.GetOptions{})
 	if err != nil {
 		if !errors.IsNotFound(err) {
-			_, err := secretsClient.Create(c.exoV2Context, secret, metav1.CreateOptions{})
+			_, err := secretsClient.Create(c.context, secret, metav1.CreateOptions{})
 			if err != nil {
 				slog.Error("failed to create registry secret", "err", err)
 				return
@@ -208,7 +218,7 @@ func (c *Cluster) createImagePullSecret() {
 		return
 	}
 
-	_, err = secretsClient.Update(c.exoV2Context, secret, metav1.UpdateOptions{})
+	_, err = secretsClient.Update(c.context, secret, metav1.UpdateOptions{})
 	if err != nil {
 		slog.Error("failed to update registry secret", "err", err)
 		return
@@ -236,11 +246,11 @@ func (c *Cluster) applyCSI() error {
 			},
 		}
 
-		role, err := c.Ego.CreateIAMRole(c.exoV2Context, *flags.Zone, &exov2.IAMRole{
-			Name:        ptr(c.APIRoleName),
-			Description: ptr("role for the CSI test cluster " + c.Name),
+		role, err := c.Ego.CreateIAMRole(c.context, exov3.CreateIAMRoleRequest{
+			Name:        c.APIRoleName,
+			Description: "role for the CSI test cluster " + c.Name,
 			Editable:    ptr(false),
-			Policy: &exov2.IAMPolicy{
+			Policy: &exov3.IAMPolicy{
 				DefaultServiceStrategy: "deny",
 				Services: map[string]exov2.IAMPolicyService{
 					"compute": onlyAllowBlockStorageOperations,
@@ -251,17 +261,15 @@ func (c *Cluster) applyCSI() error {
 			return fmt.Errorf("error creating IAM role: %w", err)
 		}
 
-		apikey := &exov2.APIKey{
-			Name:   ptr(c.APIKeyName),
+		apiKey, err := c.Ego.CreateAPIKey(c.context, exov3.CreateAPIKeyRequest{
+			Name:   c.APIKeyName,
 			RoleID: role.ID,
-		}
-
-		key, secret, err := c.Ego.CreateAPIKey(c.exoV2Context, *flags.Zone, apikey)
+		})
 		if err != nil {
 			return err
 		}
 
-		err = c.K8s.ApplySecret(c.exoV2Context, *key.Key, secret)
+		err = c.K8s.ApplySecret(c.context, apiKey.Key, apiKey.Secret)
 		if err != nil {
 			return fmt.Errorf("error creating secret: %w", err)
 		}
@@ -272,7 +280,7 @@ func (c *Cluster) applyCSI() error {
 	}
 
 	for _, manifestPath := range allManifests {
-		err := c.K8s.ApplyManifest(c.exoV2Context, manifestDir+manifestPath)
+		err := c.K8s.ApplyManifest(c.context, manifestDir+manifestPath)
 		if err != nil {
 			return fmt.Errorf("error applying CSI manifest: %q %w", manifestPath, err)
 		}
@@ -317,7 +325,7 @@ func retry(trial func() error, nRetries int, retryInterval time.Duration) error 
 
 func (c *Cluster) awaitDeploymentReadiness(deploymentName string) error {
 	return retry(func() error {
-		deployment, err := c.K8s.ClientSet.AppsV1().Deployments(csiNamespace).Get(c.exoV2Context, deploymentName, metav1.GetOptions{})
+		deployment, err := c.K8s.ClientSet.AppsV1().Deployments(csiNamespace).Get(c.context, deploymentName, metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
@@ -336,7 +344,7 @@ func (c *Cluster) awaitDeploymentReadiness(deploymentName string) error {
 
 func (c *Cluster) awaitDaemonSetReadiness(name string) error {
 	return retry(func() error {
-		daemonSet, err := c.K8s.ClientSet.AppsV1().DaemonSets(csiNamespace).Get(c.exoV2Context, name, metav1.GetOptions{})
+		daemonSet, err := c.K8s.ClientSet.AppsV1().DaemonSets(csiNamespace).Get(c.context, name, metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
@@ -356,14 +364,14 @@ func (c *Cluster) awaitDaemonSetReadiness(name string) error {
 func (c *Cluster) restartCSIController() {
 	deploymentName := "exoscale-csi-controller"
 	podsClient := c.K8s.ClientSet.CoreV1().Pods(csiNamespace)
-	pods, err := podsClient.List(c.exoV2Context, metav1.ListOptions{})
+	pods, err := podsClient.List(c.context, metav1.ListOptions{})
 	if err != nil {
 		slog.Warn("failed to list pods", "err", err)
 	}
 
 	for _, pod := range pods.Items {
 		if strings.HasPrefix(pod.Name, deploymentName) {
-			err := podsClient.Delete(c.exoV2Context, pod.Name, metav1.DeleteOptions{})
+			err := podsClient.Delete(c.context, pod.Name, metav1.DeleteOptions{})
 			if err != nil {
 				slog.Warn("failed to delete pod", "name", pod.Name, "err", err)
 			}
@@ -371,23 +379,15 @@ func (c *Cluster) restartCSIController() {
 	}
 }
 
-func createV2ClientAndContext() (*exov2.Client, context.Context, context.CancelFunc, error) {
-	apiKey, apiSecret, err := getCredentialsFromEnv()
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("error getting credentials from environment: %w", err)
-	}
-
+func createV3ClientAndContext() (*exov3.Client, context.Context, context.CancelFunc, error) {
 	timeout := 5 * time.Minute
-	v2Client, err := exov2.NewClient(apiKey, apiSecret,
-		exov2.ClientOptWithTimeout(timeout),
-	)
+	v3Client, err := exov3.NewClient(credentials.NewEnvCredentials(), exov3.ClientOptWithEndpoint(exov3.CHGva2))
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("error setting up egoscale client: %w", err)
 	}
 
 	ctx := context.Background()
 	ctx, ctxCancel := context.WithTimeout(ctx, timeout)
-	ctx = exov2api.WithEndpoint(ctx, exov2api.NewReqEndpoint("", *flags.Zone))
 
-	return v2Client, ctx, ctxCancel, nil
+	return v3Client, ctx, ctxCancel, nil
 }
