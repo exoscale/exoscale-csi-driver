@@ -6,7 +6,7 @@ Exoscale Block Storage Container Storage Interface Driver.
 
 * Make sure you have the [CCM](https://github.com/exoscale/exoscale-cloud-controller-manager) deployed and running in your cluster.
 
-* An API key and we recommend assigning it an IAM role with minimal permissions as in the following policy:
+* An API key associated to an IAM role with at least those permissions:
 ``` json
 {
   "default-service-strategy": "deny",
