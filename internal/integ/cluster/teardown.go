@@ -11,24 +11,26 @@ import (
 	exov3 "github.com/exoscale/egoscale/v3"
 )
 
-func (c *Cluster) tearDownCluster() error {
-	id, err := c.getClusterID()
+func (c *Cluster) tearDownCluster(ctx context.Context) error {
+	id, err := c.getClusterID(ctx)
 	if err != nil {
 		return fmt.Errorf("error getting cluster ID: %w", err)
 	}
 
-	cluster, err := c.Ego.GetSKSCluster(c.context, id)
+	cluster, err := c.Ego.GetSKSCluster(ctx, id)
 	if err != nil {
 		return err
 	}
 
 	if len(cluster.Nodepools) > 0 {
-		if err := c.awaitSuccess(c.Ego.DeleteSKSNodepool(c.context, cluster.ID, cluster.Nodepools[0].ID)); err != nil {
+		op, err := c.Ego.DeleteSKSNodepool(ctx, cluster.ID, cluster.Nodepools[0].ID)
+		if err := c.awaitSuccess(ctx, op, err); err != nil {
 			return fmt.Errorf("error deleting nodepool: %w", err)
 		}
 	}
 
-	return c.awaitSuccess(c.Ego.DeleteSKSCluster(c.context, cluster.ID))
+	op, err := c.Ego.DeleteSKSCluster(ctx, cluster.ID)
+	return c.awaitSuccess(ctx, op, err)
 }
 
 func (c Cluster) Wait(ctx context.Context, op *exov3.Operation, states ...exov3.OperationState) (*exov3.Operation, error) {
@@ -88,12 +90,12 @@ polling:
 		)
 }
 
-func (c *Cluster) awaitID(op *exov3.Operation, err error) (exov3.UUID, error) {
+func (c *Cluster) awaitID(ctx context.Context, op *exov3.Operation, err error) (exov3.UUID, error) {
 	if err != nil {
 		return "", err
 	}
 
-	finishedOP, err := c.Wait(c.context, op, exov3.OperationStateSuccess)
+	finishedOP, err := c.Wait(ctx, op, exov3.OperationStateSuccess)
 	if err != nil {
 		return "", err
 	}
@@ -105,34 +107,33 @@ func (c *Cluster) awaitID(op *exov3.Operation, err error) (exov3.UUID, error) {
 	return "", nil
 }
 
-func (c *Cluster) awaitSuccess(op *exov3.Operation, err error) error {
-	_, err = c.awaitID(op, err)
+func (c *Cluster) awaitSuccess(ctx context.Context, op *exov3.Operation, err error) error {
+	_, err = c.awaitID(ctx, op, err)
 	return err
 }
 
 func (c *Cluster) TearDown() error {
+	ctx := context.Background()
 	if *flags.TearDownCSI {
-		if err := c.tearDownCSI(); err != nil {
+		if err := c.tearDownCSI(ctx); err != nil {
 			return err
 		}
 	}
 
 	if *flags.TearDownCluster {
-		if err := c.tearDownCluster(); err != nil {
+		if err := c.tearDownCluster(ctx); err != nil {
 			return err
 		}
 	}
 
-	c.cancelContext()
-
 	return nil
 }
 
-func (c *Cluster) tearDownCSI() error {
+func (c *Cluster) tearDownCSI(ctx context.Context) error {
 	var finalErr error = nil
 
 	for _, manifestPath := range allManifests {
-		err := c.K8s.DeleteManifest(c.context, manifestDir+manifestPath)
+		err := c.K8s.DeleteManifest(ctx, manifestDir+manifestPath)
 		if err != nil {
 			slog.Error("failed to delete manifest", "manifest", manifestPath, "err", err)
 
@@ -140,7 +141,7 @@ func (c *Cluster) tearDownCSI() error {
 		}
 	}
 
-	err := c.deleteAPIKeyAndRole()
+	err := c.deleteAPIKeyAndRole(ctx)
 	if err != nil {
 		slog.Error("failed to clean up CSI API key and role", "err", err)
 

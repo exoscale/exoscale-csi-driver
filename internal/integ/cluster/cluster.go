@@ -18,8 +18,7 @@ func Get() *Cluster {
 
 type Cluster struct {
 	// TODO (sauterp) get rid of these
-	context       context.Context
-	cancelContext context.CancelFunc
+	context context.Context
 
 	Name        string
 	ID          exov3.UUID
