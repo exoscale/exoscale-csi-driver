@@ -39,6 +39,8 @@ func (c *Cluster) awaitID(op *exov3.Operation, err error) (exov3.UUID, error) {
 		return "", err
 	}
 
+	slog.Info("API key ref", "id", finishedOP.Reference.ID)
+
 	return finishedOP.Reference.ID, nil
 }
 
