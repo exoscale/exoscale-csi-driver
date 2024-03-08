@@ -64,13 +64,12 @@ func (c *Cluster) getClusterID() (exov3.UUID, error) {
 		return "", err
 	}
 
-	for _, cluster := range clusterList.SKSClusters {
-		if cluster.Name == *flags.ClusterName {
-			return cluster.ID, nil
-		}
+	cluster, err := clusterList.FindSKSCluster(*flags.ClusterName)
+	if err != nil {
+		return "", err
 	}
 
-	return "", fmt.Errorf("failed to find cluster named %q", *flags.ClusterName)
+	return cluster.ID, nil
 }
 
 func (c *Cluster) getCluster() (*exov3.SKSCluster, error) {
