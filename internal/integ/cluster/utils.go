@@ -240,6 +240,8 @@ func (c *Cluster) applyCSI() error {
 			return fmt.Errorf("error creating IAM role: %w", err)
 		}
 
+		time.Sleep(3 * time.Second)
+
 		apiKey, err := c.Ego.CreateAPIKey(c.context, exov3.CreateAPIKeyRequest{
 			Name:   c.APIKeyName,
 			RoleID: roleID,
