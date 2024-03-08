@@ -57,7 +57,7 @@ func (c *Cluster) provisionSKSCluster(zone string) error {
 		return err
 	}
 
-	newCluster, err := c.Ego.CreateSKSCluster(c.context, exov3.CreateSKSClusterRequest{
+	newClusterID, err := c.awaitID(c.Ego.CreateSKSCluster(c.context, exov3.CreateSKSClusterRequest{
 		Addons: []string{
 			"exoscale-cloud-controller",
 		},
@@ -66,21 +66,20 @@ func (c *Cluster) provisionSKSCluster(zone string) error {
 		Name:        c.Name,
 		Level:       exov3.CreateSKSClusterRequestLevelPro,
 		Version:     latestSKSVersion,
-	})
+	}))
 	if err != nil {
 		return err
 	}
 
-	c.ID = newCluster.ID
+	c.ID = newClusterID
 
-	_, err = c.Ego.CreateSKSNodepool(c.context, newCluster.ID, exov3.CreateSKSNodepoolRequest{
+	if err = c.awaitSuccess(c.Ego.CreateSKSNodepool(c.context, newClusterID, exov3.CreateSKSNodepoolRequest{
 		Name:           c.Name + "-nodepool",
 		DiskSize:       int64(20),
 		Size:           int64(2),
 		InstancePrefix: "pool",
 		InstanceType:   instanceType,
-	})
-	if err != nil {
+	})); err != nil {
 		// this can error even when the nodepool is successfully created
 		// it's probably a bug, so we're not returning the error
 		slog.Warn("error creating nodepool", "err", err)

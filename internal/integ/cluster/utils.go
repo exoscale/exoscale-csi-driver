@@ -54,27 +54,6 @@ func ptr[T any](v T) *T {
 	return &v
 }
 
-func getCredentialsFromEnv() (string, string, error) {
-	errmsg := "environment variable %q is required"
-
-	apiKey := ""
-	apiSecret := ""
-
-	value, ok := os.LookupEnv(util.APIKeyEnvVar)
-	if !ok {
-		return "", "", fmt.Errorf(errmsg, util.APIKeyEnvVar)
-	}
-	apiKey = value
-
-	value, ok = os.LookupEnv(util.APISecretEnvVar)
-	if !ok {
-		return "", "", fmt.Errorf(errmsg, util.APIKeyEnvVar)
-	}
-	apiSecret = value
-
-	return apiKey, apiSecret, nil
-}
-
 func (c *Cluster) getClusterID() (exov3.UUID, error) {
 	if err := flags.ValidateFlags(); err != nil {
 		return "", err
@@ -91,7 +70,7 @@ func (c *Cluster) getClusterID() (exov3.UUID, error) {
 		}
 	}
 
-	return "", fmt.Errorf("failed to find cluster", "name", *flags.ClusterName)
+	return "", fmt.Errorf("failed to find cluster named %q", *flags.ClusterName)
 }
 
 func (c *Cluster) getCluster() (*exov3.SKSCluster, error) {
@@ -228,7 +207,7 @@ func (c *Cluster) createImagePullSecret() {
 }
 
 func (c *Cluster) applyCSI() error {
-	// TODO (sauterp) reenable or remove once it is clear which registy should be used for the test images
+	// TODO (sauterp) reenable or remove once it is clear which registry should be used for the test images
 	// c.createImagePullSecret()
 
 	if *flags.CreateCSISecret {
@@ -246,7 +225,7 @@ func (c *Cluster) applyCSI() error {
 			},
 		}
 
-		role, err := c.Ego.CreateIAMRole(c.context, exov3.CreateIAMRoleRequest{
+		roleID, err := c.awaitID(c.Ego.CreateIAMRole(c.context, exov3.CreateIAMRoleRequest{
 			Name:        c.APIRoleName,
 			Description: "role for the CSI test cluster " + c.Name,
 			Editable:    ptr(false),
@@ -256,14 +235,14 @@ func (c *Cluster) applyCSI() error {
 					"compute": onlyAllowBlockStorageOperations,
 				},
 			},
-		})
+		}))
 		if err != nil {
 			return fmt.Errorf("error creating IAM role: %w", err)
 		}
 
 		apiKey, err := c.Ego.CreateAPIKey(c.context, exov3.CreateAPIKeyRequest{
 			Name:   c.APIKeyName,
-			RoleID: role.ID,
+			RoleID: roleID,
 		})
 		if err != nil {
 			return err
@@ -286,8 +265,7 @@ func (c *Cluster) applyCSI() error {
 		}
 	}
 
-	// TODO(sauterp) this shouldn't be necessary anymore once the CSI addon is available.
-	// the CSI controller needs to restart to pick up the new secrets
+	// the CSI controller needs to restart, in case it is already running, to pick up the new secrets
 	c.restartCSIController()
 
 	controllerName := "exoscale-csi-controller"

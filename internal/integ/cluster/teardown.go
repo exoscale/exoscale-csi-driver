@@ -29,13 +29,21 @@ func (c *Cluster) tearDownCluster() error {
 	return c.awaitSuccess(c.Ego.DeleteSKSCluster(c.context, cluster.ID))
 }
 
-func (c *Cluster) awaitSuccess(op *exov3.Operation, err error) error {
+func (c *Cluster) awaitID(op *exov3.Operation, err error) (exov3.UUID, error) {
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	_, err = c.Ego.Wait(c.context, op, exov3.OperationStateSuccess)
+	ref, err := c.Ego.Wait(c.context, op, exov3.OperationStateSuccess)
+	if err != nil {
+		return "", err
+	}
 
+	return ref.ID, nil
+}
+
+func (c *Cluster) awaitSuccess(op *exov3.Operation, err error) error {
+	_, err = c.awaitID(op, err)
 	return err
 }
 
