@@ -174,6 +174,7 @@ func (c *Cluster) applyCSI(ctx context.Context) error {
 			return fmt.Errorf("error creating IAM role: %w", err)
 		}
 
+		// necessary due to issue [sc-91482]
 		time.Sleep(3 * time.Second)
 
 		apiKey, err := c.Ego.CreateAPIKey(ctx, exov3.CreateAPIKeyRequest{
