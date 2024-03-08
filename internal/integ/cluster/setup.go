@@ -107,9 +107,8 @@ func ConfigureCluster(ctx context.Context, createCluster bool, name, zone string
 	}
 
 	cluster := &Cluster{
-		Ego:     client,
-		Name:    name,
-		context: context.Background(),
+		Ego:  client,
+		Name: name,
 	}
 
 	if createCluster {

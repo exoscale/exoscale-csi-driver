@@ -5,12 +5,9 @@ import (
 	"encoding/base64"
 	"fmt"
 	"log/slog"
-	"os"
 	"strings"
 	"time"
 
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/exoscale/exoscale/csi-driver/internal/integ/flags"
@@ -144,73 +141,7 @@ func (c *Cluster) deleteAPIKeyAndRole(ctx context.Context) error {
 	return nil
 }
 
-func (c *Cluster) createImagePullSecret(ctx context.Context) {
-	value, ok := os.LookupEnv(util.RegistryUsernameEnvVar)
-	if !ok {
-		slog.Warn("no registry username set")
-
-		return
-	}
-	username := value
-
-	value, ok = os.LookupEnv(util.APISecretEnvVar)
-	if !ok {
-		slog.Warn("no registry password set")
-
-		return
-	}
-	password := value
-
-	authToken := base64.StdEncoding.EncodeToString([]byte(username + ":" + password))
-
-	// Encode credentials in base64
-	// dockerConfig := fmt.Sprintf(`{"auths":{"ghcr.io":{"username":"%s","password":"%s"}}}`, username, password)
-	dockerConfig := fmt.Sprintf(`{"auths":{"ghcr.io":{"auth":"%s"}}}`, authToken)
-
-	// Create the secret object
-	secret := &v1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "csi-image-pull-secret",
-			Namespace: "kube-system",
-		},
-		Data: map[string][]byte{
-			".dockerconfigjson": []byte(dockerConfig),
-		},
-		Type: "kubernetes.io/dockerconfigjson",
-	}
-
-	secretsClient := c.K8s.ClientSet.CoreV1().Secrets("kube-system")
-
-	_, err := secretsClient.Get(ctx, secret.Name, metav1.GetOptions{})
-	if err != nil {
-		if !errors.IsNotFound(err) {
-			_, err := secretsClient.Create(ctx, secret, metav1.CreateOptions{})
-			if err != nil {
-				slog.Error("failed to create registry secret", "err", err)
-				return
-			}
-
-			slog.Info("image pull secret created successfully")
-			return
-		}
-
-		slog.Error("error checking for registry secret", "err", err)
-		return
-	}
-
-	_, err = secretsClient.Update(ctx, secret, metav1.UpdateOptions{})
-	if err != nil {
-		slog.Error("failed to update registry secret", "err", err)
-		return
-	}
-
-	slog.Info("image pull secret updated successfully")
-}
-
 func (c *Cluster) applyCSI(ctx context.Context) error {
-	// TODO (sauterp) reenable or remove once it is clear which registry should be used for the test images
-	// c.createImagePullSecret()
-
 	if *flags.CreateCSISecret {
 		if err := c.deleteAPIKeyAndRole(ctx); err != nil {
 			return err
