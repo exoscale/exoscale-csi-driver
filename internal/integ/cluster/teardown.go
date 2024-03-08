@@ -102,7 +102,7 @@ func (c *Cluster) awaitID(op *exov3.Operation, err error) (exov3.UUID, error) {
 		return finishedOP.Reference.ID, nil
 	}
 
-	return nil, nil
+	return "", nil
 }
 
 func (c *Cluster) awaitSuccess(op *exov3.Operation, err error) error {
