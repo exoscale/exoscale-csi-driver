@@ -47,10 +47,6 @@ var (
 	}
 )
 
-func ptr[T any](v T) *T {
-	return &v
-}
-
 func (c *Cluster) getClusterID(ctx context.Context) (exov3.UUID, error) {
 	if err := flags.ValidateFlags(); err != nil {
 		return "", err
@@ -160,7 +156,7 @@ func (c *Cluster) applyCSI(ctx context.Context) error {
 		op, err := c.Ego.CreateIAMRole(ctx, exov3.CreateIAMRoleRequest{
 			Name:        c.APIRoleName,
 			Description: "role for the CSI test cluster " + c.Name,
-			Editable:    ptr(false),
+			Editable:    exov3.Ptr(false),
 			Policy: &exov3.IAMPolicy{
 				DefaultServiceStrategy: "deny",
 				Services: map[string]exov3.IAMServicePolicy{
