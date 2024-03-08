@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"time"
 
 	"github.com/exoscale/exoscale/csi-driver/internal/integ/flags"
 
@@ -33,69 +32,12 @@ func (c *Cluster) tearDownCluster(ctx context.Context) error {
 	return c.awaitSuccess(ctx, op, err)
 }
 
-func (c Cluster) Wait(ctx context.Context, op *exov3.Operation, states ...exov3.OperationState) (*exov3.Operation, error) {
-	if op == nil {
-		return nil, fmt.Errorf("operation is nil")
-	}
-
-	ticker := time.NewTicker(3 * time.Second)
-	defer ticker.Stop()
-
-	// if op.State != exov3.OperationStatePending {
-	// 	return op, nil
-	// }
-
-	var operation *exov3.Operation
-polling:
-	for {
-		select {
-		case <-ticker.C:
-			o, err := c.Ego.GetOperation(ctx, op.ID)
-			if err != nil {
-				return nil, err
-			}
-			if o.State == exov3.OperationStatePending {
-				continue
-			}
-
-			operation = o
-			break polling
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		}
-	}
-
-	if len(states) == 0 {
-		return operation, nil
-	}
-
-	for _, st := range states {
-		if operation.State == st {
-			return operation, nil
-		}
-	}
-
-	var ref exov3.OperationReference
-	if operation.Reference != nil {
-		ref = *operation.Reference
-	}
-
-	return nil,
-		fmt.Errorf("operation: %q %v, state: %s, reason: %q, message: %q",
-			operation.ID,
-			ref,
-			operation.State,
-			operation.Reason,
-			operation.Message,
-		)
-}
-
 func (c *Cluster) awaitID(ctx context.Context, op *exov3.Operation, err error) (exov3.UUID, error) {
 	if err != nil {
 		return "", err
 	}
 
-	finishedOP, err := c.Wait(ctx, op, exov3.OperationStateSuccess)
+	finishedOP, err := c.Ego.Wait(ctx, op, exov3.OperationStateSuccess)
 	if err != nil {
 		return "", err
 	}
