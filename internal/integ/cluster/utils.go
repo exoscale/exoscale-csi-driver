@@ -130,14 +130,14 @@ func (c *Cluster) deleteAPIKeyAndRole() error {
 		return fmt.Errorf("error listing iam roles: %w", err)
 	}
 
-	for _, role := range roles.IAMRoles {
-		if role.Name != c.APIRoleName {
-			continue
-		}
+	role, err := roles.FindIAMRole(c.APIRoleName)
+	if err != nil {
+		// no role to delete
+		return nil
+	}
 
-		if err := c.awaitSuccess(c.Ego.DeleteIAMRole(c.context, role.ID)); err != nil {
-			slog.Error("deleting IAM role", "name", role.Name, "err", err)
-		}
+	if err := c.awaitSuccess(c.Ego.DeleteIAMRole(c.context, role.ID)); err != nil {
+		slog.Error("deleting IAM role", "name", role.Name, "err", err)
 	}
 
 	return nil

@@ -34,12 +34,12 @@ func (c *Cluster) awaitID(op *exov3.Operation, err error) (exov3.UUID, error) {
 		return "", err
 	}
 
-	ref, err := c.Ego.Wait(c.context, op, exov3.OperationStateSuccess)
+	finishedOP, err := c.Ego.Wait(c.context, op, exov3.OperationStateSuccess)
 	if err != nil {
 		return "", err
 	}
 
-	return ref.ID, nil
+	return finishedOP.Reference.ID, nil
 }
 
 func (c *Cluster) awaitSuccess(op *exov3.Operation, err error) error {
