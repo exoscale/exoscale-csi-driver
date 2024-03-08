@@ -147,12 +147,12 @@ func (c *Cluster) applyCSI(ctx context.Context) error {
 			return err
 		}
 
-		onlyAllowBlockStorageOperations := exov2.IAMPolicyService{
-			Type: ptr("rules"),
-			Rules: []exov2.IAMPolicyServiceRule{
-				exov2.IAMPolicyServiceRule{
-					Action:     ptr("allow"),
-					Expression: ptr("operation in ['list-zones', 'get-block-storage-volume', 'list-block-storage-volumes', 'create-block-storage-volume', 'delete-block-storage-volume', 'attach-block-storage-volume-to-instance', 'detach-block-storage-volume', 'update-block-storage-volume-labels', 'resize-block-storage-volume', 'get-block-storage-snapshot', 'list-block-storage-snapshots', 'create-block-storage-snapshot', 'delete-block-storage-snapshot']"),
+		onlyAllowBlockStorageOperations := exov3.IAMServicePolicy{
+			Type: exov3.IAMServicePolicyTypeRules,
+			Rules: []exov3.IAMServicePolicyRule{
+				exov3.IAMServicePolicyRule{
+					Action:     exov3.IAMServicePolicyRuleActionAllow,
+					Expression: "operation in ['list-zones', 'get-block-storage-volume', 'list-block-storage-volumes', 'create-block-storage-volume', 'delete-block-storage-volume', 'attach-block-storage-volume-to-instance', 'detach-block-storage-volume', 'update-block-storage-volume-labels', 'resize-block-storage-volume', 'get-block-storage-snapshot', 'list-block-storage-snapshots', 'create-block-storage-snapshot', 'delete-block-storage-snapshot']",
 				},
 			},
 		}
@@ -163,7 +163,7 @@ func (c *Cluster) applyCSI(ctx context.Context) error {
 			Editable:    ptr(false),
 			Policy: &exov3.IAMPolicy{
 				DefaultServiceStrategy: "deny",
-				Services: map[string]exov2.IAMPolicyService{
+				Services: map[string]exov3.IAMServicePolicy{
 					"compute": onlyAllowBlockStorageOperations,
 				},
 			},
