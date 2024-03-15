@@ -15,7 +15,6 @@ import (
 	"github.com/exoscale/exoscale/csi-driver/internal/integ/util"
 
 	exov3 "github.com/exoscale/egoscale/v3"
-	"github.com/exoscale/egoscale/v3/credentials"
 )
 
 const (
@@ -33,6 +32,7 @@ var (
 	nodeDriverRBACManifest      = "node-driver-rbac.yaml"
 	nodeDriverManifest          = "node-driver.yaml"
 	storageClassManifest        = "storage-class.yaml"
+	storageClassRetainManifest  = "storage-class-retain.yaml"
 	volumeSnapshotClassManifest = "volume-snapshot-class.yaml"
 
 	allManifests = []string{
@@ -43,6 +43,7 @@ var (
 		nodeDriverRBACManifest,
 		nodeDriverManifest,
 		storageClassManifest,
+		storageClassRetainManifest,
 		volumeSnapshotClassManifest,
 	}
 )
@@ -288,13 +289,4 @@ func (c *Cluster) restartCSIController(ctx context.Context) {
 			}
 		}
 	}
-}
-
-func createEgoscaleClient() (*exov3.Client, error) {
-	v3Client, err := exov3.NewClient(credentials.NewEnvCredentials(), exov3.ClientOptWithEndpoint(exov3.CHGva2))
-	if err != nil {
-		return nil, fmt.Errorf("error setting up egoscale client: %w", err)
-	}
-
-	return v3Client, nil
 }
