@@ -9,10 +9,6 @@ import (
 const (
 	APIKeyEnvVar    = "EXOSCALE_API_KEY"
 	APISecretEnvVar = "EXOSCALE_API_SECRET"
-
-	// TODO(sauterp) remove once it is certain that we use a public registry
-	RegistryUsernameEnvVar = "REGISTRY_USERNAME"
-	RegistryPasswordEnvVar = "REGISTRY_PASSWORD"
 )
 
 func GetRepoRootDir() string {

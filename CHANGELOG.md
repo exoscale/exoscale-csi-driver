@@ -7,6 +7,7 @@
 * go.mk: remove submodule and initialize through make #15
 * integ-tests: use IAMv3 API key #13 
 * document and minimize IAM rule policy for CSI #19 
+* integ-tests: use egoscale v3 #20 
 
 ## 0.29.2
 

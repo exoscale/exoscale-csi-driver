@@ -5,20 +5,17 @@ import (
 	"encoding/base64"
 	"fmt"
 	"log/slog"
-	"os"
 	"strings"
 	"time"
 
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/exoscale/exoscale/csi-driver/internal/integ/flags"
 	"github.com/exoscale/exoscale/csi-driver/internal/integ/k8s"
 	"github.com/exoscale/exoscale/csi-driver/internal/integ/util"
 
-	exov2 "github.com/exoscale/egoscale/v2"
-	exov2api "github.com/exoscale/egoscale/v2/api"
+	exov3 "github.com/exoscale/egoscale/v3"
+	"github.com/exoscale/egoscale/v3/credentials"
 )
 
 const (
@@ -50,69 +47,53 @@ var (
 	}
 )
 
-func ptr[T any](v T) *T {
-	return &v
-}
-
-func getCredentialsFromEnv() (string, string, error) {
-	errmsg := "environment variable %q is required"
-
-	apiKey := ""
-	apiSecret := ""
-
-	value, ok := os.LookupEnv(util.APIKeyEnvVar)
-	if !ok {
-		return "", "", fmt.Errorf(errmsg, util.APIKeyEnvVar)
-	}
-	apiKey = value
-
-	value, ok = os.LookupEnv(util.APISecretEnvVar)
-	if !ok {
-		return "", "", fmt.Errorf(errmsg, util.APIKeyEnvVar)
-	}
-	apiSecret = value
-
-	return apiKey, apiSecret, nil
-}
-
-func (c *Cluster) getClusterID() (string, error) {
+func (c *Cluster) getClusterID(ctx context.Context) (exov3.UUID, error) {
 	if err := flags.ValidateFlags(); err != nil {
 		return "", err
 	}
 
-	cluster, err := c.Ego.FindSKSCluster(c.exoV2Context, *flags.Zone, *flags.ClusterName)
+	clusterList, err := c.Ego.ListSKSClusters(ctx)
 	if err != nil {
 		return "", err
 	}
 
-	return *cluster.ID, nil
+	cluster, err := clusterList.FindSKSCluster(*flags.ClusterName)
+	if err != nil {
+		return "", err
+	}
+
+	return cluster.ID, nil
 }
 
-func (c *Cluster) getCluster() (*exov2.SKSCluster, error) {
-	id, err := c.getClusterID()
+func (c *Cluster) getCluster(ctx context.Context) (*exov3.SKSCluster, error) {
+	id, err := c.getClusterID(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	return c.Ego.GetSKSCluster(c.exoV2Context, *flags.Zone, id)
+	return c.Ego.GetSKSCluster(ctx, exov3.UUID(id))
 }
 
-func (c *Cluster) getKubeconfig() ([]byte, error) {
-	cluster, err := c.Ego.GetSKSCluster(c.exoV2Context, *flags.Zone, c.ID)
+func (c *Cluster) getKubeconfig(ctx context.Context) ([]byte, error) {
+	cluster, err := c.Ego.GetSKSCluster(ctx, c.ID)
 	if err != nil {
 		return nil, err
 	}
 
-	base64KubeConfig, err := c.Ego.GetSKSClusterKubeconfig(c.exoV2Context, *flags.Zone, cluster, "admin", []string{"system:masters"}, 1*time.Hour)
+	base64KubeConfig, err := c.Ego.GenerateSKSClusterKubeconfig(ctx, cluster.ID, exov3.SKSKubeconfigRequest{
+		Groups: []string{"system:masters"},
+		Ttl:    2 * 60 * 60,
+		User:   "admin",
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	return base64.StdEncoding.DecodeString(base64KubeConfig)
+	return base64.StdEncoding.DecodeString(base64KubeConfig.Kubeconfig)
 }
 
-func (c *Cluster) getK8sClients() (*k8s.K8S, error) {
-	kubeconfig, err := c.getKubeconfig()
+func (c *Cluster) getK8sClients(ctx context.Context) (*k8s.K8S, error) {
+	kubeconfig, err := c.getKubeconfig(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -120,148 +101,87 @@ func (c *Cluster) getK8sClients() (*k8s.K8S, error) {
 	return k8s.CreateClients(kubeconfig)
 }
 
-func (c *Cluster) deleteAPIKeyAndRole() error {
-	keys, err := c.Ego.ListAPIKeys(c.exoV2Context, *flags.Zone)
+func (c *Cluster) deleteAPIKeyAndRole(ctx context.Context) error {
+	keys, err := c.Ego.ListAPIKeys(ctx)
 	if err != nil {
 		return fmt.Errorf("error listing api keys: %w", err)
 	}
 
-	for _, key := range keys {
-		if *key.Name != c.APIKeyName {
+	for _, key := range keys.APIKeys {
+		if key.Name != c.APIKeyName {
 			continue
 		}
 
-		if err := c.Ego.DeleteAPIKey(c.exoV2Context, *flags.Zone, key); err != nil {
+		op, err := c.Ego.DeleteAPIKey(ctx, key.Key)
+		if err := c.awaitSuccess(ctx, op, err); err != nil {
 			return fmt.Errorf("error deleting existing IAM key: %w", err)
 		}
 	}
 
-	roles, err := c.Ego.ListIAMRoles(c.exoV2Context, *flags.Zone)
+	roles, err := c.Ego.ListIAMRoles(ctx)
 	if err != nil {
 		return fmt.Errorf("error listing iam roles: %w", err)
 	}
 
-	for _, role := range roles {
-		if *role.Name != c.APIRoleName {
-			continue
-		}
+	role, err := roles.FindIAMRole(c.APIRoleName)
+	if err != nil {
+		// no role to delete
+		return nil
+	}
 
-		if err := c.Ego.DeleteIAMRole(c.exoV2Context, *flags.Zone, role); err != nil {
-			slog.Error("deleting IAM role", "name", *role.Name, "err", err)
-		}
+	op, err := c.Ego.DeleteIAMRole(ctx, role.ID)
+	if err := c.awaitSuccess(ctx, op, err); err != nil {
+		slog.Error("deleting IAM role", "name", role.Name, "err", err)
 	}
 
 	return nil
 }
 
-func (c *Cluster) createImagePullSecret() {
-	value, ok := os.LookupEnv(util.RegistryUsernameEnvVar)
-	if !ok {
-		slog.Warn("no registry username set")
-
-		return
-	}
-	username := value
-
-	value, ok = os.LookupEnv(util.APISecretEnvVar)
-	if !ok {
-		slog.Warn("no registry password set")
-
-		return
-	}
-	password := value
-
-	authToken := base64.StdEncoding.EncodeToString([]byte(username + ":" + password))
-
-	// Encode credentials in base64
-	// dockerConfig := fmt.Sprintf(`{"auths":{"ghcr.io":{"username":"%s","password":"%s"}}}`, username, password)
-	dockerConfig := fmt.Sprintf(`{"auths":{"ghcr.io":{"auth":"%s"}}}`, authToken)
-
-	// Create the secret object
-	secret := &v1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "csi-image-pull-secret",
-			Namespace: "kube-system",
-		},
-		Data: map[string][]byte{
-			".dockerconfigjson": []byte(dockerConfig),
-		},
-		Type: "kubernetes.io/dockerconfigjson",
-	}
-
-	secretsClient := c.K8s.ClientSet.CoreV1().Secrets("kube-system")
-
-	_, err := secretsClient.Get(c.exoV2Context, secret.Name, metav1.GetOptions{})
-	if err != nil {
-		if !errors.IsNotFound(err) {
-			_, err := secretsClient.Create(c.exoV2Context, secret, metav1.CreateOptions{})
-			if err != nil {
-				slog.Error("failed to create registry secret", "err", err)
-				return
-			}
-
-			slog.Info("image pull secret created successfully")
-			return
-		}
-
-		slog.Error("error checking for registry secret", "err", err)
-		return
-	}
-
-	_, err = secretsClient.Update(c.exoV2Context, secret, metav1.UpdateOptions{})
-	if err != nil {
-		slog.Error("failed to update registry secret", "err", err)
-		return
-	}
-
-	slog.Info("image pull secret updated successfully")
-}
-
-func (c *Cluster) applyCSI() error {
-	// TODO (sauterp) reenable or remove once it is clear which registy should be used for the test images
-	// c.createImagePullSecret()
-
+func (c *Cluster) applyCSI(ctx context.Context) error {
 	if *flags.CreateCSISecret {
-		if err := c.deleteAPIKeyAndRole(); err != nil {
+		if err := c.deleteAPIKeyAndRole(ctx); err != nil {
 			return err
 		}
 
-		onlyAllowBlockStorageOperations := exov2.IAMPolicyService{
-			Type: ptr("rules"),
-			Rules: []exov2.IAMPolicyServiceRule{
-				exov2.IAMPolicyServiceRule{
-					Action:     ptr("allow"),
-					Expression: ptr("operation in ['list-zones', 'get-block-storage-volume', 'list-block-storage-volumes', 'create-block-storage-volume', 'delete-block-storage-volume', 'attach-block-storage-volume-to-instance', 'detach-block-storage-volume', 'update-block-storage-volume-labels', 'resize-block-storage-volume', 'get-block-storage-snapshot', 'list-block-storage-snapshots', 'create-block-storage-snapshot', 'delete-block-storage-snapshot']"),
+		onlyAllowBlockStorageOperations := exov3.IAMServicePolicy{
+			Type: exov3.IAMServicePolicyTypeRules,
+			Rules: []exov3.IAMServicePolicyRule{
+				exov3.IAMServicePolicyRule{
+					Action:     exov3.IAMServicePolicyRuleActionAllow,
+					Expression: "operation in ['list-zones', 'get-block-storage-volume', 'list-block-storage-volumes', 'create-block-storage-volume', 'delete-block-storage-volume', 'attach-block-storage-volume-to-instance', 'detach-block-storage-volume', 'update-block-storage-volume-labels', 'resize-block-storage-volume', 'get-block-storage-snapshot', 'list-block-storage-snapshots', 'create-block-storage-snapshot', 'delete-block-storage-snapshot']",
 				},
 			},
 		}
 
-		role, err := c.Ego.CreateIAMRole(c.exoV2Context, *flags.Zone, &exov2.IAMRole{
-			Name:        ptr(c.APIRoleName),
-			Description: ptr("role for the CSI test cluster " + c.Name),
-			Editable:    ptr(false),
-			Policy: &exov2.IAMPolicy{
+		op, err := c.Ego.CreateIAMRole(ctx, exov3.CreateIAMRoleRequest{
+			Name:        c.APIRoleName,
+			Description: "role for the CSI test cluster " + c.Name,
+			Editable:    exov3.Ptr(false),
+			Policy: &exov3.IAMPolicy{
 				DefaultServiceStrategy: "deny",
-				Services: map[string]exov2.IAMPolicyService{
+				Services: map[string]exov3.IAMServicePolicy{
 					"compute": onlyAllowBlockStorageOperations,
 				},
 			},
 		})
+
+		roleID, err := c.awaitID(ctx, op, err)
 		if err != nil {
 			return fmt.Errorf("error creating IAM role: %w", err)
 		}
 
-		apikey := &exov2.APIKey{
-			Name:   ptr(c.APIKeyName),
-			RoleID: role.ID,
-		}
+		// necessary due to issue [sc-91482]
+		time.Sleep(3 * time.Second)
 
-		key, secret, err := c.Ego.CreateAPIKey(c.exoV2Context, *flags.Zone, apikey)
+		apiKey, err := c.Ego.CreateAPIKey(ctx, exov3.CreateAPIKeyRequest{
+			Name:   c.APIKeyName,
+			RoleID: roleID,
+		})
 		if err != nil {
 			return err
 		}
 
-		err = c.K8s.ApplySecret(c.exoV2Context, *key.Key, secret)
+		err = c.K8s.ApplySecret(ctx, apiKey.Key, apiKey.Secret)
 		if err != nil {
 			return fmt.Errorf("error creating secret: %w", err)
 		}
@@ -272,23 +192,22 @@ func (c *Cluster) applyCSI() error {
 	}
 
 	for _, manifestPath := range allManifests {
-		err := c.K8s.ApplyManifest(c.exoV2Context, manifestDir+manifestPath)
+		err := c.K8s.ApplyManifest(ctx, manifestDir+manifestPath)
 		if err != nil {
 			return fmt.Errorf("error applying CSI manifest: %q %w", manifestPath, err)
 		}
 	}
 
-	// TODO(sauterp) this shouldn't be necessary anymore once the CSI addon is available.
-	// the CSI controller needs to restart to pick up the new secrets
-	c.restartCSIController()
+	// the CSI controller needs to restart, in case it is already running, to pick up the new secrets
+	c.restartCSIController(ctx)
 
 	controllerName := "exoscale-csi-controller"
-	if err := c.awaitDeploymentReadiness(controllerName); err != nil {
+	if err := c.awaitDeploymentReadiness(ctx, controllerName); err != nil {
 		slog.Warn("error while awaiting", "deployment", controllerName, "error", err)
 	}
 
 	nodeDriverName := "exoscale-csi-node"
-	if err := c.awaitDaemonSetReadiness(nodeDriverName); err != nil {
+	if err := c.awaitDaemonSetReadiness(ctx, nodeDriverName); err != nil {
 		slog.Warn("error while awaiting", "DaemonSet", nodeDriverName, "error", err)
 	}
 
@@ -315,9 +234,9 @@ func retry(trial func() error, nRetries int, retryInterval time.Duration) error 
 	return trial()
 }
 
-func (c *Cluster) awaitDeploymentReadiness(deploymentName string) error {
+func (c *Cluster) awaitDeploymentReadiness(ctx context.Context, deploymentName string) error {
 	return retry(func() error {
-		deployment, err := c.K8s.ClientSet.AppsV1().Deployments(csiNamespace).Get(c.exoV2Context, deploymentName, metav1.GetOptions{})
+		deployment, err := c.K8s.ClientSet.AppsV1().Deployments(csiNamespace).Get(ctx, deploymentName, metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
@@ -334,9 +253,9 @@ func (c *Cluster) awaitDeploymentReadiness(deploymentName string) error {
 	}, 0, 0)
 }
 
-func (c *Cluster) awaitDaemonSetReadiness(name string) error {
+func (c *Cluster) awaitDaemonSetReadiness(ctx context.Context, name string) error {
 	return retry(func() error {
-		daemonSet, err := c.K8s.ClientSet.AppsV1().DaemonSets(csiNamespace).Get(c.exoV2Context, name, metav1.GetOptions{})
+		daemonSet, err := c.K8s.ClientSet.AppsV1().DaemonSets(csiNamespace).Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
@@ -353,17 +272,17 @@ func (c *Cluster) awaitDaemonSetReadiness(name string) error {
 	}, 0, 0)
 }
 
-func (c *Cluster) restartCSIController() {
+func (c *Cluster) restartCSIController(ctx context.Context) {
 	deploymentName := "exoscale-csi-controller"
 	podsClient := c.K8s.ClientSet.CoreV1().Pods(csiNamespace)
-	pods, err := podsClient.List(c.exoV2Context, metav1.ListOptions{})
+	pods, err := podsClient.List(ctx, metav1.ListOptions{})
 	if err != nil {
 		slog.Warn("failed to list pods", "err", err)
 	}
 
 	for _, pod := range pods.Items {
 		if strings.HasPrefix(pod.Name, deploymentName) {
-			err := podsClient.Delete(c.exoV2Context, pod.Name, metav1.DeleteOptions{})
+			err := podsClient.Delete(ctx, pod.Name, metav1.DeleteOptions{})
 			if err != nil {
 				slog.Warn("failed to delete pod", "name", pod.Name, "err", err)
 			}
@@ -371,23 +290,11 @@ func (c *Cluster) restartCSIController() {
 	}
 }
 
-func createV2ClientAndContext() (*exov2.Client, context.Context, context.CancelFunc, error) {
-	apiKey, apiSecret, err := getCredentialsFromEnv()
+func createEgoscaleClient() (*exov3.Client, error) {
+	v3Client, err := exov3.NewClient(credentials.NewEnvCredentials(), exov3.ClientOptWithEndpoint(exov3.CHGva2))
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("error getting credentials from environment: %w", err)
+		return nil, fmt.Errorf("error setting up egoscale client: %w", err)
 	}
 
-	timeout := 5 * time.Minute
-	v2Client, err := exov2.NewClient(apiKey, apiSecret,
-		exov2.ClientOptWithTimeout(timeout),
-	)
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("error setting up egoscale client: %w", err)
-	}
-
-	ctx := context.Background()
-	ctx, ctxCancel := context.WithTimeout(ctx, timeout)
-	ctx = exov2api.WithEndpoint(ctx, exov2api.NewReqEndpoint("", *flags.Zone))
-
-	return v2Client, ctx, ctxCancel, nil
+	return v3Client, nil
 }
