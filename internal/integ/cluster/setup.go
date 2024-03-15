@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/exoscale/exoscale/csi-driver/internal/integ/client"
 	"github.com/exoscale/exoscale/csi-driver/internal/integ/flags"
 
 	exov3 "github.com/exoscale/egoscale/v3"
@@ -101,7 +102,7 @@ func exitApplication(msg string, err error) {
 }
 
 func ConfigureCluster(ctx context.Context, createCluster bool, name, zone string) (*Cluster, error) {
-	client, err := createEgoscaleClient()
+	client, err := client.CreateEgoscaleClient()
 	if err != nil {
 		return nil, fmt.Errorf("error creating egoscale v3 client: %w", err)
 	}

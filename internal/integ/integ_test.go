@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"log/slog"
+	"math/rand"
 	"os"
 	"testing"
 	"time"
@@ -13,6 +14,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
+	"github.com/exoscale/exoscale/csi-driver/internal/integ/client"
 	"github.com/exoscale/exoscale/csi-driver/internal/integ/cluster"
 	"github.com/exoscale/exoscale/csi-driver/internal/integ/k8s"
 )
@@ -50,19 +52,9 @@ func TestMain(m *testing.M) {
 	os.Exit(exitCode)
 }
 
-var basicPVC = `
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: my-sbs-pvc
-spec:
-  accessModes:
-  - ReadWriteOnce
-  resources:
-    requests:
-      storage: 100Gi
-  storageClassName: exoscale-sbs
-`
+func generatePVCName(testName string) string {
+	return fmt.Sprintf("%s-%s-%d", "csi-test-pvc", testName, rand.Int())
+}
 
 type getFunc func() interface{}
 
@@ -83,12 +75,14 @@ func awaitExpectation(t *testing.T, expected interface{}, get getFunc) {
 }
 
 func TestVolumeCreation(t *testing.T) {
-	ns := k8s.CreateTestNamespace(t, cluster.Get().K8s, "create-vol")
+	testName := "create-vol"
+	ns := k8s.CreateTestNamespace(t, cluster.Get().K8s, testName)
 
-	ns.Apply(basicPVC)
+	pvcName := generatePVCName(testName)
+	ns.ApplyPVC(pvcName, false)
 
 	awaitExpectation(t, "Bound", func() interface{} {
-		pvc, err := ns.K.ClientSet.CoreV1().PersistentVolumeClaims(ns.Name).Get(ns.CTX, "my-sbs-pvc", metav1.GetOptions{})
+		pvc, err := ns.K.ClientSet.CoreV1().PersistentVolumeClaims(ns.Name).Get(ns.CTX, pvcName, metav1.GetOptions{})
 		assert.NoError(t, err)
 
 		return pvc.Status.Phase
@@ -119,19 +113,21 @@ spec:
       volumes:
         - name: my-awesome-logs
           persistentVolumeClaim:
-            claimName: my-sbs-pvc
+            claimName: %s
 `
 
 func TestVolumeAttach(t *testing.T) {
-	ns := k8s.CreateTestNamespace(t, cluster.Get().K8s, "vol-attach")
+	testName := "vol-attach"
+	ns := k8s.CreateTestNamespace(t, cluster.Get().K8s, testName)
 
-	ns.Apply(basicPVC)
-	ns.Apply(basicDeployment)
+	pvcName := generatePVCName(testName)
+	ns.ApplyPVC(pvcName, false)
+	ns.Apply(fmt.Sprintf(basicDeployment, pvcName))
 
 	go ns.K.PrintEvents(ns.CTX, ns.Name)
 
 	awaitExpectation(t, "Bound", func() interface{} {
-		pvc, err := ns.K.ClientSet.CoreV1().PersistentVolumeClaims(ns.Name).Get(ns.CTX, "my-sbs-pvc", metav1.GetOptions{})
+		pvc, err := ns.K.ClientSet.CoreV1().PersistentVolumeClaims(ns.Name).Get(ns.CTX, pvcName, metav1.GetOptions{})
 		assert.NoError(t, err)
 
 		return pvc.Status.Phase
@@ -150,30 +146,56 @@ func TestVolumeAttach(t *testing.T) {
 }
 
 func TestDeleteVolume(t *testing.T) {
-	ns := k8s.CreateTestNamespace(t, cluster.Get().K8s, "del-vol")
+	testName := "del-vol"
+	ns := k8s.CreateTestNamespace(t, cluster.Get().K8s, testName)
 
-	ns.Apply(basicPVC)
-
-	pvcClient := ns.K.ClientSet.CoreV1().PersistentVolumeClaims(ns.Name)
-
-	awaitExpectation(t, "Bound", func() interface{} {
-		pvc, err := pvcClient.Get(ns.CTX, "my-sbs-pvc", metav1.GetOptions{})
-		assert.NoError(t, err)
-
-		return pvc.Status.Phase
-	})
-
-	err := pvcClient.Delete(ns.CTX, "my-sbs-pvc", metav1.DeleteOptions{})
+	egoClient, err := client.CreateEgoscaleClient()
 	assert.NoError(t, err)
 
-	awaitExpectation(t, 0, func() interface{} {
-		pvcs, err := pvcClient.List(ns.CTX, metav1.ListOptions{})
-		assert.NoError(t, err)
+	testFunc := func(useRetainStorageClass bool) func(t *testing.T) {
+		return func(t *testing.T) {
+			pvcName := ""
+			if useRetainStorageClass {
+				pvcName = generatePVCName(testName + "-retain")
+			} else {
+				pvcName = generatePVCName(testName)
+			}
+			ns.ApplyPVC(pvcName, useRetainStorageClass)
 
-		return len(pvcs.Items)
-	})
+			pvcClient := ns.K.ClientSet.CoreV1().PersistentVolumeClaims(ns.Name)
 
-	// TODO (sauterp) once ego v3 is available check if volume is deleted (and retainPolicy)
+			awaitExpectation(t, "Bound", func() interface{} {
+				pvc, err := pvcClient.Get(ns.CTX, pvcName, metav1.GetOptions{})
+				assert.NoError(t, err)
+
+				return pvc.Status.Phase
+			})
+
+			err := pvcClient.Delete(ns.CTX, pvcName, metav1.DeleteOptions{})
+			assert.NoError(t, err)
+
+			awaitExpectation(t, 0, func() interface{} {
+				pvcs, err := pvcClient.List(ns.CTX, metav1.ListOptions{})
+				assert.NoError(t, err)
+
+				return len(pvcs.Items)
+			})
+
+			bsVolList, err := egoClient.ListBlockStorageVolumes(ns.CTX)
+			assert.NoError(t, err)
+			for _, volume := range ns.Volumes {
+				_, err := bsVolList.FindBlockStorageVolume(volume)
+				if useRetainStorageClass {
+					assert.NoError(t, err)
+				} else {
+					assert.Error(t, err)
+				}
+			}
+		}
+	}
+
+	t.Run("storage-class-delete", testFunc(false))
+	t.Run("storage-class-retain", testFunc(true))
 }
 
 const basicSnapshot = `
@@ -184,7 +206,7 @@ metadata:
 spec:
   volumeSnapshotClassName: exoscale-snapshot
   source:
-    persistentVolumeClaimName: my-sbs-pvc
+    persistentVolumeClaimName: %s
 `
 
 const basicVolumeFromSnapshot = `
@@ -207,21 +229,23 @@ spec:
 `
 
 func TestSnapshot(t *testing.T) {
-	ns := k8s.CreateTestNamespace(t, cluster.Get().K8s, "snapshot")
+	testName := "snapshot"
+	ns := k8s.CreateTestNamespace(t, cluster.Get().K8s, testName)
 
-	ns.Apply(basicPVC)
+	pvcName := generatePVCName(testName)
+	ns.ApplyPVC(pvcName, false)
 
 	pvcClient := ns.K.ClientSet.CoreV1().PersistentVolumeClaims(ns.Name)
 
 	awaitExpectation(t, "Bound", func() interface{} {
-		pvc, err := pvcClient.Get(ns.CTX, "my-sbs-pvc", metav1.GetOptions{})
+		pvc, err := pvcClient.Get(ns.CTX, pvcName, metav1.GetOptions{})
 		assert.NoError(t, err)
 
 		return pvc.Status.Phase
 	})
 
 	// create snapshot
-	ns.Apply(basicSnapshot)
+	ns.Apply(fmt.Sprintf(basicSnapshot, pvcName))
 
 	snapshotClient := ns.K.DynamicClient.Resource(getSnapshotCRDResource()).Namespace(ns.Name)
 
