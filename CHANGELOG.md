@@ -8,6 +8,7 @@
 * integ-tests: use IAMv3 API key #13 
 * document and minimize IAM rule policy for CSI #19 
 * integ-tests: use egoscale v3 #20 
+* integ-test: verify that retain policy is respected #22 
 
 ## 0.29.2
 
