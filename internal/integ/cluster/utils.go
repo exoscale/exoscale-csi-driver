@@ -239,7 +239,7 @@ func retry(trial func() error, nRetries int, retryInterval time.Duration) error 
 	return trial()
 }
 
-func (c *Cluster) printPodsLogs(ctx context.Context, labelSelector string) {
+func (c *Cluster) printPodsLogs(ctx context.Context, labelSelector string, containerName string) {
 	podList, err := c.K8s.ClientSet.CoreV1().Pods(csiNamespace).List(ctx, metav1.ListOptions{LabelSelector: labelSelector})
 	if err != nil {
 		slog.Warn("failed to get pod list", "labelSelector", labelSelector)
@@ -253,7 +253,8 @@ func (c *Cluster) printPodsLogs(ctx context.Context, labelSelector string) {
 
 	for _, pod := range podList.Items {
 		req := c.K8s.ClientSet.CoreV1().Pods(csiNamespace).GetLogs(pod.Name, &v1.PodLogOptions{
-			Follow: true,
+			Follow:    true,
+			Container: containerName,
 		})
 		logStream, err := req.Stream(ctx)
 		if err != nil {

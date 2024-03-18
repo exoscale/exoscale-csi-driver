@@ -169,8 +169,8 @@ func Setup() error {
 		}
 	}
 
-	testCluster.printPodsLogs(ctx, "app="+csiControllerName)
-	testCluster.printPodsLogs(ctx, "app="+csiNodeDriverName)
+	testCluster.printPodsLogs(ctx, "app="+csiControllerName, "exoscale-csi-plugin")
+	testCluster.printPodsLogs(ctx, "app="+csiNodeDriverName, "exoscale-csi-plugin")
 
 	return nil
 }
