@@ -124,8 +124,6 @@ func TestVolumeAttach(t *testing.T) {
 	ns.ApplyPVC(pvcName, false)
 	ns.Apply(fmt.Sprintf(basicDeployment, pvcName))
 
-	go ns.K.PrintEvents(ns.CTX, ns.Name)
-
 	awaitExpectation(t, "Bound", func() interface{} {
 		pvc, err := ns.K.ClientSet.CoreV1().PersistentVolumeClaims(ns.Name).Get(ns.CTX, pvcName, metav1.GetOptions{})
 		assert.NoError(t, err)

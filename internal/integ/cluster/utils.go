@@ -4,10 +4,13 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"io"
 	"log/slog"
+	"os"
 	"strings"
 	"time"
 
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/exoscale/exoscale/csi-driver/internal/integ/flags"
@@ -203,11 +206,13 @@ func (c *Cluster) applyCSI(ctx context.Context) error {
 	c.restartCSIController(ctx)
 
 	controllerName := "exoscale-csi-controller"
+	c.printDeploymentLogs(ctx, controllerName)
 	if err := c.awaitDeploymentReadiness(ctx, controllerName); err != nil {
 		slog.Warn("error while awaiting", "deployment", controllerName, "error", err)
 	}
 
 	nodeDriverName := "exoscale-csi-node"
+	c.printDaemonSetLogs(ctx, nodeDriverName)
 	if err := c.awaitDaemonSetReadiness(ctx, nodeDriverName); err != nil {
 		slog.Warn("error while awaiting", "DaemonSet", nodeDriverName, "error", err)
 	}
@@ -233,6 +238,54 @@ func retry(trial func() error, nRetries int, retryInterval time.Duration) error 
 	}
 
 	return trial()
+}
+
+func (c *Cluster) printDeploymentLogs(ctx context.Context, deploymentName string) {
+	deployment, err := c.K8s.ClientSet.AppsV1().Deployments(csiNamespace).Get(ctx, deploymentName, metav1.GetOptions{})
+	if err != nil {
+		slog.Warn("failed to get", "deployment", deploymentName)
+
+		return
+	}
+
+	c.printPodsLogs(ctx, deployment.Spec.Selector.MatchLabels["app"])
+}
+
+func (c *Cluster) printDaemonSetLogs(ctx context.Context, name string) {
+	daemonSet, err := c.K8s.ClientSet.AppsV1().DaemonSets(csiNamespace).Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		slog.Warn("failed to get", "DaemonSet", name)
+
+		return
+	}
+
+	c.printPodsLogs(ctx, daemonSet.Spec.Selector.MatchLabels["app"])
+}
+
+func (c *Cluster) printPodsLogs(ctx context.Context, labelSelector string) {
+	podList, err := c.K8s.ClientSet.CoreV1().Pods(csiNamespace).List(ctx, metav1.ListOptions{LabelSelector: labelSelector})
+	if err != nil {
+		slog.Warn("failed to get pod list", "labelSelector", labelSelector)
+
+		return
+	}
+
+	for _, pod := range podList.Items {
+		req := c.K8s.ClientSet.CoreV1().Pods(csiNamespace).GetLogs(pod.Name, &v1.PodLogOptions{})
+		logStream, err := req.Stream(ctx)
+		if err != nil {
+			slog.Warn("failed to get log stream", "pod", pod.Name, "err", err)
+
+			continue
+		}
+
+		go func(podName string) {
+			defer logStream.Close()
+			if _, err := io.Copy(os.Stdout, logStream); err != nil {
+				slog.Warn("failed to read log stream", "pod", podName, "err", err)
+			}
+		}(pod.Name)
+	}
 }
 
 func (c *Cluster) awaitDeploymentReadiness(ctx context.Context, deploymentName string) error {

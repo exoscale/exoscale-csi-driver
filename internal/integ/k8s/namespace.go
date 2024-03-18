@@ -128,6 +128,8 @@ func CreateTestNamespace(t *testing.T, k *K8S, testName string) *Namespace {
 	_, err := ns.K.ClientSet.CoreV1().Namespaces().Create(ns.CTX, namespace, metav1.CreateOptions{})
 	assert.NoError(ns.t, err)
 
+	go ns.K.PrintEvents(ns.CTX, ns.Name)
+
 	if !*flags.DontCleanUpTestNS {
 		t.Cleanup(func() {
 			slog.Info("cleaning up test namespace", "name", ns.Name)
