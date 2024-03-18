@@ -161,14 +161,24 @@ func TestDeleteVolume(t *testing.T) {
 
 			pvcClient := ns.K.ClientSet.CoreV1().PersistentVolumeClaims(ns.Name)
 
-			awaitExpectation(t, corev1.ClaimBound, func() corev1.PersistentVolumeClaimPhase {
+			getPVC := func() *corev1.PersistentVolumeClaim {
 				pvc, err := pvcClient.Get(ns.CTX, pvcName, metav1.GetOptions{})
 				assert.NoError(t, err)
+
+				return pvc
+			}
+
+			awaitExpectation(t, corev1.ClaimBound, func() corev1.PersistentVolumeClaimPhase {
+				pvc := getPVC()
 
 				return pvc.Status.Phase
 			})
 
-			err := pvcClient.Delete(ns.CTX, pvcName, metav1.DeleteOptions{})
+			pvc := getPVC()
+			assert.NotNil(t, pvc)
+			pvName := getPVC().Spec.VolumeName
+
+			err = pvcClient.Delete(ns.CTX, pvcName, metav1.DeleteOptions{})
 			assert.NoError(t, err)
 
 			awaitExpectation(t, 0, func() int {
@@ -181,14 +191,14 @@ func TestDeleteVolume(t *testing.T) {
 			expectedVolumeName := ""
 			if useRetainStorageClass {
 				// The volume should be retained, hence a b/s volume with the same name as the pvc should be found.
-				expectedVolumeName = pvcName
+				expectedVolumeName = pvName
 			}
 
 			awaitExpectation(t, expectedVolumeName, func() string {
 				bsVolList, err := egoClient.ListBlockStorageVolumes(ns.CTX)
 				assert.NoError(t, err)
 
-				bsVol, _ := bsVolList.FindBlockStorageVolume(pvcName)
+				bsVol, _ := bsVolList.FindBlockStorageVolume(pvName)
 				return bsVol.Name
 			})
 		}
