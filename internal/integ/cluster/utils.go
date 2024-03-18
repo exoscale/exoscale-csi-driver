@@ -239,28 +239,6 @@ func retry(trial func() error, nRetries int, retryInterval time.Duration) error 
 	return trial()
 }
 
-func (c *Cluster) printDeploymentLogs(ctx context.Context, deploymentName string) {
-	deployment, err := c.K8s.ClientSet.AppsV1().Deployments(csiNamespace).Get(ctx, deploymentName, metav1.GetOptions{})
-	if err != nil {
-		slog.Warn("failed to get", "deployment", deploymentName)
-
-		return
-	}
-
-	c.printPodsLogs(ctx, deployment.Spec.Selector.MatchLabels["app"])
-}
-
-func (c *Cluster) printDaemonSetLogs(ctx context.Context, name string) {
-	daemonSet, err := c.K8s.ClientSet.AppsV1().DaemonSets(csiNamespace).Get(ctx, name, metav1.GetOptions{})
-	if err != nil {
-		slog.Warn("failed to get", "DaemonSet", name)
-
-		return
-	}
-
-	c.printPodsLogs(ctx, daemonSet.Spec.Selector.MatchLabels["app"])
-}
-
 func (c *Cluster) printPodsLogs(ctx context.Context, labelSelector string) {
 	podList, err := c.K8s.ClientSet.CoreV1().Pods(csiNamespace).List(ctx, metav1.ListOptions{LabelSelector: labelSelector})
 	if err != nil {
