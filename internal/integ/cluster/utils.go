@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"os"
 	"strings"
 	"time"
 
@@ -24,6 +23,9 @@ import (
 const (
 	apiKeyPrefix = "csi-integ-test-key-"
 	csiNamespace = "kube-system"
+
+	csiControllerName = "exoscale-csi-controller"
+	csiNodeDriverName = "exoscale-csi-node"
 )
 
 var (
@@ -206,16 +208,12 @@ func (c *Cluster) applyCSI(ctx context.Context) error {
 	// the CSI controller needs to restart, in case it is already running, to pick up the new secrets
 	c.restartCSIController(ctx)
 
-	controllerName := "exoscale-csi-controller"
-	c.printDeploymentLogs(ctx, controllerName)
-	if err := c.awaitDeploymentReadiness(ctx, controllerName); err != nil {
-		slog.Warn("error while awaiting", "deployment", controllerName, "error", err)
+	if err := c.awaitDeploymentReadiness(ctx, csiControllerName); err != nil {
+		slog.Warn("error while awaiting", "deployment", csiControllerName, "error", err)
 	}
 
-	nodeDriverName := "exoscale-csi-node"
-	c.printDaemonSetLogs(ctx, nodeDriverName)
-	if err := c.awaitDaemonSetReadiness(ctx, nodeDriverName); err != nil {
-		slog.Warn("error while awaiting", "DaemonSet", nodeDriverName, "error", err)
+	if err := c.awaitDaemonSetReadiness(ctx, csiNodeDriverName); err != nil {
+		slog.Warn("error while awaiting", "DaemonSet", csiNodeDriverName, "error", err)
 	}
 
 	return nil
@@ -301,12 +299,7 @@ func printLogs(podName string, logStream io.ReadCloser) {
 			return
 		}
 
-		_, err = os.Stdout.WriteString(line)
-		if err != nil {
-			slog.Warn("failed to write log line to stdout", "pod", podName, "err", err)
-
-			return
-		}
+		fmt.Print(line)
 	}
 }
 

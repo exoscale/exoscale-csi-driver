@@ -169,5 +169,8 @@ func Setup() error {
 		}
 	}
 
+	testCluster.printDeploymentLogs(ctx, csiControllerName)
+	testCluster.printDaemonSetLogs(ctx, csiNodeDriverName)
+
 	return nil
 }
