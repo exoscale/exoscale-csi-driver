@@ -1,6 +1,7 @@
 package cluster
 
 import (
+	"bufio"
 	"context"
 	"encoding/base64"
 	"fmt"
@@ -279,12 +280,33 @@ func (c *Cluster) printPodsLogs(ctx context.Context, labelSelector string) {
 			continue
 		}
 
-		go func(podName string) {
-			defer logStream.Close()
-			if _, err := io.Copy(os.Stdout, logStream); err != nil {
-				slog.Warn("failed to read log stream", "pod", podName, "err", err)
-			}
-		}(pod.Name)
+		go printLogs(pod.Name, logStream)
+	}
+}
+
+func printLogs(podName string, logStream io.ReadCloser) {
+	defer logStream.Close()
+
+	reader := bufio.NewReader(logStream)
+
+	for {
+		line, err := reader.ReadString('\n')
+		if err == io.EOF {
+			break
+		}
+
+		if err != nil {
+			slog.Warn("failed to read from log stream", "pod", podName, "err", err)
+
+			return
+		}
+
+		_, err = os.Stdout.WriteString(line)
+		if err != nil {
+			slog.Warn("failed to write log line to stdout", "pod", podName, "err", err)
+
+			return
+		}
 	}
 }
 
@@ -327,6 +349,8 @@ func (c *Cluster) awaitDaemonSetReadiness(ctx context.Context, name string) erro
 }
 
 func (c *Cluster) restartCSIController(ctx context.Context) {
+	slog.Info("restarting CSI controller to pick up new API key")
+
 	deploymentName := "exoscale-csi-controller"
 	podsClient := c.K8s.ClientSet.CoreV1().Pods(csiNamespace)
 	pods, err := podsClient.List(ctx, metav1.ListOptions{})
