@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -56,10 +57,8 @@ func generatePVCName(testName string) string {
 	return fmt.Sprintf("%s-%s-%d", "csi-test-pvc", testName, rand.Int())
 }
 
-type getFunc func() interface{}
-
-func awaitExpectation(t *testing.T, expected interface{}, get getFunc) {
-	var actual interface{}
+func awaitExpectation[T any](t *testing.T, expected T, get func() T) {
+	var actual T
 
 	for i := 0; i < 10; i++ {
 		actual = get()
@@ -162,7 +161,7 @@ func TestDeleteVolume(t *testing.T) {
 
 			pvcClient := ns.K.ClientSet.CoreV1().PersistentVolumeClaims(ns.Name)
 
-			awaitExpectation(t, "Bound", func() interface{} {
+			awaitExpectation(t, corev1.ClaimBound, func() corev1.PersistentVolumeClaimPhase {
 				pvc, err := pvcClient.Get(ns.CTX, pvcName, metav1.GetOptions{})
 				assert.NoError(t, err)
 
@@ -172,7 +171,7 @@ func TestDeleteVolume(t *testing.T) {
 			err := pvcClient.Delete(ns.CTX, pvcName, metav1.DeleteOptions{})
 			assert.NoError(t, err)
 
-			awaitExpectation(t, 0, func() interface{} {
+			awaitExpectation(t, 0, func() int {
 				pvcs, err := pvcClient.List(ns.CTX, metav1.ListOptions{})
 				assert.NoError(t, err)
 
@@ -185,12 +184,12 @@ func TestDeleteVolume(t *testing.T) {
 				expectedVolumeName = pvcName
 			}
 
-			awaitExpectation(t, expectedVolumeName, func() interface{} {
+			awaitExpectation(t, expectedVolumeName, func() string {
 				bsVolList, err := egoClient.ListBlockStorageVolumes(ns.CTX)
 				assert.NoError(t, err)
 
 				bsVol, _ := bsVolList.FindBlockStorageVolume(pvcName)
-				return bsVol
+				return bsVol.Name
 			})
 		}
 	}
@@ -238,7 +237,7 @@ func TestSnapshot(t *testing.T) {
 
 	pvcClient := ns.K.ClientSet.CoreV1().PersistentVolumeClaims(ns.Name)
 
-	awaitExpectation(t, "Bound", func() interface{} {
+	awaitExpectation(t, corev1.ClaimBound, func() corev1.PersistentVolumeClaimPhase {
 		pvc, err := pvcClient.Get(ns.CTX, pvcName, metav1.GetOptions{})
 		assert.NoError(t, err)
 
@@ -250,39 +249,31 @@ func TestSnapshot(t *testing.T) {
 
 	snapshotClient := ns.K.DynamicClient.Resource(getSnapshotCRDResource()).Namespace(ns.Name)
 
-	awaitExpectation(t, true, func() interface{} {
+	awaitExpectation(t, true, func() bool {
 		crdInstance, err := snapshotClient.Get(ns.CTX, "my-snap-1", v1.GetOptions{})
-		if err != nil {
-			return err
-		}
+		assert.NoError(t, err)
 
 		status, ok := crdInstance.Object["status"].(map[string]interface{})
-		if !ok {
-			return fmt.Errorf("type assertion failed")
-		}
+		assert.True(t, ok)
 
-		return status["readyToUse"]
+		return status["readyToUse"].(bool)
 	})
 
 	// create volume from snapshot
 	ns.Apply(basicVolumeFromSnapshot)
 
-	awaitExpectation(t, "Bound", func() interface{} {
+	awaitExpectation(t, corev1.ClaimBound, func() corev1.PersistentVolumeClaimPhase {
 		pvc, err := pvcClient.Get(ns.CTX, "my-snap-1-pvc", metav1.GetOptions{})
+		assert.NoError(t, err)
 
-		if err != nil {
-			assert.NoError(t, err)
-			return "error"
-		}
-
-		return string(pvc.Status.Phase)
+		return pvc.Status.Phase
 	})
 
 	// delete snapshot
 	err := snapshotClient.Delete(ns.CTX, "my-snap-1", v1.DeleteOptions{})
 	assert.NoError(t, err)
 
-	awaitExpectation(t, 0, func() interface{} {
+	awaitExpectation(t, 0, func() int {
 		snapshots, err := snapshotClient.List(ns.CTX, v1.ListOptions{})
 		if err != nil {
 			assert.NoError(t, err)
