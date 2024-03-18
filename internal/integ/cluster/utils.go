@@ -252,11 +252,14 @@ func (c *Cluster) printPodsLogs(ctx context.Context, labelSelector string, conta
 	}
 
 	for _, pod := range podList.Items {
-		req := c.K8s.ClientSet.CoreV1().Pods(csiNamespace).GetLogs(pod.Name, &v1.PodLogOptions{
+		logReq := c.K8s.ClientSet.CoreV1().Pods(csiNamespace).GetLogs(pod.Name, &v1.PodLogOptions{
 			Follow:    true,
 			Container: containerName,
 		})
-		logStream, err := req.Stream(ctx)
+
+		logReq.Timeout(1 * time.Second)
+		logReq.MaxRetries(10)
+		logStream, err := logReq.Stream(ctx)
 		if err != nil {
 			slog.Warn("failed to get log stream", "pod", pod.Name, "err", err)
 
@@ -284,7 +287,7 @@ func printLogs(podName string, logStream io.ReadCloser) {
 			return
 		}
 
-		fmt.Print(line)
+		fmt.Print(podName + ": " + line)
 	}
 }
 

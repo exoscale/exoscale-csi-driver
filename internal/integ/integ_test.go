@@ -179,16 +179,19 @@ func TestDeleteVolume(t *testing.T) {
 				return len(pvcs.Items)
 			})
 
-			bsVolList, err := egoClient.ListBlockStorageVolumes(ns.CTX)
-			assert.NoError(t, err)
-			for _, volume := range ns.Volumes {
-				_, err := bsVolList.FindBlockStorageVolume(volume)
-				if useRetainStorageClass {
-					assert.NoError(t, err)
-				} else {
-					assert.Error(t, err)
-				}
+			expectedVolumeName := ""
+			if useRetainStorageClass {
+				// The volume should be retained, hence a b/s volume with the same name as the pvc should be found.
+				expectedVolumeName = pvcName
 			}
+
+			awaitExpectation(t, expectedVolumeName, func() interface{} {
+				bsVolList, err := egoClient.ListBlockStorageVolumes(ns.CTX)
+				assert.NoError(t, err)
+
+				bsVol, _ := bsVolList.FindBlockStorageVolume(pvcName)
+				return bsVol
+			})
 		}
 	}
 

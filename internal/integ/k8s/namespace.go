@@ -51,6 +51,7 @@ func (ns *Namespace) ApplyPVC(name string, useStorageClassRetain bool) {
 	parsedTmpl, err := tmpl.Parse(pvcTemplate)
 	if err != nil {
 		slog.Error("failed to parse PVC template", "err", err)
+
 		return
 	}
 
@@ -58,12 +59,15 @@ func (ns *Namespace) ApplyPVC(name string, useStorageClassRetain bool) {
 		Name:             name,
 		StorageClassName: "exoscale-sbs",
 	}
+
 	if useStorageClassRetain {
 		data.StorageClassName = "exoscale-bs-retain"
 	}
+
 	buf := &bytes.Buffer{}
 	if parsedTmpl.Execute(buf, data) != nil {
 		slog.Error("failed to execute PVC template", "err", err)
+
 		return
 	}
 
