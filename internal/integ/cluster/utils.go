@@ -247,8 +247,14 @@ func (c *Cluster) printPodsLogs(ctx context.Context, labelSelector string) {
 		return
 	}
 
+	if len(podList.Items) < 1 {
+		slog.Warn("no logs found", "labelSelector", labelSelector)
+	}
+
 	for _, pod := range podList.Items {
-		req := c.K8s.ClientSet.CoreV1().Pods(csiNamespace).GetLogs(pod.Name, &v1.PodLogOptions{})
+		req := c.K8s.ClientSet.CoreV1().Pods(csiNamespace).GetLogs(pod.Name, &v1.PodLogOptions{
+			Follow: true,
+		})
 		logStream, err := req.Stream(ctx)
 		if err != nil {
 			slog.Warn("failed to get log stream", "pod", pod.Name, "err", err)
