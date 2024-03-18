@@ -145,7 +145,14 @@ func CreateTestNamespace(t *testing.T, k *K8S, testName string) *Namespace {
 			for _, volume := range ns.Volumes {
 				bsVol, err := bsVolList.FindBlockStorageVolume(volume)
 				if err == nil {
-					egoClient.DeleteBlockStorageVolume(ns.CTX, bsVol.ID)
+					op, err := egoClient.DeleteBlockStorageVolume(ns.CTX, bsVol.ID)
+					if err != nil {
+						slog.Warn("failed to clean up volume", "name", bsVol.Name, "err", err)
+					}
+
+					if _, err := egoClient.Wait(ns.CTX, op); err != nil {
+						slog.Warn("failed to clean up volume", "name", bsVol.Name, "err", err)
+					}
 				}
 			}
 		})
