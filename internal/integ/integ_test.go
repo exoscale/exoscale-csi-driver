@@ -192,6 +192,24 @@ func TestDeleteVolume(t *testing.T) {
 			if useRetainStorageClass {
 				// The volume should be retained, hence a b/s volume with the same name as the pvc should be found.
 				expectedVolumeName = pvName
+
+				t.Cleanup(func() {
+					// delete the retained volume after the test
+					bsVolList, err := egoClient.ListBlockStorageVolumes(ns.CTX)
+					assert.NoError(t, err)
+
+					bsVol, err := bsVolList.FindBlockStorageVolume(pvName)
+					if err == nil {
+						op, err := egoClient.DeleteBlockStorageVolume(ns.CTX, bsVol.ID)
+						if err != nil {
+							slog.Warn("failed to clean up volume", "name", bsVol.Name, "err", err)
+						}
+
+						if _, err := egoClient.Wait(ns.CTX, op); err != nil {
+							slog.Warn("failed to clean up volume", "name", bsVol.Name, "err", err)
+						}
+					}
+				})
 			}
 
 			awaitExpectation(t, expectedVolumeName, func() string {

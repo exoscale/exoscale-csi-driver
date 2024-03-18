@@ -16,16 +16,14 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 
-	"github.com/exoscale/exoscale/csi-driver/internal/integ/client"
 	"github.com/exoscale/exoscale/csi-driver/internal/integ/flags"
 )
 
 type Namespace struct {
-	K       *K8S
-	t       *testing.T
-	Name    string
-	CTX     context.Context
-	Volumes []string
+	K    *K8S
+	t    *testing.T
+	Name string
+	CTX  context.Context
 }
 
 type PVC struct {
@@ -72,8 +70,6 @@ func (ns *Namespace) ApplyPVC(name string, useStorageClassRetain bool) {
 	}
 
 	ns.Apply(buf.String())
-
-	ns.Volumes = append(ns.Volumes, name)
 }
 
 func (ns *Namespace) Apply(manifest string) {
@@ -139,26 +135,6 @@ func CreateTestNamespace(t *testing.T, k *K8S, testName string) *Namespace {
 			slog.Info("cleaning up test namespace", "name", ns.Name)
 			err := ns.K.ClientSet.CoreV1().Namespaces().Delete(ns.CTX, name, metav1.DeleteOptions{})
 			assert.NoError(ns.t, err)
-
-			// delete volumes that may have been retained
-			egoClient, err := client.CreateEgoscaleClient()
-			assert.NoError(ns.t, err)
-
-			bsVolList, err := egoClient.ListBlockStorageVolumes(ns.CTX)
-			assert.NoError(t, err)
-			for _, volume := range ns.Volumes {
-				bsVol, err := bsVolList.FindBlockStorageVolume(volume)
-				if err == nil {
-					op, err := egoClient.DeleteBlockStorageVolume(ns.CTX, bsVol.ID)
-					if err != nil {
-						slog.Warn("failed to clean up volume", "name", bsVol.Name, "err", err)
-					}
-
-					if _, err := egoClient.Wait(ns.CTX, op); err != nil {
-						slog.Warn("failed to clean up volume", "name", bsVol.Name, "err", err)
-					}
-				}
-			}
 		})
 	}
 
