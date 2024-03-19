@@ -15,9 +15,9 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/exoscale/exoscale/csi-driver/internal/integ/client"
 	"github.com/exoscale/exoscale/csi-driver/internal/integ/cluster"
 	"github.com/exoscale/exoscale/csi-driver/internal/integ/k8s"
+	"github.com/exoscale/exoscale/csi-driver/internal/integ/util"
 )
 
 func TestMain(m *testing.M) {
@@ -146,7 +146,7 @@ func TestDeleteVolume(t *testing.T) {
 	testName := "del-vol"
 	ns := k8s.CreateTestNamespace(t, cluster.Get().K8s, testName)
 
-	egoClient, err := client.CreateEgoscaleClient()
+	egoClient, err := util.CreateEgoscaleClient()
 	assert.NoError(t, err)
 
 	testFunc := func(useRetainStorageClass bool) func(t *testing.T) {
