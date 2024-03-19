@@ -15,6 +15,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
+	v3 "github.com/exoscale/egoscale/v3"
 	"github.com/exoscale/exoscale/csi-driver/internal/integ/cluster"
 	"github.com/exoscale/exoscale/csi-driver/internal/integ/k8s"
 	"github.com/exoscale/exoscale/csi-driver/internal/integ/util"
@@ -205,7 +206,7 @@ func TestDeleteVolume(t *testing.T) {
 							slog.Warn("failed to clean up volume", "name", bsVol.Name, "err", err)
 						}
 
-						if _, err := egoClient.Wait(ns.CTX, op); err != nil {
+						if _, err := egoClient.Wait(ns.CTX, op, v3.OperationStateSuccess); err != nil {
 							slog.Warn("failed to clean up volume", "name", bsVol.Name, "err", err)
 						}
 					}
