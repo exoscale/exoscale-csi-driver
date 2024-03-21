@@ -73,8 +73,44 @@ var (
 )
 
 const (
-	MinimalVolumeSizeBytes = 100 * 1024 * 1024 * 1024
+	GiB                    = 1024 * 1024 * 1024
+	DefaultVolumeSizeBytes = 100 * GiB
 )
+
+// TODO(sauterp) remove
+var (
+	oldAPI = false
+	oldCSI = true
+)
+
+func convertBytesToGiB(sizeInBytes int64) int64 {
+	return sizeInBytes / GiB
+}
+
+func convertGiBToBytes(sizeInGiB int64) int64 {
+	return sizeInGiB * GiB
+}
+
+// TODO(sauterp) remove
+func publicAPIBehavior(sizeInBytes int64) int64 {
+	if oldAPI {
+		return sizeInBytes
+	}
+
+	return convertBytesToGiB(sizeInBytes)
+}
+
+func csiBehavior(volumeSize int64) int64 {
+	if oldCSI {
+		return volumeSize
+	}
+
+	return convertGiBToBytes(volumeSize)
+}
+
+func simulate(sizeInBytes int64) int64 {
+	return csiBehavior(publicAPIBehavior(sizeInBytes))
+}
 
 type controllerService struct {
 	client   *v3.Client
@@ -118,7 +154,9 @@ func (d *controllerService) CreateVolume(ctx context.Context, req *csi.CreateVol
 				Volume: &csi.Volume{
 					VolumeId: exoscaleID(zoneName, v.ID),
 					// API reply in bytes then send it without conversion
-					CapacityBytes:      v.Size,
+
+					// TODO(sauterp) simulate different behaviors for CreateVolume
+					CapacityBytes:      simulate(v.Size),
 					AccessibleTopology: newZoneTopology(zoneName),
 				},
 			}, nil
@@ -160,7 +198,7 @@ func (d *controllerService) CreateVolume(ctx context.Context, req *csi.CreateVol
 		klog.Infof("creating volume from snapshot %q", snapshotTarget.ID.String())
 	}
 
-	var sizeInBytes int64 = MinimalVolumeSizeBytes
+	var sizeInBytes int64 = DefaultVolumeSizeBytes
 	if req.GetCapacityRange() != nil {
 		sizeInBytes = req.GetCapacityRange().RequiredBytes
 	}
@@ -431,7 +469,9 @@ func (d *controllerService) ListVolumes(ctx context.Context, req *csi.ListVolume
 				Volume: &csi.Volume{
 					VolumeId: exoscaleID(zone.Name, v.ID),
 					// API reply in bytes then send it without conversion
-					CapacityBytes:      v.Size,
+
+					// TODO(sauterp) simulate different behaviors for ListVolumes
+					CapacityBytes:      simulate(v.Size),
 					AccessibleTopology: newZoneTopology(zone.Name),
 				},
 				Status: &csi.ListVolumesResponse_VolumeStatus{
@@ -521,7 +561,9 @@ func (d *controllerService) CreateSnapshot(ctx context.Context, req *csi.CreateS
 					SourceVolumeId: exoscaleID(zoneName, volume.ID),
 					CreationTime:   timestamppb.New(snapshot.CreatedAT),
 					ReadyToUse:     true,
-					SizeBytes:      volume.Size,
+
+					// TODO(sauterp) simulate different behaviors for CreateSnapshot-1
+					SizeBytes: volume.Size,
 				},
 			}, nil
 		}
@@ -559,7 +601,9 @@ func (d *controllerService) CreateSnapshot(ctx context.Context, req *csi.CreateS
 			SourceVolumeId: exoscaleID(zoneName, volume.ID),
 			CreationTime:   timestamppb.New(snapshot.CreatedAT),
 			ReadyToUse:     true,
-			SizeBytes:      volume.Size,
+
+			// TODO(sauterp) simulate different behaviors for CreateSnapshot-2
+			SizeBytes: volume.Size,
 		},
 	}, nil
 }
@@ -636,7 +680,9 @@ func (d *controllerService) ListSnapshots(ctx context.Context, req *csi.ListSnap
 					SnapshotId:     exoscaleID(zone.Name, s.ID),
 					CreationTime:   timestamppb.New(s.CreatedAT),
 					ReadyToUse:     true,
-					SizeBytes:      s.Size,
+
+					// TODO(sauterp) simulate different behaviors for ListSnapshots
+					SizeBytes: s.Size,
 				},
 			})
 		}
@@ -705,7 +751,9 @@ func (d *controllerService) ControllerGetVolume(ctx context.Context, req *csi.Co
 		Volume: &csi.Volume{
 			VolumeId: exoscaleID(zoneName, volume.ID),
 			// API reply in bytes then send it without conversion
-			CapacityBytes: volume.Size,
+
+			// TODO(sauterp) simulate different behaviors for ControllerGetVolume
+			CapacityBytes: simulate(volume.Size),
 		},
 		Status: &csi.ControllerGetVolumeResponse_VolumeStatus{
 			PublishedNodeIds: instancesID,
