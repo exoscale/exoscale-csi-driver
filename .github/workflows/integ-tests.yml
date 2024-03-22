@@ -41,6 +41,7 @@ jobs:
         run: |
           cd internal/integ/ && go test \
             -v \
+            -timeout 30m \
             --create-cluster \
             --create-csi-secret \
             --tear-down-csi \
