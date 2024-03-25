@@ -5,10 +5,10 @@ go 1.21
 require (
 	github.com/container-storage-interface/spec v1.8.0
 	github.com/exoscale/egoscale v0.102.4-0.20240222153804-ec94e9697218
-	github.com/golang/protobuf v1.5.3
+	github.com/golang/protobuf v1.5.4
 	golang.org/x/sys v0.15.0
 	google.golang.org/grpc v1.59.0
-	google.golang.org/protobuf v1.31.0
+	google.golang.org/protobuf v1.33.0
 	k8s.io/apimachinery v0.28.2
 	k8s.io/client-go v0.28.2
 	k8s.io/klog/v2 v2.100.1

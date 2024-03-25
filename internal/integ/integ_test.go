@@ -1,7 +1,6 @@
 package integ
 
 import (
-	"flag"
 	"fmt"
 	"log/slog"
 	"math/rand"
@@ -25,14 +24,14 @@ func TestMain(m *testing.M) {
 	// cluster creation takes a while so we increase the test timeout
 	// This call has to happen before testing.M.Run as that's where
 	// the flag `test.timeout` is used.
-	err := flag.Set("test.timeout", "30m")
-	if err != nil {
-		slog.Warn("failed to set test timeout", "error", err)
-	}
+	// err := flag.Set("test.timeout", "0")
+	// if err != nil {
+	// 	slog.Warn("failed to set test timeout", "error", err)
+	// }
 
 	exitCode := 0
 
-	err = cluster.Setup()
+	err := cluster.Setup()
 	if err != nil {
 		slog.Error("error during setup", "err", err)
 		exitCode = 1
@@ -280,12 +279,17 @@ func TestSnapshot(t *testing.T) {
 
 	awaitExpectation(t, true, func() bool {
 		crdInstance, err := snapshotClient.Get(ns.CTX, "my-snap-1", v1.GetOptions{})
-		assert.NoError(t, err)
+		if err != nil {
+			return false
+		}
 
 		status, ok := crdInstance.Object["status"].(map[string]interface{})
 		assert.True(t, ok)
 
-		return status["readyToUse"].(bool)
+		readyToUse, ok := status["readyToUse"].(bool)
+		assert.True(t, ok)
+
+		return readyToUse
 	})
 
 	// create volume from snapshot
