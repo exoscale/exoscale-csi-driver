@@ -117,14 +117,6 @@ type controllerService struct {
 	zoneName v3.ZoneName
 }
 
-func simulateUnmarshalError(err error) error {
-	if err != nil {
-		return err
-	}
-
-	return fmt.Errorf("simulated error when unmarshalling float size field into int64")
-}
-
 func newControllerService(client *v3.Client, nodeMeta *nodeMetadata) controllerService {
 	return controllerService{
 		client:   client,
@@ -189,8 +181,6 @@ func (d *controllerService) CreateVolume(ctx context.Context, req *csi.CreateVol
 		}
 
 		snapshot, err := client.GetBlockStorageSnapshot(ctx, snapshotID)
-		// we simulate the change from int64 -> float for the size field
-		err = simulateUnmarshalError(err)
 		if err != nil {
 			if errors.Is(err, v3.ErrNotFound) {
 				klog.Errorf("create volume get snapshot not found: %v", err)
@@ -560,8 +550,6 @@ func (d *controllerService) CreateSnapshot(ctx context.Context, req *csi.CreateS
 
 	for _, s := range volume.BlockStorageSnapshots {
 		snapshot, err := client.GetBlockStorageSnapshot(ctx, s.ID)
-		// we simulate the change from int64 -> float for the size field
-		err = simulateUnmarshalError(err)
 		if err != nil {
 			klog.Errorf("create snapshot get snapshot %s: %v", s.ID, err)
 		}
@@ -575,7 +563,7 @@ func (d *controllerService) CreateSnapshot(ctx context.Context, req *csi.CreateS
 					ReadyToUse:     true,
 
 					// TODO(sauterp) simulate different behaviors for CreateSnapshot-1
-					SizeBytes: volume.Size,
+					SizeBytes: simulate(volume.Size),
 				},
 			}, nil
 		}
@@ -600,8 +588,6 @@ func (d *controllerService) CreateSnapshot(ctx context.Context, req *csi.CreateS
 	}
 
 	snapshot, err := client.GetBlockStorageSnapshot(ctx, op.Reference.ID)
-	// we simulate the change from int64 -> float for the size field
-	err = simulateUnmarshalError(err)
 	if err != nil {
 		klog.Errorf("get block storage volume snapshot %s: %v", op.Reference.ID, err)
 		return nil, err
@@ -617,7 +603,7 @@ func (d *controllerService) CreateSnapshot(ctx context.Context, req *csi.CreateS
 			ReadyToUse:     true,
 
 			// TODO(sauterp) simulate different behaviors for CreateSnapshot-2
-			SizeBytes: volume.Size,
+			SizeBytes: simulate(volume.Size),
 		},
 	}, nil
 }
@@ -678,8 +664,6 @@ func (d *controllerService) ListSnapshots(ctx context.Context, req *csi.ListSnap
 		client := d.client.WithEndpoint(zone.APIEndpoint)
 
 		snapResp, err := client.ListBlockStorageSnapshots(ctx)
-		// we simulate the change from int64 -> float for the size field
-		err = simulateUnmarshalError(err)
 		if err != nil {
 			// TODO: remove it when Block Storage is available in all zone.
 			if strings.Contains(err.Error(), "Availability of the block storage volumes") {
@@ -698,7 +682,7 @@ func (d *controllerService) ListSnapshots(ctx context.Context, req *csi.ListSnap
 					ReadyToUse:     true,
 
 					// TODO(sauterp) simulate different behaviors for ListSnapshots
-					SizeBytes: s.Size,
+					SizeBytes: simulate(s.Size),
 				},
 			})
 		}

@@ -279,12 +279,17 @@ func TestSnapshot(t *testing.T) {
 
 	awaitExpectation(t, true, func() bool {
 		crdInstance, err := snapshotClient.Get(ns.CTX, "my-snap-1", v1.GetOptions{})
-		assert.NoError(t, err)
+		if err != nil {
+			return false
+		}
 
 		status, ok := crdInstance.Object["status"].(map[string]interface{})
 		assert.True(t, ok)
 
-		return status["readyToUse"].(bool)
+		readyToUse, ok := status["readyToUse"].(bool)
+		assert.True(t, ok)
+
+		return readyToUse
 	})
 
 	// create volume from snapshot
