@@ -1,13 +1,16 @@
 package cluster
 
 import (
+	"bufio"
 	"context"
 	"encoding/base64"
 	"fmt"
+	"io"
 	"log/slog"
 	"strings"
 	"time"
 
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/exoscale/exoscale/csi-driver/internal/integ/flags"
@@ -15,12 +18,14 @@ import (
 	"github.com/exoscale/exoscale/csi-driver/internal/integ/util"
 
 	exov3 "github.com/exoscale/egoscale/v3"
-	"github.com/exoscale/egoscale/v3/credentials"
 )
 
 const (
 	apiKeyPrefix = "csi-integ-test-key-"
 	csiNamespace = "kube-system"
+
+	csiControllerName = "exoscale-csi-controller"
+	csiNodeDriverName = "exoscale-csi-node"
 )
 
 var (
@@ -33,6 +38,7 @@ var (
 	nodeDriverRBACManifest      = "node-driver-rbac.yaml"
 	nodeDriverManifest          = "node-driver.yaml"
 	storageClassManifest        = "storage-class.yaml"
+	storageClassRetainManifest  = "storage-class-retain.yaml"
 	volumeSnapshotClassManifest = "volume-snapshot-class.yaml"
 
 	allManifests = []string{
@@ -43,6 +49,7 @@ var (
 		nodeDriverRBACManifest,
 		nodeDriverManifest,
 		storageClassManifest,
+		storageClassRetainManifest,
 		volumeSnapshotClassManifest,
 	}
 )
@@ -201,14 +208,12 @@ func (c *Cluster) applyCSI(ctx context.Context) error {
 	// the CSI controller needs to restart, in case it is already running, to pick up the new secrets
 	c.restartCSIController(ctx)
 
-	controllerName := "exoscale-csi-controller"
-	if err := c.awaitDeploymentReadiness(ctx, controllerName); err != nil {
-		slog.Warn("error while awaiting", "deployment", controllerName, "error", err)
+	if err := c.awaitDeploymentReadiness(ctx, csiControllerName); err != nil {
+		slog.Warn("error while awaiting", "deployment", csiControllerName, "error", err)
 	}
 
-	nodeDriverName := "exoscale-csi-node"
-	if err := c.awaitDaemonSetReadiness(ctx, nodeDriverName); err != nil {
-		slog.Warn("error while awaiting", "DaemonSet", nodeDriverName, "error", err)
+	if err := c.awaitDaemonSetReadiness(ctx, csiNodeDriverName); err != nil {
+		slog.Warn("error while awaiting", "DaemonSet", csiNodeDriverName, "error", err)
 	}
 
 	return nil
@@ -232,6 +237,58 @@ func retry(trial func() error, nRetries int, retryInterval time.Duration) error 
 	}
 
 	return trial()
+}
+
+func (c *Cluster) printPodsLogs(ctx context.Context, labelSelector string, containerName string) {
+	podList, err := c.K8s.ClientSet.CoreV1().Pods(csiNamespace).List(ctx, metav1.ListOptions{LabelSelector: labelSelector})
+	if err != nil {
+		slog.Warn("failed to get pod list", "labelSelector", labelSelector)
+
+		return
+	}
+
+	if len(podList.Items) < 1 {
+		slog.Warn("no logs found", "labelSelector", labelSelector)
+	}
+
+	for _, pod := range podList.Items {
+		logReq := c.K8s.ClientSet.CoreV1().Pods(csiNamespace).GetLogs(pod.Name, &v1.PodLogOptions{
+			Follow:    true,
+			Container: containerName,
+		})
+
+		logReq.Timeout(1 * time.Second)
+		logReq.MaxRetries(10)
+		logStream, err := logReq.Stream(ctx)
+		if err != nil {
+			slog.Warn("failed to get log stream", "pod", pod.Name, "err", err)
+
+			continue
+		}
+
+		go printLogs(pod.Name, logStream)
+	}
+}
+
+func printLogs(podName string, logStream io.ReadCloser) {
+	defer logStream.Close()
+
+	reader := bufio.NewReader(logStream)
+
+	for {
+		line, err := reader.ReadString('\n')
+		if err == io.EOF {
+			break
+		}
+
+		if err != nil {
+			slog.Warn("failed to read from log stream", "pod", podName, "err", err)
+
+			return
+		}
+
+		fmt.Print(podName + ": " + line)
+	}
 }
 
 func (c *Cluster) awaitDeploymentReadiness(ctx context.Context, deploymentName string) error {
@@ -273,6 +330,8 @@ func (c *Cluster) awaitDaemonSetReadiness(ctx context.Context, name string) erro
 }
 
 func (c *Cluster) restartCSIController(ctx context.Context) {
+	slog.Info("restarting CSI controller to pick up new API key")
+
 	deploymentName := "exoscale-csi-controller"
 	podsClient := c.K8s.ClientSet.CoreV1().Pods(csiNamespace)
 	pods, err := podsClient.List(ctx, metav1.ListOptions{})
@@ -288,13 +347,4 @@ func (c *Cluster) restartCSIController(ctx context.Context) {
 			}
 		}
 	}
-}
-
-func createEgoscaleClient() (*exov3.Client, error) {
-	v3Client, err := exov3.NewClient(credentials.NewEnvCredentials(), exov3.ClientOptWithEndpoint(exov3.CHGva2))
-	if err != nil {
-		return nil, fmt.Errorf("error setting up egoscale client: %w", err)
-	}
-
-	return v3Client, nil
 }
