@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+* Driver: Use egoscale ENV credential provider #25
+
 ### Improvements
 
 * go.mk: remove submodule and initialize through make #15
