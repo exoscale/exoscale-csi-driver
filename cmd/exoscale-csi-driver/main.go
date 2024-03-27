@@ -6,6 +6,7 @@ import (
 	"os"
 
 	v3 "github.com/exoscale/egoscale/v3"
+	"github.com/exoscale/egoscale/v3/credentials"
 	"github.com/exoscale/exoscale-csi-driver/cmd/exoscale-csi-driver/buildinfo"
 	"github.com/exoscale/exoscale-csi-driver/driver"
 
@@ -41,22 +42,14 @@ func main() {
 		os.Exit(0)
 	}
 
-	apiKey := os.Getenv("EXOSCALE_API_KEY")
-	apiSecret := os.Getenv("EXOSCALE_API_SECRET")
 	// Mostly for internal use.
 	apiEndpoint := os.Getenv("EXOSCALE_API_ENDPOINT")
-
-	// The node mode don't need secrets and do not interact with Exoscale API.
-	if *mode != string(driver.NodeMode) && (apiKey == "" || apiSecret == "") {
-		klog.Fatalln("missing or incomplete API credentials")
-	}
 
 	exoDriver, err := driver.NewDriver(&driver.DriverConfig{
 		Endpoint:     *endpoint,
 		Mode:         driver.Mode(*mode),
 		Prefix:       *prefix,
-		APIKey:       apiKey,
-		APISecret:    apiSecret,
+		Credentials:  credentials.NewEnvCredentials(),
 		ZoneEndpoint: v3.Endpoint(apiEndpoint),
 	})
 	if err != nil {
