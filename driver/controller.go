@@ -73,7 +73,7 @@ var (
 )
 
 const (
-	MinimalVolumeSizeBytes = 100 * 1024 * 1024 * 1024
+	DefaultVolumeSizeGiB = 100
 )
 
 type controllerService struct {
@@ -116,9 +116,8 @@ func (d *controllerService) CreateVolume(ctx context.Context, req *csi.CreateVol
 		if v.Name == req.Name {
 			return &csi.CreateVolumeResponse{
 				Volume: &csi.Volume{
-					VolumeId: exoscaleID(zoneName, v.ID),
-					// API reply in bytes then send it without conversion
-					CapacityBytes:      v.Size,
+					VolumeId:           exoscaleID(zoneName, v.ID),
+					CapacityBytes:      convertGiBToBytes(v.Size),
 					AccessibleTopology: newZoneTopology(zoneName),
 				},
 			}, nil
@@ -160,14 +159,14 @@ func (d *controllerService) CreateVolume(ctx context.Context, req *csi.CreateVol
 		klog.Infof("creating volume from snapshot %q", snapshotTarget.ID.String())
 	}
 
-	var sizeInBytes int64 = MinimalVolumeSizeBytes
+	var sizeInGiB int64 = DefaultVolumeSizeGiB
 	if req.GetCapacityRange() != nil {
-		sizeInBytes = req.GetCapacityRange().RequiredBytes
+		sizeInGiB = req.GetCapacityRange().RequiredBytes
 	}
 
 	request := v3.CreateBlockStorageVolumeRequest{
 		Name:                 req.Name,
-		Size:                 convertBytesToGibiBytes(sizeInBytes),
+		Size:                 sizeInGiB,
 		BlockStorageSnapshot: snapshotTarget,
 	}
 
@@ -190,7 +189,7 @@ func (d *controllerService) CreateVolume(ctx context.Context, req *csi.CreateVol
 	return &csi.CreateVolumeResponse{
 		Volume: &csi.Volume{
 			VolumeId:           exoscaleID(zoneName, opDone.Reference.ID),
-			CapacityBytes:      sizeInBytes,
+			CapacityBytes:      convertGiBToBytes(sizeInGiB),
 			AccessibleTopology: newZoneTopology(zoneName),
 			ContentSource:      req.GetVolumeContentSource(),
 		},
@@ -429,9 +428,8 @@ func (d *controllerService) ListVolumes(ctx context.Context, req *csi.ListVolume
 
 			volumesEntries = append(volumesEntries, &csi.ListVolumesResponse_Entry{
 				Volume: &csi.Volume{
-					VolumeId: exoscaleID(zone.Name, v.ID),
-					// API reply in bytes then send it without conversion
-					CapacityBytes:      v.Size,
+					VolumeId:           exoscaleID(zone.Name, v.ID),
+					CapacityBytes:      convertGiBToBytes(v.Size),
 					AccessibleTopology: newZoneTopology(zone.Name),
 				},
 				Status: &csi.ListVolumesResponse_VolumeStatus{
@@ -521,7 +519,7 @@ func (d *controllerService) CreateSnapshot(ctx context.Context, req *csi.CreateS
 					SourceVolumeId: exoscaleID(zoneName, volume.ID),
 					CreationTime:   timestamppb.New(snapshot.CreatedAT),
 					ReadyToUse:     true,
-					SizeBytes:      volume.Size,
+					// We leave the optional SizeBytes field unset as the size of a block storage snapshot is the size of the difference to the volume or previous snapshots, k8s however expects the size to be the size of the restored volume.
 				},
 			}, nil
 		}
@@ -551,7 +549,7 @@ func (d *controllerService) CreateSnapshot(ctx context.Context, req *csi.CreateS
 		return nil, err
 	}
 
-	klog.Infof("successfully created snapshot %q of size %d from volume %q", snapshot.ID, volume.Size, volume.ID)
+	klog.Infof("successfully created snapshot %q of size %d GB from volume %q", snapshot.ID, volume.Size, volume.ID)
 
 	return &csi.CreateSnapshotResponse{
 		Snapshot: &csi.Snapshot{
@@ -559,7 +557,7 @@ func (d *controllerService) CreateSnapshot(ctx context.Context, req *csi.CreateS
 			SourceVolumeId: exoscaleID(zoneName, volume.ID),
 			CreationTime:   timestamppb.New(snapshot.CreatedAT),
 			ReadyToUse:     true,
-			SizeBytes:      volume.Size,
+			// We leave the optional SizeBytes field unset as the size of a block storage snapshot is the size of the difference to the volume or previous snapshots, k8s however expects the size to be the size of the restored volume.
 		},
 	}, nil
 }
@@ -636,7 +634,7 @@ func (d *controllerService) ListSnapshots(ctx context.Context, req *csi.ListSnap
 					SnapshotId:     exoscaleID(zone.Name, s.ID),
 					CreationTime:   timestamppb.New(s.CreatedAT),
 					ReadyToUse:     true,
-					SizeBytes:      s.Size,
+					// We leave the optional SizeBytes field unset as the size of a block storage snapshot is the size of the difference to the volume or previous snapshots, k8s however expects the size to be the size of the restored volume.
 				},
 			})
 		}
@@ -703,9 +701,8 @@ func (d *controllerService) ControllerGetVolume(ctx context.Context, req *csi.Co
 
 	return &csi.ControllerGetVolumeResponse{
 		Volume: &csi.Volume{
-			VolumeId: exoscaleID(zoneName, volume.ID),
-			// API reply in bytes then send it without conversion
-			CapacityBytes: volume.Size,
+			VolumeId:      exoscaleID(zoneName, volume.ID),
+			CapacityBytes: convertGiBToBytes(volume.Size),
 		},
 		Status: &csi.ControllerGetVolumeResponse_VolumeStatus{
 			PublishedNodeIds: instancesID,
