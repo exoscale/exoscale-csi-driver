@@ -89,6 +89,10 @@ func createMountPoint(path string, file bool) error {
 	return nil
 }
 
+func convertBytesToGiB(sizeInBytes int64) int64 {
+	return sizeInBytes / GiB
+}
+
 func convertGiBToBytes(sizeInGiB int64) int64 {
 	return sizeInGiB * GiB
 }

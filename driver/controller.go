@@ -161,7 +161,7 @@ func (d *controllerService) CreateVolume(ctx context.Context, req *csi.CreateVol
 
 	var sizeInGiB int64 = DefaultVolumeSizeGiB
 	if req.GetCapacityRange() != nil {
-		sizeInGiB = req.GetCapacityRange().RequiredBytes
+		sizeInGiB = convertBytesToGiB(req.GetCapacityRange().RequiredBytes)
 	}
 
 	request := v3.CreateBlockStorageVolumeRequest{
