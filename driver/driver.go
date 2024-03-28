@@ -44,12 +44,12 @@ const (
 
 // DriverConfig is used to configure a new Driver
 type DriverConfig struct {
-	Endpoint          string
-	Prefix            string
-	Mode              Mode
-	APIKey, APISecret string
-	RestConfig        *rest.Config
-	ZoneEndpoint      v3.Endpoint
+	Endpoint     string
+	Prefix       string
+	Mode         Mode
+	Credentials  *credentials.Credentials
+	RestConfig   *rest.Config
+	ZoneEndpoint v3.Endpoint
 }
 
 // Driver implements the interfaces csi.IdentityServer, csi.ControllerServer and csi.NodeServer
@@ -80,16 +80,13 @@ func NewDriver(config *DriverConfig) (*Driver, error) {
 		return driver, nil
 	}
 
-	// TODO: Uses ENV credentials provider in the main func.
-	creds := credentials.NewStaticCredentials(config.APIKey, config.APISecret)
-
 	var client *v3.Client
 	if config.ZoneEndpoint != "" {
-		client, err = v3.NewClient(creds,
+		client, err = v3.NewClient(config.Credentials,
 			v3.ClientOptWithEndpoint(config.ZoneEndpoint),
 		)
 	} else {
-		client, err = v3.NewClient(creds)
+		client, err = v3.NewClient(config.Credentials)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("new driver: %w", err)
