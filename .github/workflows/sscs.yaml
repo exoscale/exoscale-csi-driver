@@ -1,0 +1,72 @@
+name: sscs
+
+on:
+  workflow_dispatch:
+  push:
+
+jobs:
+  gitsign:
+    permissions:
+      id-token: write # Enable OIDC
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: chainguard-dev/actions/setup-gitsign@main
+      - name: verify commit signature
+        shell: bash
+        run: |
+          git config --local commit.gpgsign true  # Sign all commits
+          git config --local tag.gpgsign true  # Sign all tags
+          git config --local gpg.x509.program gitsign  # Use gitsign for signing
+          git config --local gpg.format x509  # gitsign expects x509 args
+          gitsign verify --certificate-identity-regexp='sauterp.*' --certificate-oidc-issuer='https://github.com/login/oauth' HEAD
+
+      # now that we verified the commit we build the image
+      - run: make go.mk
+      - uses: ./go.mk/.github/actions/setup
+
+      - name: Build Docker image
+        run: make docker
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Tag Docker Image
+        run: |
+          docker tag exoscale/csi-driver:latest exoscale/csi-driver-integ-test:sscs
+
+      - name: Push Docker Image
+        run: |
+          docker push exoscale/csi-driver-integ-test:sscs
+
+      - uses: anchore/sbom-action/download-syft@v0
+
+      - name: scan the image
+        shell: bash
+        run: |
+          syft scan exoscale/csi-driver-integ-test:sscs
+
+      - uses: sigstore/cosign-installer@v3.3.0
+
+      - name: generate sbom
+        shell: bash
+        run: |
+          syft scan --output spdx-json exoscale/csi-driver-integ-test:sscs > sbom.json
+
+      - name: attach attestation
+        shell: bash
+        run: |
+          cosign attest --yes --type spdxjson --predicate sbom.json exoscale/csi-driver-integ-test:sscs
+
+      - name: verify the sbom attestation
+        shell: bash
+        run: |
+          cosign verify-attestation exoscale/csi-driver-integ-test:sscs --certificate-identity=https://github.com/exoscale/exoscale-csi-driver/.github/workflows/sscs.yaml@refs/heads/philippsauter/sscs --certificate-oidc-issuer=https://token.actions.githubusercontent.com --type=spdxjson > /dev/null
+
+      - name: Scan image
+        uses: anchore/scan-action@v3
+        with:
+          image: "exoscale/csi-driver-integ-test:sscs"
