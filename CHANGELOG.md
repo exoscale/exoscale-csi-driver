@@ -11,6 +11,7 @@
 * document and minimize IAM rule policy for CSI #19 
 * integ-tests: use egoscale v3 #20 
 * integ-test: verify that retain policy is respected #22 
+* controller: accept size fields in GiB #26 
 
 ## 0.29.2
 

@@ -62,9 +62,23 @@ func awaitExpectation[T any](t *testing.T, expected T, get func() T) {
 	var actual T
 
 	for i := 0; i < 10; i++ {
-		actual = get()
+		var err error = nil
+
+		actual = func() T {
+			defer func() {
+				if r := recover(); r != nil {
+					err = fmt.Errorf("failed %v", r)
+				}
+			}()
+
+			return get()
+		}()
 
 		time.Sleep(10 * time.Second)
+
+		if err != nil {
+			continue
+		}
 
 		if assert.ObjectsAreEqualValues(expected, actual) {
 			break
@@ -280,12 +294,26 @@ func TestSnapshot(t *testing.T) {
 
 	awaitExpectation(t, true, func() bool {
 		crdInstance, err := snapshotClient.Get(ns.CTX, "my-snap-1", v1.GetOptions{})
-		assert.NoError(t, err)
+		if !assert.NoError(t, err) {
+			return false
+		}
 
 		status, ok := crdInstance.Object["status"].(map[string]interface{})
-		assert.True(t, ok)
+		if !assert.True(t, ok) {
+			return false
+		}
 
-		return status["readyToUse"].(bool)
+		readyToUse, ok := status["readyToUse"]
+		if !ok {
+			return false
+		}
+
+		readyToUseBool, ok := readyToUse.(bool)
+		if !ok {
+			return false
+		}
+
+		return readyToUseBool
 	})
 
 	// create volume from snapshot
