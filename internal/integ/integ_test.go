@@ -65,9 +65,23 @@ func awaitExpectation[T any](t *testing.T, expected T, get func() T) {
 	var actual T
 
 	for i := 0; i < 10; i++ {
-		actual = get()
+		var err error = nil
+
+		actual = func() T {
+			defer func() {
+				if r := recover(); r != nil {
+					err = fmt.Errorf("failed %v", r)
+				}
+			}()
+
+			return get()
+		}()
 
 		time.Sleep(10 * time.Second)
+
+		if err != nil {
+			continue
+		}
 
 		if assert.ObjectsAreEqualValues(expected, actual) {
 			break
@@ -82,7 +96,7 @@ func TestVolumeCreation(t *testing.T) {
 	ns := k8s.CreateTestNamespace(t, cluster.Get().K8s, testName)
 
 	pvcName := generatePVCName(testName)
-	ns.ApplyPVC(pvcName, false)
+	ns.ApplyPVC(pvcName, "10Gi", false)
 
 	awaitExpectation(t, "Bound", func() interface{} {
 		pvc, err := ns.K.ClientSet.CoreV1().PersistentVolumeClaims(ns.Name).Get(ns.CTX, pvcName, metav1.GetOptions{})
@@ -124,7 +138,7 @@ func TestVolumeAttach(t *testing.T) {
 	ns := k8s.CreateTestNamespace(t, cluster.Get().K8s, testName)
 
 	pvcName := generatePVCName(testName)
-	ns.ApplyPVC(pvcName, false)
+	ns.ApplyPVC(pvcName, "10Gi", false)
 	ns.Apply(fmt.Sprintf(basicDeployment, pvcName))
 
 	awaitExpectation(t, "Bound", func() interface{} {
@@ -161,7 +175,7 @@ func TestDeleteVolume(t *testing.T) {
 			} else {
 				pvcName = generatePVCName(testName)
 			}
-			ns.ApplyPVC(pvcName, useRetainStorageClass)
+			ns.ApplyPVC(pvcName, "10Gi", useRetainStorageClass)
 
 			pvcClient := ns.K.ClientSet.CoreV1().PersistentVolumeClaims(ns.Name)
 
@@ -316,7 +330,7 @@ func TestSnapshot(t *testing.T) {
 	ns := k8s.CreateTestNamespace(t, cluster.Get().K8s, testName)
 
 	pvcName := generatePVCName(testName)
-	ns.ApplyPVC(pvcName, false)
+	ns.ApplyPVC(pvcName, "10Gi", false)
 
 	pvcClient := ns.K.ClientSet.CoreV1().PersistentVolumeClaims(ns.Name)
 
@@ -334,12 +348,26 @@ func TestSnapshot(t *testing.T) {
 
 	awaitExpectation(t, true, func() bool {
 		crdInstance, err := snapshotClient.Get(ns.CTX, "my-snap-1", v1.GetOptions{})
-		assert.NoError(t, err)
+		if !assert.NoError(t, err) {
+			return false
+		}
 
 		status, ok := crdInstance.Object["status"].(map[string]interface{})
-		assert.True(t, ok)
+		if !assert.True(t, ok) {
+			return false
+		}
 
-		return status["readyToUse"].(bool)
+		readyToUse, ok := status["readyToUse"]
+		if !ok {
+			return false
+		}
+
+		readyToUseBool, ok := readyToUse.(bool)
+		if !ok {
+			return false
+		}
+
+		return readyToUseBool
 	})
 
 	// create volume from snapshot

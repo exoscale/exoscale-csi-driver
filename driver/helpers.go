@@ -12,6 +12,10 @@ import (
 	v3 "github.com/exoscale/egoscale/v3"
 )
 
+const (
+	GiB = 1024 * 1024 * 1024
+)
+
 func exoscaleID(zoneName v3.ZoneName, id v3.UUID) string {
 	return fmt.Sprintf("%s/%s", zoneName, id)
 }
@@ -85,8 +89,12 @@ func createMountPoint(path string, file bool) error {
 	return nil
 }
 
-func convertBytesToGibiBytes(nBytes int64) int64 {
-	return nBytes / (1024 * 1024 * 1024)
+func convertBytesToGiB(sizeInBytes int64) int64 {
+	return sizeInBytes / GiB
+}
+
+func convertGiBToBytes(sizeInGiB int64) int64 {
+	return sizeInGiB * GiB
 }
 
 func getRequiredZone(requirements *csi.TopologyRequirement, defaultZone v3.ZoneName) (v3.ZoneName, error) {
