@@ -6,7 +6,25 @@ Exoscale Block Storage Container Storage Interface Driver.
 
 * Make sure you have the [CCM](https://github.com/exoscale/exoscale-cloud-controller-manager) deployed and running in your cluster.
 
-* Create secret with [exoscale-secret.sh](./deployment/exoscale-secret.sh).
+* An API key associated to an IAM role with at least those permissions:
+``` json
+{
+  "default-service-strategy": "deny",
+  "services": {
+    "compute": {
+      "type": "rules",
+      "rules": [
+        {
+          "expression": "operation in ['list-zones', 'get-block-storage-volume', 'list-block-storage-volumes', 'create-block-storage-volume', 'delete-block-storage-volume', 'attach-block-storage-volume-to-instance', 'detach-block-storage-volume', 'update-block-storage-volume-labels', 'resize-block-storage-volume', 'get-block-storage-snapshot', 'list-block-storage-snapshots', 'create-block-storage-snapshot', 'delete-block-storage-snapshot']",
+          "action": "allow"
+        },
+      ]
+    }
+  }
+}
+```
+
+* Create a kubernetes secret for the API key with [exoscale-secret.sh](./deployment/exoscale-secret.sh).
     ```Bash
     export EXOSCALE_API_KEY=EXOxxxxx
     export EXOSCALE_API_SECRET=xxxxx
@@ -16,7 +34,7 @@ Exoscale Block Storage Container Storage Interface Driver.
 ## Deployment
 
 ```
-kubectl apply -f deployment/exoscale-csi.yaml
+kubectl apply -k 'github.com/exoscale/exoscale-csi-driver/deployment?ref=main'
 ```
 
 ## Using it
@@ -71,3 +89,6 @@ For example, CSI `0.99` would be compatible with Kubernetes versions `1.99`, `1.
 |-------------|-------------------------------|
 | 0.29        | 1.29, 1.28, 1.27              |
 
+## Project status
+
+We consider the CSI to be in Beta phase. Although it reliably performs its essential functions, missing features and bugs have to be expected.

@@ -1,28 +1,41 @@
 package integ
 
 import (
+	"flag"
 	"fmt"
 	"log/slog"
+	"math/rand"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 
+	v3 "github.com/exoscale/egoscale/v3"
 	"github.com/exoscale/exoscale/csi-driver/internal/integ/cluster"
 	"github.com/exoscale/exoscale/csi-driver/internal/integ/k8s"
+	"github.com/exoscale/exoscale/csi-driver/internal/integ/util"
 )
 
 func TestMain(m *testing.M) {
+	// cluster creation takes a while so we increase the test timeout
+	// This call has to happen before testing.M.Run as that's where
+	// the flag `test.timeout` is used.
+	err := flag.Set("test.timeout", "30m")
+	if err != nil {
+		slog.Warn("failed to set test timeout", "error", err)
+	}
+
 	exitCode := 0
 
-	err := cluster.Setup()
+	err = cluster.Setup()
 	if err != nil {
 		slog.Error("error during setup", "err", err)
 		exitCode = 1
@@ -44,29 +57,17 @@ func TestMain(m *testing.M) {
 	os.Exit(exitCode)
 }
 
-var basicPVC = `
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: my-sbs-pvc
-spec:
-  accessModes:
-  - ReadWriteOnce
-  resources:
-    requests:
-      storage: 100Gi
-  storageClassName: exoscale-sbs
-`
+func generatePVCName(testName string) string {
+	return fmt.Sprintf("%s-%s-%d", "csi-test-pvc", testName, rand.Int())
+}
 
-type getFunc func() interface{}
-
-func awaitExpectation(t *testing.T, expected interface{}, get getFunc) {
-	var actual interface{}
+func awaitExpectation[T any](t *testing.T, expected T, get func() T) {
+	var actual T
 
 	for i := 0; i < 10; i++ {
 		actual = get()
 
-		time.Sleep(5 * time.Second)
+		time.Sleep(10 * time.Second)
 
 		if assert.ObjectsAreEqualValues(expected, actual) {
 			break
@@ -77,12 +78,14 @@ func awaitExpectation(t *testing.T, expected interface{}, get getFunc) {
 }
 
 func TestVolumeCreation(t *testing.T) {
-	ns := k8s.CreateTestNamespace(t, cluster.Get().K8s, "create-vol")
+	testName := "create-vol"
+	ns := k8s.CreateTestNamespace(t, cluster.Get().K8s, testName)
 
-	ns.Apply(basicPVC)
+	pvcName := generatePVCName(testName)
+	ns.ApplyPVC(pvcName, false)
 
 	awaitExpectation(t, "Bound", func() interface{} {
-		pvc, err := ns.K.ClientSet.CoreV1().PersistentVolumeClaims(ns.Name).Get(ns.CTX, "my-sbs-pvc", metav1.GetOptions{})
+		pvc, err := ns.K.ClientSet.CoreV1().PersistentVolumeClaims(ns.Name).Get(ns.CTX, pvcName, metav1.GetOptions{})
 		assert.NoError(t, err)
 
 		return pvc.Status.Phase
@@ -113,19 +116,19 @@ spec:
       volumes:
         - name: my-awesome-logs
           persistentVolumeClaim:
-            claimName: my-sbs-pvc
+            claimName: %s
 `
 
 func TestVolumeAttach(t *testing.T) {
-	ns := k8s.CreateTestNamespace(t, cluster.Get().K8s, "vol-attach")
+	testName := "vol-attach"
+	ns := k8s.CreateTestNamespace(t, cluster.Get().K8s, testName)
 
-	ns.Apply(basicPVC)
-	ns.Apply(basicDeployment)
-
-	go ns.K.PrintEvents(ns.CTX, ns.Name)
+	pvcName := generatePVCName(testName)
+	ns.ApplyPVC(pvcName, false)
+	ns.Apply(fmt.Sprintf(basicDeployment, pvcName))
 
 	awaitExpectation(t, "Bound", func() interface{} {
-		pvc, err := ns.K.ClientSet.CoreV1().PersistentVolumeClaims(ns.Name).Get(ns.CTX, "my-sbs-pvc", metav1.GetOptions{})
+		pvc, err := ns.K.ClientSet.CoreV1().PersistentVolumeClaims(ns.Name).Get(ns.CTX, pvcName, metav1.GetOptions{})
 		assert.NoError(t, err)
 
 		return pvc.Status.Phase
@@ -144,30 +147,87 @@ func TestVolumeAttach(t *testing.T) {
 }
 
 func TestDeleteVolume(t *testing.T) {
-	ns := k8s.CreateTestNamespace(t, cluster.Get().K8s, "del-vol")
+	testName := "del-vol"
+	ns := k8s.CreateTestNamespace(t, cluster.Get().K8s, testName)
 
-	ns.Apply(basicPVC)
-
-	pvcClient := ns.K.ClientSet.CoreV1().PersistentVolumeClaims(ns.Name)
-
-	awaitExpectation(t, "Bound", func() interface{} {
-		pvc, err := pvcClient.Get(ns.CTX, "my-sbs-pvc", metav1.GetOptions{})
-		assert.NoError(t, err)
-
-		return pvc.Status.Phase
-	})
-
-	err := pvcClient.Delete(ns.CTX, "my-sbs-pvc", metav1.DeleteOptions{})
+	egoClient, err := util.CreateEgoscaleClient()
 	assert.NoError(t, err)
 
-	awaitExpectation(t, 0, func() interface{} {
-		pvcs, err := pvcClient.List(ns.CTX, metav1.ListOptions{})
-		assert.NoError(t, err)
+	testFunc := func(useRetainStorageClass bool) func(t *testing.T) {
+		return func(t *testing.T) {
+			pvcName := ""
+			if useRetainStorageClass {
+				pvcName = generatePVCName(testName + "-retain")
+			} else {
+				pvcName = generatePVCName(testName)
+			}
+			ns.ApplyPVC(pvcName, useRetainStorageClass)
 
-		return len(pvcs.Items)
-	})
+			pvcClient := ns.K.ClientSet.CoreV1().PersistentVolumeClaims(ns.Name)
 
-	// TODO (sauterp) once ego v3 is available check if volume is deleted (and retainPolicy)
+			getPVC := func() *corev1.PersistentVolumeClaim {
+				pvc, err := pvcClient.Get(ns.CTX, pvcName, metav1.GetOptions{})
+				assert.NoError(t, err)
+
+				return pvc
+			}
+
+			awaitExpectation(t, corev1.ClaimBound, func() corev1.PersistentVolumeClaimPhase {
+				pvc := getPVC()
+
+				return pvc.Status.Phase
+			})
+
+			pvc := getPVC()
+			assert.NotNil(t, pvc)
+			pvName := getPVC().Spec.VolumeName
+
+			err = pvcClient.Delete(ns.CTX, pvcName, metav1.DeleteOptions{})
+			assert.NoError(t, err)
+
+			awaitExpectation(t, 0, func() int {
+				pvcs, err := pvcClient.List(ns.CTX, metav1.ListOptions{})
+				assert.NoError(t, err)
+
+				return len(pvcs.Items)
+			})
+
+			expectedVolumeName := ""
+			if useRetainStorageClass {
+				// The volume should be retained, hence a b/s volume with the same name as the pvc should be found.
+				expectedVolumeName = pvName
+
+				t.Cleanup(func() {
+					// delete the retained volume after the test
+					bsVolList, err := egoClient.ListBlockStorageVolumes(ns.CTX)
+					assert.NoError(t, err)
+
+					bsVol, err := bsVolList.FindBlockStorageVolume(pvName)
+					if err == nil {
+						op, err := egoClient.DeleteBlockStorageVolume(ns.CTX, bsVol.ID)
+						if err != nil {
+							slog.Warn("failed to clean up volume", "name", bsVol.Name, "err", err)
+						}
+
+						if _, err := egoClient.Wait(ns.CTX, op, v3.OperationStateSuccess); err != nil {
+							slog.Warn("failed to clean up volume", "name", bsVol.Name, "err", err)
+						}
+					}
+				})
+			}
+
+			awaitExpectation(t, expectedVolumeName, func() string {
+				bsVolList, err := egoClient.ListBlockStorageVolumes(ns.CTX)
+				assert.NoError(t, err)
+
+				bsVol, _ := bsVolList.FindBlockStorageVolume(pvName)
+				return bsVol.Name
+			})
+		}
+	}
+
+	t.Run("storage-class-delete", testFunc(false))
+	t.Run("storage-class-retain", testFunc(true))
 }
 
 func TestVolumeExpand(t *testing.T) {
@@ -229,7 +289,7 @@ metadata:
 spec:
   volumeSnapshotClassName: exoscale-snapshot
   source:
-    persistentVolumeClaimName: my-sbs-pvc
+    persistentVolumeClaimName: %s
 `
 
 const basicVolumeFromSnapshot = `
@@ -252,42 +312,40 @@ spec:
 `
 
 func TestSnapshot(t *testing.T) {
-	ns := k8s.CreateTestNamespace(t, cluster.Get().K8s, "snapshot")
+	testName := "snapshot"
+	ns := k8s.CreateTestNamespace(t, cluster.Get().K8s, testName)
 
-	ns.Apply(basicPVC)
+	pvcName := generatePVCName(testName)
+	ns.ApplyPVC(pvcName, false)
 
 	pvcClient := ns.K.ClientSet.CoreV1().PersistentVolumeClaims(ns.Name)
 
-	awaitExpectation(t, "Bound", func() interface{} {
-		pvc, err := pvcClient.Get(ns.CTX, "my-sbs-pvc", metav1.GetOptions{})
+	awaitExpectation(t, corev1.ClaimBound, func() corev1.PersistentVolumeClaimPhase {
+		pvc, err := pvcClient.Get(ns.CTX, pvcName, metav1.GetOptions{})
 		assert.NoError(t, err)
 
 		return pvc.Status.Phase
 	})
 
 	// create snapshot
-	ns.Apply(basicSnapshot)
+	ns.Apply(fmt.Sprintf(basicSnapshot, pvcName))
 
 	snapshotClient := ns.K.DynamicClient.Resource(getSnapshotCRDResource()).Namespace(ns.Name)
 
-	awaitExpectation(t, true, func() interface{} {
+	awaitExpectation(t, true, func() bool {
 		crdInstance, err := snapshotClient.Get(ns.CTX, "my-snap-1", v1.GetOptions{})
-		if err != nil {
-			return err
-		}
+		assert.NoError(t, err)
 
 		status, ok := crdInstance.Object["status"].(map[string]interface{})
-		if !ok {
-			return fmt.Errorf("type assertion failed")
-		}
+		assert.True(t, ok)
 
-		return status["readyToUse"]
+		return status["readyToUse"].(bool)
 	})
 
 	// create volume from snapshot
 	ns.Apply(basicVolumeFromSnapshot)
 
-	awaitExpectation(t, "Bound", func() interface{} {
+	awaitExpectation(t, corev1.ClaimBound, func() corev1.PersistentVolumeClaimPhase {
 		pvc, err := pvcClient.Get(ns.CTX, "my-snap-1-pvc", metav1.GetOptions{})
 		assert.NoError(t, err)
 
@@ -298,9 +356,12 @@ func TestSnapshot(t *testing.T) {
 	err := snapshotClient.Delete(ns.CTX, "my-snap-1", v1.DeleteOptions{})
 	assert.NoError(t, err)
 
-	awaitExpectation(t, 0, func() interface{} {
+	awaitExpectation(t, 0, func() int {
 		snapshots, err := snapshotClient.List(ns.CTX, v1.ListOptions{})
-		assert.NoError(t, err)
+		if err != nil {
+			assert.NoError(t, err)
+			return 0
+		}
 
 		return len(snapshots.Items)
 	})

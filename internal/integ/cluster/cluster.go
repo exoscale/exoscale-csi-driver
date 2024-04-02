@@ -2,9 +2,7 @@
 package cluster
 
 import (
-	"context"
-
-	exov2 "github.com/exoscale/egoscale/v2"
+	exov3 "github.com/exoscale/egoscale/v3"
 	"github.com/exoscale/exoscale/csi-driver/internal/integ/k8s"
 )
 
@@ -17,13 +15,10 @@ func Get() *Cluster {
 }
 
 type Cluster struct {
-	exoV2Context       context.Context
-	exoV2ContextCancel context.CancelFunc
-
 	Name        string
-	ID          string
+	ID          exov3.UUID
 	K8s         *k8s.K8S
-	Ego         *exov2.Client
+	Ego         *exov3.Client
 	APIKeyName  string
 	APIRoleName string
 }

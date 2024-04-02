@@ -1,11 +1,14 @@
 package k8s
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"log/slog"
 	"math/rand"
 	"testing"
+
+	"text/template"
 
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/core/v1"
@@ -21,6 +24,52 @@ type Namespace struct {
 	t    *testing.T
 	Name string
 	CTX  context.Context
+}
+
+type PVC struct {
+	Name             string
+	StorageClassName string
+}
+
+var pvcTemplate = `
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Name }}
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: {{ .StorageClassName }}`
+
+func (ns *Namespace) ApplyPVC(name string, useStorageClassRetain bool) {
+	tmpl := template.New("volumeTemplate")
+	parsedTmpl, err := tmpl.Parse(pvcTemplate)
+	if err != nil {
+		slog.Error("failed to parse PVC template", "err", err)
+
+		return
+	}
+
+	data := PVC{
+		Name:             name,
+		StorageClassName: "exoscale-sbs",
+	}
+
+	if useStorageClassRetain {
+		data.StorageClassName = "exoscale-bs-retain"
+	}
+
+	buf := &bytes.Buffer{}
+	if parsedTmpl.Execute(buf, data) != nil {
+		slog.Error("failed to execute PVC template", "err", err)
+
+		return
+	}
+
+	ns.Apply(buf.String())
 }
 
 func (ns *Namespace) Apply(manifest string) {
@@ -78,6 +127,8 @@ func CreateTestNamespace(t *testing.T, k *K8S, testName string) *Namespace {
 
 	_, err := ns.K.ClientSet.CoreV1().Namespaces().Create(ns.CTX, namespace, metav1.CreateOptions{})
 	assert.NoError(ns.t, err)
+
+	go ns.K.PrintEvents(ns.CTX, ns.Name)
 
 	if !*flags.DontCleanUpTestNS {
 		t.Cleanup(func() {

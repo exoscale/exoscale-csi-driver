@@ -21,15 +21,13 @@ const (
 
 type nodeService struct {
 	nodeID    v3.UUID
-	zone      v3.URL
-	zoneName  string
+	zoneName  v3.ZoneName
 	diskUtils *diskUtils
 }
 
 func newNodeService(meta *nodeMetadata) nodeService {
 	return nodeService{
 		nodeID:    meta.InstanceID,
-		zone:      meta.zone,
 		zoneName:  meta.zoneName,
 		diskUtils: newDiskUtils(),
 	}

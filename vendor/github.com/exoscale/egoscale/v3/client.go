@@ -5,58 +5,63 @@ package v3
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"runtime"
 	"time"
 
+	"github.com/exoscale/egoscale/v3/credentials"
 	"github.com/exoscale/egoscale/version"
 	"github.com/go-playground/validator/v10"
 )
 
-// URL represents a zoned url endpoint.
-type URL string
+// Endpoint represents a zone endpoint.
+type Endpoint string
 
 const (
-	CHGva2 URL = "https://api-ch-gva-2.exoscale.com/v2"
-	CHDk2  URL = "https://api-ch-dk-2.exoscale.com/v2"
-	DEFra1 URL = "https://api-de-fra-1.exoscale.com/v2"
-	DEMuc1 URL = "https://api-de-muc-1.exoscale.com/v2"
-	ATVie1 URL = "https://api-at-vie-1.exoscale.com/v2"
-	ATVie2 URL = "https://api-at-vie-2.exoscale.com/v2"
-	BGSof1 URL = "https://api-bg-sof-1.exoscale.com/v2"
+	CHGva2 Endpoint = "https://api-ch-gva-2.exoscale.com/v2"
+	CHDk2  Endpoint = "https://api-ch-dk-2.exoscale.com/v2"
+	DEFra1 Endpoint = "https://api-de-fra-1.exoscale.com/v2"
+	DEMuc1 Endpoint = "https://api-de-muc-1.exoscale.com/v2"
+	ATVie1 Endpoint = "https://api-at-vie-1.exoscale.com/v2"
+	ATVie2 Endpoint = "https://api-at-vie-2.exoscale.com/v2"
+	BGSof1 Endpoint = "https://api-bg-sof-1.exoscale.com/v2"
 )
 
-// Zone gets the zone name from the URL.
-func (u URL) Zone() (string, bool) {
-	for zone, url := range Zones {
-		if url == u {
-			return zone, true
+func (c Client) GetZoneName(ctx context.Context, endpoint Endpoint) (ZoneName, error) {
+	resp, err := c.ListZones(ctx)
+	if err != nil {
+		return "", fmt.Errorf("get zone name: %w", err)
+	}
+	for _, zone := range resp.Zones {
+		if zone.APIEndpoint == endpoint {
+			return zone.Name, nil
 		}
 	}
 
-	return "", false
+	return "", fmt.Errorf("get zone name: no matching zone for %s", endpoint)
 }
 
-// Zones represents a list of all Exoscale zone.
-var Zones map[string]URL = map[string]URL{
-	"ch-gva-2": CHGva2,
-	"ch-dk-2":  CHDk2,
-	"de-fra-1": DEFra1,
-	"de-muc-1": DEMuc1,
-	"at-vie-1": ATVie1,
-	"at-vie-2": ATVie2,
-	"bg-sof-1": BGSof1,
+func (c Client) GetZoneAPIEndpoint(ctx context.Context, zoneName ZoneName) (Endpoint, error) {
+	resp, err := c.ListZones(ctx)
+	if err != nil {
+		return "", fmt.Errorf("get zone api endpoint: %w", err)
+	}
+	for _, zone := range resp.Zones {
+		if zone.Name == zoneName {
+			return zone.APIEndpoint, nil
+		}
+	}
+
+	return "", fmt.Errorf("get zone api endpoint: zone name %s not found", zoneName)
 }
 
 // Client represents an Exoscale API client.
 type Client struct {
 	apiKey          string
 	apiSecret       string
-	serverURL       string
+	serverEndpoint  string
 	httpClient      *http.Client
-	timeout         time.Duration
 	pollingInterval time.Duration
 	validate        *validator.Validate
 	trace           bool
@@ -81,18 +86,6 @@ const pollingInterval = 3 * time.Second
 // ClientOpt represents a function setting Exoscale API client option.
 type ClientOpt func(*Client) error
 
-// ClientOptWithTimeout returns a ClientOpt overriding the default client timeout.
-func ClientOptWithTimeout(v time.Duration) ClientOpt {
-	return func(c *Client) error {
-		if v <= 0 {
-			return errors.New("timeout value must be greater than 0")
-		}
-		c.timeout = v
-
-		return nil
-	}
-}
-
 // ClientOptWithTrace returns a ClientOpt enabling HTTP request/response tracing.
 func ClientOptWithTrace() ClientOpt {
 	return func(c *Client) error {
@@ -109,10 +102,10 @@ func ClientOptWithValidator(validate *validator.Validate) ClientOpt {
 	}
 }
 
-// ClientOptWithURL returns a ClientOpt With a given zone URL.
-func ClientOptWithURL(url URL) ClientOpt {
+// ClientOptWithEndpoint returns a ClientOpt With a given zone Endpoint.
+func ClientOptWithEndpoint(endpoint Endpoint) ClientOpt {
 	return func(c *Client) error {
-		c.serverURL = string(url)
+		c.serverEndpoint = string(endpoint)
 		return nil
 	}
 }
@@ -140,15 +133,16 @@ func ClientOptWithHTTPClient(v *http.Client) ClientOpt {
 }
 
 // NewClient returns a new Exoscale API client.
-func NewClient(apiKey, apiSecret string, opts ...ClientOpt) (*Client, error) {
-	if apiKey == "" || apiSecret == "" {
-		return nil, fmt.Errorf("missing or incomplete API credentials")
+func NewClient(credentials *credentials.Credentials, opts ...ClientOpt) (*Client, error) {
+	values, err := credentials.Get()
+	if err != nil {
+		return nil, err
 	}
 
 	client := &Client{
-		apiKey:          apiKey,
-		apiSecret:       apiSecret,
-		serverURL:       string(CHGva2),
+		apiKey:          values.APIKey,
+		apiSecret:       values.APISecret,
+		serverEndpoint:  string(CHGva2),
 		httpClient:      http.DefaultClient,
 		pollingInterval: pollingInterval,
 		validate:        validator.New(),
@@ -163,15 +157,16 @@ func NewClient(apiKey, apiSecret string, opts ...ClientOpt) (*Client, error) {
 	return client, nil
 }
 
-// WithURL returns a copy of Client with new zone URL.
-func (c *Client) WithURL(url URL) *Client {
+// WithEndpoint returns a copy of Client with new zone Endpoint.
+func (c *Client) WithEndpoint(endpoint Endpoint) *Client {
 	return &Client{
 		apiKey:              c.apiKey,
 		apiSecret:           c.apiSecret,
-		serverURL:           string(url),
+		serverEndpoint:      string(endpoint),
 		httpClient:          c.httpClient,
 		requestInterceptors: c.requestInterceptors,
 		pollingInterval:     c.pollingInterval,
+		trace:               c.trace,
 		validate:            c.validate,
 	}
 }
@@ -181,7 +176,7 @@ func (c *Client) WithTrace() *Client {
 	return &Client{
 		apiKey:              c.apiKey,
 		apiSecret:           c.apiSecret,
-		serverURL:           c.serverURL,
+		serverEndpoint:      c.serverEndpoint,
 		httpClient:          c.httpClient,
 		requestInterceptors: c.requestInterceptors,
 		pollingInterval:     c.pollingInterval,
@@ -195,10 +190,11 @@ func (c *Client) WithHttpClient(client *http.Client) *Client {
 	return &Client{
 		apiKey:              c.apiKey,
 		apiSecret:           c.apiSecret,
-		serverURL:           c.serverURL,
+		serverEndpoint:      c.serverEndpoint,
 		httpClient:          client,
 		requestInterceptors: c.requestInterceptors,
 		pollingInterval:     c.pollingInterval,
+		trace:               c.trace,
 		validate:            c.validate,
 	}
 }
@@ -208,10 +204,11 @@ func (c *Client) WithRequestInterceptor(f ...RequestInterceptorFn) *Client {
 	return &Client{
 		apiKey:              c.apiKey,
 		apiSecret:           c.apiSecret,
-		serverURL:           c.serverURL,
+		serverEndpoint:      c.serverEndpoint,
 		httpClient:          c.httpClient,
 		requestInterceptors: append(c.requestInterceptors, f...),
 		pollingInterval:     c.pollingInterval,
+		trace:               c.trace,
 		validate:            c.validate,
 	}
 }

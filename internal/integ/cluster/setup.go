@@ -1,85 +1,94 @@
 package cluster
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log/slog"
 	"os"
 
 	"github.com/exoscale/exoscale/csi-driver/internal/integ/flags"
+	"github.com/exoscale/exoscale/csi-driver/internal/integ/util"
 
-	exov2 "github.com/exoscale/egoscale/v2"
+	exov3 "github.com/exoscale/egoscale/v3"
 )
 
-func (c *Cluster) getLatestSKSVersion() (string, error) {
-	versions, err := c.Ego.ListSKSClusterVersions(c.exoV2Context)
+func (c *Cluster) getLatestSKSVersion(ctx context.Context) (string, error) {
+	versions, err := c.Ego.ListSKSClusterVersions(ctx)
 	if err != nil {
 		return "", fmt.Errorf("error retrieving SKS versions: %w", err)
 	}
 
-	if len(versions) == 0 {
+	if len(versions.SKSClusterVersions) == 0 {
 		return "", fmt.Errorf("no SKS version returned by the API")
 	}
 
-	return versions[0], nil
+	return versions.SKSClusterVersions[0], nil
 }
 
-func (c *Cluster) provisionSKSCluster(zone string) error {
+func (c *Cluster) getInstanceType(ctx context.Context, family, size string) (*exov3.InstanceType, error) {
+	instanceTypes, err := c.Ego.ListInstanceTypes(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, instanceType := range instanceTypes.InstanceTypes {
+		if instanceType.Family == exov3.InstanceTypeFamilyStandard && instanceType.Size == exov3.InstanceTypeSizeMedium {
+			return c.Ego.GetInstanceType(ctx, instanceType.ID)
+		}
+	}
+
+	return nil, fmt.Errorf("unable to find instance type %s.%s", family, size)
+}
+
+func (c *Cluster) provisionSKSCluster(ctx context.Context, zone string) error {
 	// do nothing if cluster exists
-	_, err := c.getCluster()
+	_, err := c.getCluster(ctx)
 	if err == nil {
 		return nil
 	}
 
-	latestSKSVersion, err := c.getLatestSKSVersion()
+	latestSKSVersion, err := c.getLatestSKSVersion(ctx)
 	if err != nil {
 		return err
 	}
 
 	// intance type must be at least standard.medium for block storage volume attachment to work
-	instanceType, err := c.Ego.FindInstanceType(c.exoV2Context, zone, "standard.medium")
+	instanceType, err := c.getInstanceType(ctx, "standard", "medium")
 	if err != nil {
 		return err
 	}
 
-	nodepool := exov2.SKSNodepool{
-		Name:           ptr(c.Name + "-nodepool"),
-		DiskSize:       ptr(int64(20)),
-		Size:           ptr(int64(2)),
-		InstancePrefix: ptr("pool"),
-		InstanceTypeID: instanceType.ID,
-	}
-
-	sksCluster := &exov2.SKSCluster{
-		AddOns: &[]string{
-			// TODO(sauterp) remove once the CCM is no longer necessary for the CSI.
+	op, err := c.Ego.CreateSKSCluster(ctx, exov3.CreateSKSClusterRequest{
+		Addons: []string{
 			"exoscale-cloud-controller",
 		},
-		CNI:         ptr("calico"),
-		Description: ptr("This cluster was created to test the exoscale CSI driver in SKS."),
-		Name:        ptr(c.Name),
-		Nodepools: []*exov2.SKSNodepool{
-			ptr(nodepool),
-		},
-		ServiceLevel: ptr("pro"),
-		Version:      ptr(latestSKSVersion),
-		Zone:         ptr(zone),
-	}
-
-	newCluster, err := c.Ego.CreateSKSCluster(c.exoV2Context, zone, sksCluster)
+		Cni:         "calico",
+		Description: "This cluster was created to test the exoscale CSI driver in SKS.",
+		Name:        c.Name,
+		Level:       exov3.CreateSKSClusterRequestLevelPro,
+		Version:     latestSKSVersion,
+	})
+	newClusterID, err := c.awaitID(ctx, op, err)
 	if err != nil {
 		return err
 	}
 
-	c.ID = *newCluster.ID
-	slog.Info("successfully created cluster", "clusterID", c.ID)
+	c.ID = newClusterID
 
-	_, err = c.Ego.CreateSKSNodepool(c.exoV2Context, zone, newCluster, &nodepool)
-	if err != nil {
+	op, err = c.Ego.CreateSKSNodepool(ctx, newClusterID, exov3.CreateSKSNodepoolRequest{
+		Name:           c.Name + "-nodepool",
+		DiskSize:       int64(20),
+		Size:           int64(2),
+		InstancePrefix: "pool",
+		InstanceType:   instanceType,
+	})
+	if err = c.awaitSuccess(ctx, op, err); err != nil {
 		// this can error even when the nodepool is successfully created
 		// it's probably a bug, so we're not returning the error
 		slog.Warn("error creating nodepool", "err", err)
 	}
+	slog.Info("successfully created cluster", "clusterID", c.ID)
 
 	return nil
 }
@@ -92,27 +101,25 @@ func exitApplication(msg string, err error) {
 	os.Exit(1)
 }
 
-func ConfigureCluster(createCluster bool, name, zone string) (*Cluster, error) {
-	v2Client, ctx, ctxCancel, err := createV2ClientAndContext()
+func ConfigureCluster(ctx context.Context, createCluster bool, name, zone string) (*Cluster, error) {
+	client, err := util.CreateEgoscaleClient()
 	if err != nil {
-		return nil, fmt.Errorf("error creating egoscale v2 client: %w", err)
+		return nil, fmt.Errorf("error creating egoscale v3 client: %w", err)
 	}
 
 	cluster := &Cluster{
-		Ego:                v2Client,
-		Name:               name,
-		exoV2Context:       ctx,
-		exoV2ContextCancel: ctxCancel,
+		Ego:  client,
+		Name: name,
 	}
 
 	if createCluster {
-		err = cluster.provisionSKSCluster(zone)
+		err = cluster.provisionSKSCluster(ctx, zone)
 		if err != nil {
 			return nil, fmt.Errorf("error creating SKS cluster: %w", err)
 		}
 	}
 
-	id, err := cluster.getClusterID()
+	id, err := cluster.getClusterID(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("error getting cluster ID: %w", err)
 	}
@@ -121,7 +128,7 @@ func ConfigureCluster(createCluster bool, name, zone string) (*Cluster, error) {
 	cluster.APIKeyName = apiKeyPrefix + cluster.Name
 	cluster.APIRoleName = cluster.APIKeyName + "-role"
 
-	k, err := cluster.getK8sClients()
+	k, err := cluster.getK8sClients(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("error initializing k8s clients: %w", err)
 	}
@@ -132,6 +139,8 @@ func ConfigureCluster(createCluster bool, name, zone string) (*Cluster, error) {
 }
 
 func Setup() error {
+	ctx := context.Background()
+
 	if err := flags.ValidateFlags(); err != nil {
 		exitApplication("invalid flags", err)
 
@@ -139,16 +148,29 @@ func Setup() error {
 	}
 
 	var err error
-	testCluster, err = ConfigureCluster(*flags.CreateCluster, *flags.ClusterName, *flags.Zone)
+	testCluster, err = ConfigureCluster(ctx, *flags.CreateCluster, *flags.ClusterName, *flags.Zone)
 	if err != nil {
 		return err
 	}
 
+	calicoControllerName := "calico-kube-controllers"
+	if err := testCluster.awaitDeploymentReadiness(ctx, calicoControllerName); err != nil {
+		slog.Warn("error while awaiting", "deployment", calicoControllerName, "error", err)
+	}
+
+	calicoNodeName := "calico-node"
+	if err := testCluster.awaitDaemonSetReadiness(ctx, calicoNodeName); err != nil {
+		slog.Warn("error while awaiting", "DaemonSet", calicoNodeName, "error", err)
+	}
+
 	if !*flags.DontApplyCSI {
-		if err := testCluster.applyCSI(); err != nil {
+		if err := testCluster.applyCSI(ctx); err != nil {
 			return fmt.Errorf("error applying CSI: %w", err)
 		}
 	}
+
+	testCluster.printPodsLogs(ctx, "app="+csiControllerName, "exoscale-csi-plugin")
+	testCluster.printPodsLogs(ctx, "app="+csiNodeDriverName, "exoscale-csi-plugin")
 
 	return nil
 }

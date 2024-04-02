@@ -22,7 +22,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - run: git submodule update --init --recursive go.mk
+      - run: make go.mk
 
       - uses: ./go.mk/.github/actions/setup
 
@@ -49,5 +49,5 @@ jobs:
             --zone ch-gva-2
         shell: bash
         env:
-          EXOSCALE_API_KEY: ${{ secrets.EXOSCALE_API_KEY }}
-          EXOSCALE_API_SECRET: ${{ secrets.EXOSCALE_API_SECRET }}
+          EXOSCALE_API_KEY: ${{ secrets.EXOSCALE_API_KEY_IAMV3 }}
+          EXOSCALE_API_SECRET: ${{ secrets.EXOSCALE_API_SECRET_IAMV3 }}
