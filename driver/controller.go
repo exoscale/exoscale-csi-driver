@@ -558,7 +558,7 @@ func (d *controllerService) CreateSnapshot(ctx context.Context, req *csi.CreateS
 		return nil, err
 	}
 
-	klog.Infof("successfully created snapshot %q of size %d GB from volume %q", snapshot.ID, volume.Size, volume.ID)
+	klog.Infof("successfully created snapshot %q of size %d GiB from volume %q", snapshot.ID, volume.Size, volume.ID)
 
 	return &csi.CreateSnapshotResponse{
 		Snapshot: &csi.Snapshot{
