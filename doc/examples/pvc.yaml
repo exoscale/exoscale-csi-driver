@@ -1,12 +1,12 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: invalid-pvc
+  name: my-sbs-pvc
   namespace: awesome
 spec:
   accessModes:
   - ReadWriteOnce
   resources:
     requests:
-      storage: 200703Mi
+      storage: 200Gi
   storageClassName: exoscale-sbs

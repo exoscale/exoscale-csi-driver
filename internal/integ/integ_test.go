@@ -112,9 +112,9 @@ func TestInvalidVolumeSize(t *testing.T) {
 
 	time.Sleep(3 * time.Second)
 
-	// The volume should not be created as the size is not a value that can be represented exactly in GiB.
-	_, err := ns.K.ClientSet.CoreV1().PersistentVolumeClaims(ns.Name).Get(ns.CTX, pvcName, metav1.GetOptions{})
-	assert.Error(t, err)
+	pvc, err := ns.K.ClientSet.CoreV1().PersistentVolumeClaims(ns.Name).Get(ns.CTX, pvcName, metav1.GetOptions{})
+	assert.NoError(t, err)
+	assert.Nil(t, pvc, "The PVC should not be created as the volume size cannot be represented exactly in GiB.")
 }
 
 var basicDeployment = `
