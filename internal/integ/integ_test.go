@@ -10,9 +10,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -245,54 +243,34 @@ func TestDeleteVolume(t *testing.T) {
 }
 
 func TestVolumeExpand(t *testing.T) {
-	ns := k8s.CreateTestNamespace(t, cluster.Get().K8s, "vol-expand")
+	testName := "expand-vol"
+	ns := k8s.CreateTestNamespace(t, cluster.Get().K8s, testName)
 
-	ns.Apply(basicPVC)
-	ns.Apply(basicDeployment)
+	pvcName := generatePVCName(testName)
+	ns.ApplyPVC(pvcName, "10Gi", false)
+	//ns.Apply(basicDeployment)
 
-	go ns.K.PrintEvents(ns.CTX, ns.Name)
-
-	var storage1 resource.Quantity
 	awaitExpectation(t, "Bound", func() interface{} {
-		pvc, err := ns.K.ClientSet.CoreV1().PersistentVolumeClaims(ns.Name).Get(ns.CTX, "my-sbs-pvc", metav1.GetOptions{})
+		pvc, err := ns.K.ClientSet.CoreV1().PersistentVolumeClaims(ns.Name).Get(ns.CTX, pvcName, metav1.GetOptions{})
 		assert.NoError(t, err)
-
-		storage := pvc.Status.Capacity.Storage()
-		require.NotNil(t, storage)
-		storage1 = *storage
-
 		return pvc.Status.Phase
 	})
 
-	awaitExpectation(t, "Bound", func() interface{} {
-		updatedPVC, err := ns.K.ClientSet.CoreV1().PersistentVolumeClaims(ns.Name).Patch(
-			ns.CTX,
-			"my-sbs-pvc",
-			types.MergePatchType,
-			[]byte(`{"spec":{"resources":{"requests":{"storage":"300Gi"}}}}`),
-			metav1.PatchOptions{},
-		)
+	_, err := ns.K.ClientSet.CoreV1().PersistentVolumeClaims(ns.Name).Patch(
+		ns.CTX,
+		pvcName,
+		types.MergePatchType,
+		[]byte(`{"spec":{"resources":{"requests":{"storage":"50Gi"}}}}`),
+		metav1.PatchOptions{},
+	)
+	assert.NoError(t, err)
+
+	awaitExpectation(t, 0, func() interface{} {
+		pvc, err := ns.K.ClientSet.CoreV1().PersistentVolumeClaims(ns.Name).Get(ns.CTX, pvcName, metav1.GetOptions{})
 		assert.NoError(t, err)
 
-		return updatedPVC.Status.Phase
+		return pvc.Status.Capacity.Storage().CmpInt64(50 * 1024 * 1024 * 1024)
 	})
-
-	var storage2 resource.Quantity
-	awaitExpectation(t, "Bound", func() interface{} {
-		pvc, err := ns.K.ClientSet.CoreV1().PersistentVolumeClaims(ns.Name).Get(ns.CTX, "my-sbs-pvc", metav1.GetOptions{})
-		assert.NoError(t, err)
-
-		storage := pvc.Status.Capacity.Storage()
-		require.NotNil(t, storage)
-		storage2 = *storage
-
-		return pvc.Status.Phase
-	})
-
-	// Cmp returns 0 if the quantity is equal to y,
-	// -1 if the quantity is less than y,
-	// or 1 if the quantity is greater than y.
-	require.Equal(t, 1, storage1.Cmp(storage2))
 }
 
 const basicSnapshot = `

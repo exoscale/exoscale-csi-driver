@@ -131,6 +131,9 @@ func getRequiredZone(requirements *csi.TopologyRequirement, defaultZone v3.ZoneN
 }
 
 func getNewVolumeSize(capacityRange *csi.CapacityRange) (int64, error) {
+	MinimalVolumeSizeBytes := convertGiBToBytes(MinimalVolumeSizeGiB)
+	MaximumVolumeSizeBytes := convertGiBToBytes(MaximumVolumeSizeGiB)
+
 	if capacityRange == nil {
 		return MinimalVolumeSizeBytes, nil
 	}

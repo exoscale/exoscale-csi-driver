@@ -74,6 +74,8 @@ var (
 
 const (
 	DefaultVolumeSizeGiB = 100
+	MinimalVolumeSizeGiB = 10
+	MaximumVolumeSizeGiB = 10000
 )
 
 type controllerService struct {
@@ -680,7 +682,7 @@ func (d *controllerService) ControllerExpandVolume(ctx context.Context, req *csi
 		return nil, err
 	}
 
-	volume, err := d.client.GetBlockStorageVolume(ctx, volumeID)
+	_, err = d.client.GetBlockStorageVolume(ctx, volumeID)
 	if err != nil {
 		if errors.Is(err, v3.ErrNotFound) {
 			return nil, status.Errorf(codes.NotFound, "volume %s not found", volumeID)
@@ -702,24 +704,30 @@ func (d *controllerService) ControllerExpandVolume(ctx context.Context, req *csi
 		}
 	}
 
-	newSize, err := getNewVolumeSize(req.GetCapacityRange())
+	newSizeInBytes, err := getNewVolumeSize(req.GetCapacityRange())
 	if err != nil {
 		return nil, status.Errorf(codes.OutOfRange, "invalid capacity range: %v", err)
 	}
 
-	if newSize < volume.Size {
-		return nil, status.Error(codes.InvalidArgument, "new size must be bigger than actual volume size")
+	if newSizeInBytes%GiB != 0 {
+		msg := fmt.Sprintf("requested size in bytes cannot be exactly converted to GiB: %d", newSizeInBytes)
+
+		klog.Error(msg)
+
+		return nil, fmt.Errorf(msg)
 	}
 
+	sizeInGiB := convertBytesToGiB(newSizeInBytes)
+
 	_, err = d.client.ResizeBlockStorageVolume(ctx, volumeID, v3.ResizeBlockStorageVolumeRequest{
-		Size: newSize,
+		Size: sizeInGiB,
 	})
 	if err != nil {
 		return nil, err
 	}
 
 	return &csi.ControllerExpandVolumeResponse{
-		CapacityBytes:         newSize,
+		CapacityBytes:         newSizeInBytes,
 		NodeExpansionRequired: nodeExpansionRequired,
 	}, nil
 }
