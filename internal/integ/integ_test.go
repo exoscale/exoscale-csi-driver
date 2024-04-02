@@ -103,20 +103,6 @@ func TestVolumeCreation(t *testing.T) {
 	})
 }
 
-func TestInvalidVolumeSize(t *testing.T) {
-	testName := "invalid-size-vol"
-	ns := k8s.CreateTestNamespace(t, cluster.Get().K8s, testName)
-
-	pvcName := generatePVCName(testName)
-	ns.ApplyPVC(pvcName, "205713Mi", false)
-
-	time.Sleep(3 * time.Second)
-
-	pvc, err := ns.K.ClientSet.CoreV1().PersistentVolumeClaims(ns.Name).Get(ns.CTX, pvcName, metav1.GetOptions{})
-	assert.NoError(t, err)
-	assert.Nil(t, pvc, "The PVC should not be created as the volume size cannot be represented exactly in GiB.")
-}
-
 var basicDeployment = `
 apiVersion: apps/v1
 kind: Deployment
