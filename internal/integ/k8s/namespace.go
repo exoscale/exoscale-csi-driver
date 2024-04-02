@@ -29,6 +29,7 @@ type Namespace struct {
 type PVC struct {
 	Name             string
 	StorageClassName string
+	Size             string
 }
 
 var pvcTemplate = `
@@ -41,10 +42,10 @@ spec:
   - ReadWriteOnce
   resources:
     requests:
-      storage: 10Gi
+      storage: {{ .Size }}
   storageClassName: {{ .StorageClassName }}`
 
-func (ns *Namespace) ApplyPVC(name string, useStorageClassRetain bool) {
+func (ns *Namespace) ApplyPVC(name string, size string, useStorageClassRetain bool) {
 	tmpl := template.New("volumeTemplate")
 	parsedTmpl, err := tmpl.Parse(pvcTemplate)
 	if err != nil {
@@ -56,6 +57,7 @@ func (ns *Namespace) ApplyPVC(name string, useStorageClassRetain bool) {
 	data := PVC{
 		Name:             name,
 		StorageClassName: "exoscale-sbs",
+		Size:             size,
 	}
 
 	if useStorageClassRetain {

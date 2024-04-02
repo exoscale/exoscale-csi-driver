@@ -161,7 +161,16 @@ func (d *controllerService) CreateVolume(ctx context.Context, req *csi.CreateVol
 
 	var sizeInGiB int64 = DefaultVolumeSizeGiB
 	if req.GetCapacityRange() != nil {
-		sizeInGiB = convertBytesToGiB(req.GetCapacityRange().RequiredBytes)
+		requiredBytes := req.GetCapacityRange().RequiredBytes
+		if requiredBytes%GiB != 0 {
+			msg := fmt.Sprintf("requested size in bytes cannot be exactly converted to GiB: %d", requiredBytes)
+
+			klog.Error(msg)
+
+			return nil, fmt.Errorf(msg)
+		}
+
+		sizeInGiB = convertBytesToGiB(requiredBytes)
 	}
 
 	request := v3.CreateBlockStorageVolumeRequest{

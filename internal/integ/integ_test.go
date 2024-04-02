@@ -93,7 +93,7 @@ func TestVolumeCreation(t *testing.T) {
 	ns := k8s.CreateTestNamespace(t, cluster.Get().K8s, testName)
 
 	pvcName := generatePVCName(testName)
-	ns.ApplyPVC(pvcName, false)
+	ns.ApplyPVC(pvcName, "10Gi", false)
 
 	awaitExpectation(t, "Bound", func() interface{} {
 		pvc, err := ns.K.ClientSet.CoreV1().PersistentVolumeClaims(ns.Name).Get(ns.CTX, pvcName, metav1.GetOptions{})
@@ -101,6 +101,14 @@ func TestVolumeCreation(t *testing.T) {
 
 		return pvc.Status.Phase
 	})
+}
+
+func TestInvalidVolumeSize(t *testing.T) {
+	testName := "invalid-size-vol"
+	ns := k8s.CreateTestNamespace(t, cluster.Get().K8s, testName)
+
+	pvcName := generatePVCName(testName)
+	ns.ApplyPVC(pvcName, "205713Mi", false)
 }
 
 var basicDeployment = `
@@ -135,7 +143,7 @@ func TestVolumeAttach(t *testing.T) {
 	ns := k8s.CreateTestNamespace(t, cluster.Get().K8s, testName)
 
 	pvcName := generatePVCName(testName)
-	ns.ApplyPVC(pvcName, false)
+	ns.ApplyPVC(pvcName, "10Gi", false)
 	ns.Apply(fmt.Sprintf(basicDeployment, pvcName))
 
 	awaitExpectation(t, "Bound", func() interface{} {
@@ -172,7 +180,7 @@ func TestDeleteVolume(t *testing.T) {
 			} else {
 				pvcName = generatePVCName(testName)
 			}
-			ns.ApplyPVC(pvcName, useRetainStorageClass)
+			ns.ApplyPVC(pvcName, "10Gi", useRetainStorageClass)
 
 			pvcClient := ns.K.ClientSet.CoreV1().PersistentVolumeClaims(ns.Name)
 
@@ -276,7 +284,7 @@ func TestSnapshot(t *testing.T) {
 	ns := k8s.CreateTestNamespace(t, cluster.Get().K8s, testName)
 
 	pvcName := generatePVCName(testName)
-	ns.ApplyPVC(pvcName, false)
+	ns.ApplyPVC(pvcName, "10Gi", false)
 
 	pvcClient := ns.K.ClientSet.CoreV1().PersistentVolumeClaims(ns.Name)
 
