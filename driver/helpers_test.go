@@ -8,8 +8,8 @@ import (
 )
 
 func TestGetNewVolumeSize(t *testing.T) {
-	var min int64 = MinimalVolumeSizeGiB
-	var max int64 = MaximumVolumeSizeGiB
+	var min int64 = convertGiBToBytes(MinimalVolumeSizeGiB)
+	var max int64 = convertGiBToBytes(MaximumVolumeSizeGiB)
 	testsBench := []struct {
 		capRange *csi.CapacityRange
 		res      int64
