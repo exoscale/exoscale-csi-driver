@@ -256,6 +256,9 @@ func TestVolumeExpand(t *testing.T) {
 		return pvc.Status.Phase
 	})
 
+	// Currently, resizing a block storage volume requires detaching it from the Compute Instance.
+	// To achieve this detachment, we delete the deployment,
+	// allowing the CSI to unmount and detach the volume from the node.
 	ns.Delete(fmt.Sprintf(basicDeployment, pvcName))
 
 	awaitExpectation(t, 0, func() interface{} {
@@ -274,6 +277,8 @@ func TestVolumeExpand(t *testing.T) {
 	)
 	assert.NoError(t, err)
 
+	// Re-apply deployment after block storage resize.
+	// CSI will resize volume filesystem on applying
 	ns.Apply(fmt.Sprintf(basicDeployment, pvcName))
 
 	awaitExpectation(t, 0, func() interface{} {
