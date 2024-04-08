@@ -258,6 +258,13 @@ func TestVolumeExpand(t *testing.T) {
 
 	ns.Delete(fmt.Sprintf(basicDeployment, pvcName))
 
+	awaitExpectation(t, 0, func() interface{} {
+		pods, err := ns.K.ClientSet.CoreV1().Pods(ns.Name).List(ns.CTX, metav1.ListOptions{})
+		assert.NoError(t, err)
+
+		return len(pods.Items)
+	})
+
 	_, err := ns.K.ClientSet.CoreV1().PersistentVolumeClaims(ns.Name).Patch(
 		ns.CTX,
 		pvcName,
