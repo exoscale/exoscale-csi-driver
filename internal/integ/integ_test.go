@@ -248,13 +248,15 @@ func TestVolumeExpand(t *testing.T) {
 
 	pvcName := generatePVCName(testName)
 	ns.ApplyPVC(pvcName, "10Gi", false)
-	//ns.Apply(basicDeployment)
+	ns.Apply(fmt.Sprintf(basicDeployment, pvcName))
 
 	awaitExpectation(t, "Bound", func() interface{} {
 		pvc, err := ns.K.ClientSet.CoreV1().PersistentVolumeClaims(ns.Name).Get(ns.CTX, pvcName, metav1.GetOptions{})
 		assert.NoError(t, err)
 		return pvc.Status.Phase
 	})
+
+	ns.Delete(fmt.Sprintf(basicDeployment, pvcName))
 
 	_, err := ns.K.ClientSet.CoreV1().PersistentVolumeClaims(ns.Name).Patch(
 		ns.CTX,
@@ -264,6 +266,8 @@ func TestVolumeExpand(t *testing.T) {
 		metav1.PatchOptions{},
 	)
 	assert.NoError(t, err)
+
+	ns.Apply(fmt.Sprintf(basicDeployment, pvcName))
 
 	awaitExpectation(t, 0, func() interface{} {
 		pvc, err := ns.K.ClientSet.CoreV1().PersistentVolumeClaims(ns.Name).Get(ns.CTX, pvcName, metav1.GetOptions{})

@@ -677,12 +677,18 @@ func (d *controllerService) ListSnapshots(ctx context.Context, req *csi.ListSnap
 // ControllerExpandVolume resizes Block Storage volume.
 func (d *controllerService) ControllerExpandVolume(ctx context.Context, req *csi.ControllerExpandVolumeRequest) (*csi.ControllerExpandVolumeResponse, error) {
 	klog.V(4).Infof("ControllerExpandVolume")
-	_, volumeID, err := getExoscaleID(req.GetVolumeId())
+	zoneName, volumeID, err := getExoscaleID(req.GetVolumeId())
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = d.client.GetBlockStorageVolume(ctx, volumeID)
+	client, err := newClientZone(ctx, d.client, zoneName)
+	if err != nil {
+		klog.Errorf("expand volume: new client zone: %v", err)
+		return nil, err
+	}
+
+	_, err = client.GetBlockStorageVolume(ctx, volumeID)
 	if err != nil {
 		if errors.Is(err, v3.ErrNotFound) {
 			return nil, status.Errorf(codes.NotFound, "volume %s not found", volumeID)
@@ -719,7 +725,7 @@ func (d *controllerService) ControllerExpandVolume(ctx context.Context, req *csi
 
 	sizeInGiB := convertBytesToGiB(newSizeInBytes)
 
-	_, err = d.client.ResizeBlockStorageVolume(ctx, volumeID, v3.ResizeBlockStorageVolumeRequest{
+	_, err = client.ResizeBlockStorageVolume(ctx, volumeID, v3.ResizeBlockStorageVolumeRequest{
 		Size: sizeInGiB,
 	})
 	if err != nil {
