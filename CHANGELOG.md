@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+* Driver: Implement Expand Volume #1
 * Driver: Use egoscale ENV credential provider #25
 
 ### Improvements
