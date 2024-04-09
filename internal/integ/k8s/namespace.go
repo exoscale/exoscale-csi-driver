@@ -106,6 +106,36 @@ func (ns *Namespace) Apply(manifest string) {
 	assert.NoError(ns.t, err)
 }
 
+func (ns *Namespace) Delete(manifest string) {
+	decoder := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
+	obj := &unstructured.Unstructured{}
+	_, gvk, err := decoder.Decode([]byte(manifest), nil, obj)
+	if err != nil {
+		ns.t.Error("failed to decode manifest")
+		return
+	}
+
+	obj.SetNamespace(ns.Name)
+
+	res := ns.K.findResource(obj.GetKind())
+	if res == nil {
+		ns.t.Error("unknown resource")
+
+		return
+	}
+
+	gvr := gvk.GroupVersion().WithResource(res.Name)
+	resourceInterface := ns.K.DynamicClient.Resource(gvr).Namespace(ns.Name)
+
+	slog.Info("deleting", "resource", gvr, "name", obj.GetName())
+	err = resourceInterface.Delete(ns.CTX, obj.GetName(), metav1.DeleteOptions{})
+	if err != nil {
+		slog.Error("failed to delete resource", "err", err)
+	}
+
+	assert.NoError(ns.t, err)
+}
+
 func generateNSName(testName string) string {
 	return fmt.Sprintf("%s-%s-%d", "csi-test-ns", testName, rand.Int())
 }

@@ -26,3 +26,5 @@ go.work.sum
 kubeconfig
 
 release
+
+bin/

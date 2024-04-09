@@ -14,6 +14,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 
 	v3 "github.com/exoscale/egoscale/v3"
 	"github.com/exoscale/exoscale/csi-driver/internal/integ/cluster"
@@ -239,6 +240,53 @@ func TestDeleteVolume(t *testing.T) {
 
 	t.Run("storage-class-delete", testFunc(false))
 	t.Run("storage-class-retain", testFunc(true))
+}
+
+func TestVolumeExpand(t *testing.T) {
+	testName := "expand-vol"
+	ns := k8s.CreateTestNamespace(t, cluster.Get().K8s, testName)
+
+	pvcName := generatePVCName(testName)
+	ns.ApplyPVC(pvcName, "10Gi", false)
+	ns.Apply(fmt.Sprintf(basicDeployment, pvcName))
+
+	awaitExpectation(t, "Bound", func() interface{} {
+		pvc, err := ns.K.ClientSet.CoreV1().PersistentVolumeClaims(ns.Name).Get(ns.CTX, pvcName, metav1.GetOptions{})
+		assert.NoError(t, err)
+		return pvc.Status.Phase
+	})
+
+	// Currently, resizing a block storage volume requires detaching it from the Compute Instance.
+	// To achieve this detachment, we delete the deployment,
+	// allowing the CSI to unmount and detach the volume from the node.
+	ns.Delete(fmt.Sprintf(basicDeployment, pvcName))
+
+	awaitExpectation(t, 0, func() interface{} {
+		pods, err := ns.K.ClientSet.CoreV1().Pods(ns.Name).List(ns.CTX, metav1.ListOptions{})
+		assert.NoError(t, err)
+
+		return len(pods.Items)
+	})
+
+	_, err := ns.K.ClientSet.CoreV1().PersistentVolumeClaims(ns.Name).Patch(
+		ns.CTX,
+		pvcName,
+		types.MergePatchType,
+		[]byte(`{"spec":{"resources":{"requests":{"storage":"50Gi"}}}}`),
+		metav1.PatchOptions{},
+	)
+	assert.NoError(t, err)
+
+	// Re-apply deployment after block storage resize.
+	// CSI will resize volume filesystem on applying
+	ns.Apply(fmt.Sprintf(basicDeployment, pvcName))
+
+	awaitExpectation(t, 0, func() interface{} {
+		pvc, err := ns.K.ClientSet.CoreV1().PersistentVolumeClaims(ns.Name).Get(ns.CTX, pvcName, metav1.GetOptions{})
+		assert.NoError(t, err)
+
+		return pvc.Status.Capacity.Storage().CmpInt64(50 * 1024 * 1024 * 1024)
+	})
 }
 
 const basicSnapshot = `

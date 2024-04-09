@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Improvements
+
+* Driver: Implement Expand Volume #1
+
 ## 0.29.3
 
 ### Improvements

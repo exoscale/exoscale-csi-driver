@@ -74,6 +74,8 @@ var (
 
 const (
 	DefaultVolumeSizeGiB = 100
+	MinimalVolumeSizeGiB = 10
+	MaximumVolumeSizeGiB = 10000
 )
 
 type controllerService struct {
@@ -672,11 +674,68 @@ func (d *controllerService) ListSnapshots(ctx context.Context, req *csi.ListSnap
 	}, nil
 }
 
-// ControllerExpandVolume resizes/updates the volume (not supported yet on Exoscale Public API)
+// ControllerExpandVolume resizes Block Storage volume.
 func (d *controllerService) ControllerExpandVolume(ctx context.Context, req *csi.ControllerExpandVolumeRequest) (*csi.ControllerExpandVolumeResponse, error) {
 	klog.V(4).Infof("ControllerExpandVolume")
+	zoneName, volumeID, err := getExoscaleID(req.GetVolumeId())
+	if err != nil {
+		return nil, err
+	}
 
-	return nil, status.Error(codes.Unimplemented, "")
+	client, err := newClientZone(ctx, d.client, zoneName)
+	if err != nil {
+		klog.Errorf("expand volume: new client zone: %v", err)
+		return nil, err
+	}
+
+	_, err = client.GetBlockStorageVolume(ctx, volumeID)
+	if err != nil {
+		if errors.Is(err, v3.ErrNotFound) {
+			return nil, status.Errorf(codes.NotFound, "volume %s not found", volumeID)
+		}
+
+		return nil, err
+	}
+
+	nodeExpansionRequired := true
+	volumeCapability := req.GetVolumeCapability()
+	if volumeCapability != nil {
+		err := validateVolumeCapability(volumeCapability)
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "volumeCapabilities not supported: %s", err)
+		}
+
+		if _, ok := volumeCapability.GetAccessType().(*csi.VolumeCapability_Block); ok {
+			nodeExpansionRequired = false
+		}
+	}
+
+	newSizeInBytes, err := getNewVolumeSize(req.GetCapacityRange())
+	if err != nil {
+		return nil, status.Errorf(codes.OutOfRange, "invalid capacity range: %v", err)
+	}
+
+	if newSizeInBytes%GiB != 0 {
+		msg := fmt.Sprintf("requested size in bytes cannot be exactly converted to GiB: %d", newSizeInBytes)
+
+		klog.Error(msg)
+
+		return nil, fmt.Errorf(msg)
+	}
+
+	sizeInGiB := convertBytesToGiB(newSizeInBytes)
+
+	_, err = client.ResizeBlockStorageVolume(ctx, volumeID, v3.ResizeBlockStorageVolumeRequest{
+		Size: sizeInGiB,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &csi.ControllerExpandVolumeResponse{
+		CapacityBytes:         newSizeInBytes,
+		NodeExpansionRequired: nodeExpansionRequired,
+	}, nil
 }
 
 // ControllerGetVolume gets a volume and  return it.

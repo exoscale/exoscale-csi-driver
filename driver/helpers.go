@@ -129,3 +129,56 @@ func getRequiredZone(requirements *csi.TopologyRequirement, defaultZone v3.ZoneN
 
 	return v3.ZoneName(zone), nil
 }
+
+func getNewVolumeSize(capacityRange *csi.CapacityRange) (int64, error) {
+	MinimalVolumeSizeBytes := convertGiBToBytes(MinimalVolumeSizeGiB)
+	MaximumVolumeSizeBytes := convertGiBToBytes(MaximumVolumeSizeGiB)
+
+	if capacityRange == nil {
+		return MinimalVolumeSizeBytes, nil
+	}
+
+	requiredBytes := capacityRange.GetRequiredBytes()
+	requiredSet := requiredBytes > 0
+
+	limitBytes := capacityRange.GetLimitBytes()
+	limitSet := limitBytes > 0
+
+	if !requiredSet && !limitSet {
+		return MinimalVolumeSizeBytes, nil
+	}
+
+	if requiredSet && limitSet && limitBytes < requiredBytes {
+		return 0, errLimitLessThanRequiredBytes
+	}
+
+	if requiredSet && !limitSet && requiredBytes < MinimalVolumeSizeBytes {
+		return 0, errRequiredBytesLessThanMinimun
+	}
+
+	if limitSet && limitBytes < MinimalVolumeSizeBytes {
+		return 0, errLimitLessThanMinimum
+	}
+
+	if requiredSet && requiredBytes > MaximumVolumeSizeBytes {
+		return 0, errRequiredBytesGreaterThanMaximun
+	}
+
+	if !requiredSet && limitSet && limitBytes > MaximumVolumeSizeBytes {
+		return 0, errLimitGreaterThanMaximum
+	}
+
+	if requiredSet && limitSet && requiredBytes == limitBytes {
+		return requiredBytes, nil
+	}
+
+	if requiredSet {
+		return requiredBytes, nil
+	}
+
+	if limitSet {
+		return limitBytes, nil
+	}
+
+	return MinimalVolumeSizeBytes, nil
+}
