@@ -2,11 +2,15 @@
 
 ## Unreleased
 
+### Improvements
+
 * Driver: Implement Expand Volume #1
-* Driver: Use egoscale ENV credential provider #25
+
+## 0.29.3
 
 ### Improvements
 
+* Driver: Use egoscale ENV credential provider #24
 * go.mk: remove submodule and initialize through make #15
 * integ-tests: use IAMv3 API key #13 
 * document and minimize IAM rule policy for CSI #19 
