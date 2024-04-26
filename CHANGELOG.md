@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Bug fixes
+
+* Controller: Remove panic in CreateSnapshot #27
+
 ## 0.29.4
 
 ### Improvements
