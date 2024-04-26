@@ -515,6 +515,7 @@ func (d *controllerService) CreateSnapshot(ctx context.Context, req *csi.CreateS
 	volume, err := client.GetBlockStorageVolume(ctx, volumeID)
 	if err != nil {
 		klog.Errorf("create snapshot get volume %s: %v", volumeID, err)
+		return nil, err
 	}
 
 	for _, s := range volume.BlockStorageSnapshots {
