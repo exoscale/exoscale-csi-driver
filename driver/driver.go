@@ -9,17 +9,15 @@ import (
 	"os/signal"
 	"path"
 	"path/filepath"
-	"strings"
 	"syscall"
 
 	v3 "github.com/exoscale/egoscale/v3"
 	"github.com/exoscale/egoscale/v3/credentials"
+	"github.com/exoscale/egoscale/v3/metadata"
 	"github.com/exoscale/exoscale-csi-driver/cmd/exoscale-csi-driver/buildinfo"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"google.golang.org/grpc"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 )
@@ -192,46 +190,20 @@ type nodeMetadata struct {
 	InstanceID v3.UUID
 }
 
-// TODO(pej): replace CCM metadata with Exoscale metadata server.
 func getExoscaleNodeMetadata() (*nodeMetadata, error) {
-	podName := os.Getenv("POD_NAME")
-	namespace := os.Getenv("POD_NAMESPACE")
-	restConfig, err := rest.InClusterConfig()
-	if err != nil {
-		return nil, err
-	}
-	clientset, err := kubernetes.NewForConfig(restConfig)
+	ctx := context.Background()
+	zone, err := metadata.Get(ctx, metadata.AvailabilityZone)
 	if err != nil {
 		return nil, err
 	}
 
-	pod, err := clientset.CoreV1().Pods(namespace).Get(context.Background(), podName, metav1.GetOptions{})
+	instanceID, err := metadata.Get(ctx, metadata.InstanceID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get pods: %w", err)
-	}
-	nodeName := pod.Spec.NodeName
-
-	node, err := clientset.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
-	if err != nil {
-		return nil, fmt.Errorf("failed to get nodes: %w", err)
-	}
-
-	region, ok := node.Labels["topology.kubernetes.io/region"]
-	if !ok {
-		return nil, fmt.Errorf("no zone found on node, missing Exoscale CCM")
-	}
-
-	if !strings.HasPrefix(node.Spec.ProviderID, "exoscale://") {
-		return nil, fmt.Errorf("no Instance ID found on node, missing Exoscale CCM")
-	}
-
-	instanceID, err := v3.ParseUUID(node.Spec.ProviderID[len("exoscale://"):])
-	if err != nil {
-		return nil, fmt.Errorf("node meta data Instance ID %s: %w", node.Spec.ProviderID, err)
+		return nil, err
 	}
 
 	return &nodeMetadata{
-		zoneName:   v3.ZoneName(region),
-		InstanceID: instanceID,
+		zoneName:   v3.ZoneName(zone),
+		InstanceID: v3.UUID(instanceID),
 	}, nil
 }

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Improvements
+
+* Driver: Get rid of CCM dependency #28
+
 ### Bug fixes
 
 * Controller: Remove panic in CreateSnapshot #27
