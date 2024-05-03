@@ -60,9 +60,6 @@ func (c *Cluster) provisionSKSCluster(ctx context.Context, zone string) error {
 	}
 
 	op, err := c.Ego.CreateSKSCluster(ctx, exov3.CreateSKSClusterRequest{
-		Addons: []string{
-			"exoscale-cloud-controller",
-		},
 		Cni:         "calico",
 		Description: "This cluster was created to test the exoscale CSI driver in SKS.",
 		Name:        c.Name,

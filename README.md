@@ -4,8 +4,6 @@ Exoscale Block Storage Container Storage Interface Driver.
 
 ## Prerequisite
 
-* Make sure you have the [CCM](https://github.com/exoscale/exoscale-cloud-controller-manager) deployed and running in your cluster.
-
 * An API key associated to an IAM role with at least those permissions:
 ``` json
 {
@@ -43,7 +41,6 @@ You should see your `exoscale-csi-controller` and `exoscale-csi-node` pods runni
 ```Bash
 kubectl -n kube-system get pods
 ...
-exoscale-cloud-controller-manager-c8dc6b785-fgcbq   1/1     Running   0          25d
 exoscale-csi-controller-5df549794-7ptgw             7/7     Running   0          5d1h
 exoscale-csi-node-nkbzw                             3/3     Running   0          5d1h
 exoscale-csi-node-v8skv                             3/3     Running   0          5d1h
