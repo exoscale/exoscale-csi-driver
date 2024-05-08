@@ -19,6 +19,8 @@ jobs:
 
       - run: make go.mk
 
+      - uses: ./go.mk/.github/actions/setup
+
       - uses: ./go.mk/.github/actions/pre-check
 
   build:
