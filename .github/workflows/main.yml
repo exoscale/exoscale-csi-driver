@@ -19,6 +19,9 @@ jobs:
 
       - uses: ./.github/actions/build
 
+      - name: lint
+        run: make lint
+
   docker-build:
     needs: build
     runs-on: ubuntu-latest
