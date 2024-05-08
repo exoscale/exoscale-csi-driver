@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Improvements
+
+* goreleaser: set correct ldflags #29 
+
 ## 0.29.5
 
 ### Improvements
