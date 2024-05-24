@@ -5,6 +5,7 @@
 ### Improvements
 
 * goreleaser: set correct ldflags #29 
+* CSI: remove the beta notice #31 
 
 ## 0.29.5
 
