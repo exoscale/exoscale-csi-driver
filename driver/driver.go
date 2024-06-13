@@ -62,9 +62,16 @@ type Driver struct {
 // NewDriver returns a CSI plugin
 func NewDriver(config *DriverConfig) (*Driver, error) {
 	klog.Infof("driver: %s version: %s", DriverName, buildinfo.Version)
-	nodeMeta, err := getExoscaleNodeMetadata()
+
+	nodeMeta, err := getExoscaleNodeMetadataFromServer()
 	if err != nil {
-		return nil, fmt.Errorf("new driver: %w", err)
+		klog.Errorf("error to get exoscale node metadata from server: %v", err)
+		klog.Infof("try to fallback on CD-ROM metadata")
+		nodeMeta, err = getExoscaleNodeMetadataFromCdRom()
+		if err != nil {
+			klog.Errorf("error to get exoscale node metadata from CD-ROM: %v", err)
+			return nil, fmt.Errorf("new driver get metadata: %w", err)
+		}
 	}
 
 	driver := &Driver{
@@ -190,7 +197,7 @@ type nodeMetadata struct {
 	InstanceID v3.UUID
 }
 
-func getExoscaleNodeMetadata() (*nodeMetadata, error) {
+func getExoscaleNodeMetadataFromServer() (*nodeMetadata, error) {
 	ctx := context.Background()
 	zone, err := metadata.Get(ctx, metadata.AvailabilityZone)
 	if err != nil {
@@ -198,6 +205,23 @@ func getExoscaleNodeMetadata() (*nodeMetadata, error) {
 	}
 
 	instanceID, err := metadata.Get(ctx, metadata.InstanceID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &nodeMetadata{
+		zoneName:   v3.ZoneName(zone),
+		InstanceID: v3.UUID(instanceID),
+	}, nil
+}
+
+func getExoscaleNodeMetadataFromCdRom() (*nodeMetadata, error) {
+	zone, err := metadata.FromCdRom(metadata.AvailabilityZone)
+	if err != nil {
+		return nil, err
+	}
+
+	instanceID, err := metadata.FromCdRom(metadata.InstanceID)
 	if err != nil {
 		return nil, err
 	}
