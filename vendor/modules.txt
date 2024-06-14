@@ -20,7 +20,7 @@ github.com/diskfs/go-diskfs/util
 # github.com/elliotwutingfeng/asciiset v0.0.0-20230602022725-51bbb787efab
 ## explicit; go 1.11
 github.com/elliotwutingfeng/asciiset
-# github.com/exoscale/egoscale v0.102.4-0.20240613083536-f48388592b7b
+# github.com/exoscale/egoscale v0.102.4-0.20240613091841-bd685cf8274c
 ## explicit; go 1.21
 github.com/exoscale/egoscale/v3
 github.com/exoscale/egoscale/v3/credentials

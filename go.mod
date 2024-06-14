@@ -4,7 +4,7 @@ go 1.21
 
 require (
 	github.com/container-storage-interface/spec v1.8.0
-	github.com/exoscale/egoscale v0.102.4-0.20240613083536-f48388592b7b
+	github.com/exoscale/egoscale v0.102.4-0.20240613091841-bd685cf8274c
 	github.com/golang/protobuf v1.5.3
 	github.com/stretchr/testify v1.8.4
 	golang.org/x/sys v0.15.0
