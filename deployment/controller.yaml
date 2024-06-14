@@ -26,18 +26,12 @@ spec:
             - "--v=4"
           env:
             - name: CSI_ENDPOINT
-              value: unix:///var/lib/csi/sockets/pluginproxy/csi.sock
-            - name: POD_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
+              value: unix:///var/lib/csi/sockets/pluginproxy/csi.sockx
           envFrom:
             - secretRef:
                 name: exoscale-credentials
+          securityContext:
+            privileged: true
           volumeMounts:
             - name: socket-dir
               mountPath: /var/lib/csi/sockets/pluginproxy/
