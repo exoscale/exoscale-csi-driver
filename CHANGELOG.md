@@ -4,6 +4,7 @@
 
 ### Improvements
 
+* Driver: Meta Data fallback on CD-ROM for Private Instance #32
 * goreleaser: set correct ldflags #29 
 * CSI: remove the beta notice #31 
 
