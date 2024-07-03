@@ -10,6 +10,19 @@ on:
     - 'v**' # Don't run CI tests on release tags
 
 jobs:
+  pre-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - run: make go.mk
+
+      - uses: ./go.mk/.github/actions/setup
+
+      - uses: ./go.mk/.github/actions/pre-check
+
   build:
     runs-on: ubuntu-latest
     steps:
