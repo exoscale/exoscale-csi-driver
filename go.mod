@@ -1,13 +1,15 @@
 module github.com/exoscale/exoscale-csi-driver
 
-go 1.21
+go 1.22
+
+toolchain go1.22.2
 
 require (
 	github.com/container-storage-interface/spec v1.8.0
-	github.com/exoscale/egoscale v0.102.4-0.20240613091841-bd685cf8274c
+	github.com/exoscale/egoscale/v3 v3.0.0
 	github.com/golang/protobuf v1.5.3
 	github.com/stretchr/testify v1.8.4
-	golang.org/x/sys v0.15.0
+	golang.org/x/sys v0.20.0
 	google.golang.org/grpc v1.59.0
 	google.golang.org/protobuf v1.31.0
 	k8s.io/client-go v0.28.2

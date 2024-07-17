@@ -1,4 +1,6 @@
-# Egoscale v3 (Alpha)
+# Egoscale v3
+
+Exoscale API Golang wrapper
 
 Exoscale API Golang wrapper
 

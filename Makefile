@@ -7,7 +7,7 @@ EXTRA_ARGS := -parallel 3 -count=1 -failfast
 # Dependencies
 
 # Requires: https://github.com/exoscale/go.mk
-GO_MK_REF := v1.0.0
+GO_MK_REF := v2.0.0
 
 # make go.mk a dependency for all targets
 .EXTRA_PREREQS = go.mk

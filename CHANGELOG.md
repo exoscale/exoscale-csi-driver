@@ -7,6 +7,7 @@
 * Driver: Meta Data fallback on CD-ROM for Private Instance #32
 * goreleaser: set correct ldflags #29 
 * CSI: remove the beta notice #31 
+* go.mk: lint with staticcheck #30 
 
 ## 0.29.5
 
