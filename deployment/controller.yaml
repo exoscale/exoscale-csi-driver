@@ -30,8 +30,6 @@ spec:
           envFrom:
             - secretRef:
                 name: exoscale-credentials
-          securityContext:
-            privileged: true # needed for the controller to be able to read instance metadata from CD-ROM device
           volumeMounts:
             - name: socket-dir
               mountPath: /var/lib/csi/sockets/pluginproxy/
