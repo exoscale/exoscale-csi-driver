@@ -27,6 +27,8 @@ spec:
           env:
             - name: CSI_ENDPOINT
               value: unix:///var/lib/csi/sockets/pluginproxy/csi.sock
+          securityContext:
+            privileged: true # needed for the controller to be able to read instance metadata from CD-ROM device
           envFrom:
             - secretRef:
                 name: exoscale-credentials
