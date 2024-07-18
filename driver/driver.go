@@ -64,13 +64,13 @@ type Driver struct {
 func NewDriver(config *DriverConfig) (*Driver, error) {
 	klog.Infof("driver: %s version: %s", DriverName, buildinfo.Version)
 
-	nodeMeta, err := getExoscaleNodeMetadataFromServer()
+	nodeMeta, err := getExoscaleNodeMetadataFromCdRom()
 	if err != nil {
-		klog.Errorf("error to get exoscale node metadata from server: %v", err)
-		klog.Infof("try to fallback on CD-ROM metadata")
-		nodeMeta, err = getExoscaleNodeMetadataFromCdRom()
+		klog.Warningf("error to get exoscale node metadata from CD-ROM: %v", err)
+		klog.Info("fallback on server metadata")
+		nodeMeta, err = getExoscaleNodeMetadataFromServer()
 		if err != nil {
-			klog.Errorf("error to get exoscale node metadata from CD-ROM: %v", err)
+			klog.Errorf("error to get exoscale node metadata from server: %v", err)
 			return nil, fmt.Errorf("new driver get metadata: %w", err)
 		}
 	}
@@ -199,7 +199,7 @@ type nodeMetadata struct {
 }
 
 func getExoscaleNodeMetadataFromServer() (*nodeMetadata, error) {
-	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Second*5))
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Minute))
 	defer cancel()
 	zone, err := metadata.Get(ctx, metadata.AvailabilityZone)
 	if err != nil {
