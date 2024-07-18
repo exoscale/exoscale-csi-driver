@@ -63,7 +63,6 @@ type Driver struct {
 // NewDriver returns a CSI plugin
 func NewDriver(config *DriverConfig) (*Driver, error) {
 	klog.Infof("driver: %s version: %s", DriverName, buildinfo.Version)
-
 	nodeMeta, err := getExoscaleNodeMetadataFromCdRom()
 	if err != nil {
 		klog.Warningf("error to get exoscale node metadata from CD-ROM: %v", err)
