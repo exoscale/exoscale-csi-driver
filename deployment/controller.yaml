@@ -35,6 +35,8 @@ spec:
           volumeMounts:
             - name: socket-dir
               mountPath: /var/lib/csi/sockets/pluginproxy/
+            - name: device-dir
+              mountPath: /dev
           ports:
             - name: healthz
               containerPort: 9808
@@ -179,3 +181,6 @@ spec:
       volumes:
         - name: socket-dir
           emptyDir: {}
+        - name: device-dir
+          hostPath:
+            path: /dev
