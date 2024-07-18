@@ -10,6 +10,7 @@ import (
 	"path"
 	"path/filepath"
 	"syscall"
+	"time"
 
 	v3 "github.com/exoscale/egoscale/v3"
 	"github.com/exoscale/egoscale/v3/credentials"
@@ -198,7 +199,8 @@ type nodeMetadata struct {
 }
 
 func getExoscaleNodeMetadataFromServer() (*nodeMetadata, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Second*5))
+	defer cancel()
 	zone, err := metadata.Get(ctx, metadata.AvailabilityZone)
 	if err != nil {
 		return nil, err
