@@ -20,7 +20,7 @@ spec:
       priorityClassName: system-node-critical
       containers:
         - name: exoscale-csi-plugin
-          image: pierro777/csi-driver:dev
+          image: exoscale/csi-driver:latest
           imagePullPolicy: Always
           args :
             - "--endpoint=$(CSI_ENDPOINT)"
