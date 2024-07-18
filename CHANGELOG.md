@@ -8,6 +8,7 @@
 * goreleaser: set correct ldflags #29 
 * CSI: remove the beta notice #31 
 * go.mk: lint with staticcheck #30 
+* egoscale: update to v3.1.0 and fix #35 
 
 ## 0.29.5
 

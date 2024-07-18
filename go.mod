@@ -6,7 +6,7 @@ toolchain go1.22.2
 
 require (
 	github.com/container-storage-interface/spec v1.8.0
-	github.com/exoscale/egoscale/v3 v3.0.0
+	github.com/exoscale/egoscale/v3 v3.1.0
 	github.com/golang/protobuf v1.5.3
 	github.com/stretchr/testify v1.8.4
 	golang.org/x/sys v0.20.0

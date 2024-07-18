@@ -333,8 +333,7 @@ func (d *controllerService) ControllerUnpublishVolume(ctx context.Context, req *
 
 	op, err := client.DetachBlockStorageVolume(ctx, volumeID)
 	if err != nil {
-		if errors.Is(err, v3.ErrNotFound) ||
-			(errors.Is(err, v3.ErrInvalidRequest) && strings.Contains(err.Error(), "Volume not attached")) {
+		if errors.Is(err, v3.ErrNotFound) || strings.Contains(err.Error(), "Volume not attached") {
 			return &csi.ControllerUnpublishVolumeResponse{}, nil
 		}
 
