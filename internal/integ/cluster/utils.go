@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -199,7 +200,7 @@ func (c *Cluster) applyCSI(ctx context.Context) error {
 	}
 
 	for _, manifestPath := range allManifests {
-		err := c.K8s.ApplyManifest(ctx, manifestDir+manifestPath)
+		err := c.K8s.ApplyManifest(ctx, filepath.Join(manifestDir, manifestPath))
 		if err != nil {
 			return fmt.Errorf("error applying CSI manifest: %q %w", manifestPath, err)
 		}
