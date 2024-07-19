@@ -29,7 +29,7 @@ const (
 )
 
 var (
-	manifestDir = util.GetRepoRootDir() + "deployment/"
+	manifestDir = util.GetRepoRootDir() + "deployment/latest"
 
 	controllerRBACManifest      = "controller-rbac.yaml"
 	controllerManifest          = "controller.yaml"
@@ -153,7 +153,7 @@ func (c *Cluster) applyCSI(ctx context.Context) error {
 		onlyAllowBlockStorageOperations := exov3.IAMServicePolicy{
 			Type: exov3.IAMServicePolicyTypeRules,
 			Rules: []exov3.IAMServicePolicyRule{
-				exov3.IAMServicePolicyRule{
+				{
 					Action:     exov3.IAMServicePolicyRuleActionAllow,
 					Expression: "operation in ['list-zones', 'get-block-storage-volume', 'list-block-storage-volumes', 'create-block-storage-volume', 'delete-block-storage-volume', 'attach-block-storage-volume-to-instance', 'detach-block-storage-volume', 'update-block-storage-volume-labels', 'resize-block-storage-volume', 'get-block-storage-snapshot', 'list-block-storage-snapshots', 'create-block-storage-snapshot', 'delete-block-storage-snapshot']",
 				},

@@ -4,6 +4,7 @@ import (
 	"context"
 	"io/ioutil"
 	"log/slog"
+	"os"
 	"strings"
 	"sync"
 
@@ -99,7 +100,7 @@ func (k *K8S) DeleteManifest(ctx context.Context, file string) error {
 }
 
 func (k *K8S) ApplyManifest(ctx context.Context, file string) error {
-	fileContent, err := ioutil.ReadFile(file)
+	fileContent, err := os.ReadFile(file)
 	if err != nil {
 		return err
 	}
