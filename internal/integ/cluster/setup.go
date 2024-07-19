@@ -2,10 +2,8 @@ package cluster
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"log/slog"
-	"os"
 
 	"github.com/exoscale/exoscale/csi-driver/internal/integ/flags"
 	"github.com/exoscale/exoscale/csi-driver/internal/integ/util"
@@ -41,7 +39,7 @@ func (c *Cluster) getInstanceType(ctx context.Context, family, size string) (*ex
 	return nil, fmt.Errorf("unable to find instance type %s.%s", family, size)
 }
 
-func (c *Cluster) provisionSKSCluster(ctx context.Context, zone string) error {
+func (c *Cluster) provisionSKSCluster(ctx context.Context) error {
 	// do nothing if cluster exists
 	_, err := c.getCluster(ctx)
 	if err == nil {
@@ -90,16 +88,8 @@ func (c *Cluster) provisionSKSCluster(ctx context.Context, zone string) error {
 	return nil
 }
 
-func exitApplication(msg string, err error) {
-	slog.Error(msg, "err", err)
-
-	flag.Usage()
-
-	os.Exit(1)
-}
-
-func ConfigureCluster(ctx context.Context, createCluster bool, name, zone string) (*Cluster, error) {
-	client, err := util.CreateEgoscaleClient()
+func ConfigureCluster(ctx context.Context, createCluster bool, name string, zone exov3.ZoneName) (*Cluster, error) {
+	client, err := util.CreateEgoscaleClient(ctx, zone)
 	if err != nil {
 		return nil, fmt.Errorf("error creating egoscale v3 client: %w", err)
 	}
@@ -110,7 +100,7 @@ func ConfigureCluster(ctx context.Context, createCluster bool, name, zone string
 	}
 
 	if createCluster {
-		err = cluster.provisionSKSCluster(ctx, zone)
+		err = cluster.provisionSKSCluster(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("error creating SKS cluster: %w", err)
 		}
@@ -138,14 +128,8 @@ func ConfigureCluster(ctx context.Context, createCluster bool, name, zone string
 func Setup() error {
 	ctx := context.Background()
 
-	if err := flags.ValidateFlags(); err != nil {
-		exitApplication("invalid flags", err)
-
-		return err
-	}
-
 	var err error
-	testCluster, err = ConfigureCluster(ctx, *flags.CreateCluster, *flags.ClusterName, *flags.Zone)
+	testCluster, err = ConfigureCluster(ctx, *flags.CreateCluster, *flags.ClusterName, exov3.ZoneName(*flags.Zone))
 	if err != nil {
 		return err
 	}

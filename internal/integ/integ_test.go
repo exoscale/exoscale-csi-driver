@@ -12,12 +12,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 
 	v3 "github.com/exoscale/egoscale/v3"
 	"github.com/exoscale/exoscale/csi-driver/internal/integ/cluster"
+	"github.com/exoscale/exoscale/csi-driver/internal/integ/flags"
 	"github.com/exoscale/exoscale/csi-driver/internal/integ/k8s"
 	"github.com/exoscale/exoscale/csi-driver/internal/integ/util"
 )
@@ -29,6 +29,12 @@ func TestMain(m *testing.M) {
 	err := flag.Set("test.timeout", "30m")
 	if err != nil {
 		slog.Warn("failed to set test timeout", "error", err)
+	}
+
+	if err := flags.ValidateFlags(); err != nil {
+		slog.Error("invalid flags", "err", err)
+		flag.Usage()
+		os.Exit(1)
 	}
 
 	exitCode := 0
@@ -162,7 +168,7 @@ func TestDeleteVolume(t *testing.T) {
 	testName := "del-vol"
 	ns := k8s.CreateTestNamespace(t, cluster.Get().K8s, testName)
 
-	egoClient, err := util.CreateEgoscaleClient()
+	egoClient, err := util.CreateEgoscaleClient(ns.CTX, v3.ZoneName(*flags.Zone))
 	assert.NoError(t, err)
 
 	testFunc := func(useRetainStorageClass bool) func(t *testing.T) {
@@ -341,7 +347,7 @@ func TestSnapshot(t *testing.T) {
 	snapshotClient := ns.K.DynamicClient.Resource(getSnapshotCRDResource()).Namespace(ns.Name)
 
 	awaitExpectation(t, true, func() bool {
-		crdInstance, err := snapshotClient.Get(ns.CTX, "my-snap-1", v1.GetOptions{})
+		crdInstance, err := snapshotClient.Get(ns.CTX, "my-snap-1", metav1.GetOptions{})
 		if !assert.NoError(t, err) {
 			return false
 		}
@@ -375,11 +381,11 @@ func TestSnapshot(t *testing.T) {
 	})
 
 	// delete snapshot
-	err := snapshotClient.Delete(ns.CTX, "my-snap-1", v1.DeleteOptions{})
+	err := snapshotClient.Delete(ns.CTX, "my-snap-1", metav1.DeleteOptions{})
 	assert.NoError(t, err)
 
 	awaitExpectation(t, 0, func() int {
-		snapshots, err := snapshotClient.List(ns.CTX, v1.ListOptions{})
+		snapshots, err := snapshotClient.List(ns.CTX, metav1.ListOptions{})
 		if err != nil {
 			assert.NoError(t, err)
 			return 0
