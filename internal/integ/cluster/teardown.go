@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"path/filepath"
 
 	"github.com/exoscale/exoscale/csi-driver/internal/integ/flags"
 
@@ -75,7 +76,7 @@ func (c *Cluster) tearDownCSI(ctx context.Context) error {
 	var finalErr error = nil
 
 	for _, manifestPath := range allManifests {
-		err := c.K8s.DeleteManifest(ctx, manifestDir+manifestPath)
+		err := c.K8s.DeleteManifest(ctx, filepath.Join(manifestDir, manifestPath))
 		if err != nil {
 			slog.Error("failed to delete manifest", "manifest", manifestPath, "err", err)
 
