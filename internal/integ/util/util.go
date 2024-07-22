@@ -1,6 +1,7 @@
 package util
 
 import (
+	"context"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -24,11 +25,16 @@ func GetRepoRootDir() string {
 	return strings.TrimSpace(string(path)) + "/"
 }
 
-func CreateEgoscaleClient() (*exov3.Client, error) {
-	v3Client, err := exov3.NewClient(credentials.NewEnvCredentials(), exov3.ClientOptWithEndpoint(exov3.CHGva2))
+func CreateEgoscaleClient(ctx context.Context, zone exov3.ZoneName) (*exov3.Client, error) {
+	v3Client, err := exov3.NewClient(credentials.NewEnvCredentials())
 	if err != nil {
 		return nil, fmt.Errorf("error setting up egoscale client: %w", err)
 	}
 
-	return v3Client, nil
+	endpoint, err := v3Client.GetZoneAPIEndpoint(ctx, zone)
+	if err != nil {
+		return nil, fmt.Errorf("error setting up egoscale client zone: %w", err)
+	}
+
+	return v3Client.WithEndpoint(endpoint), nil
 }
