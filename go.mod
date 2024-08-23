@@ -2,8 +2,6 @@ module github.com/exoscale/exoscale-csi-driver
 
 go 1.23.0
 
-toolchain go1.23.0
-
 require (
 	github.com/container-storage-interface/spec v1.10.0
 	github.com/exoscale/egoscale/v3 v3.1.1
