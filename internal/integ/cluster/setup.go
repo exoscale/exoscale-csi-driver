@@ -59,7 +59,7 @@ func (c *Cluster) provisionSKSCluster(ctx context.Context) error {
 
 	op, err := c.Ego.CreateSKSCluster(ctx, exov3.CreateSKSClusterRequest{
 		Cni:         "calico",
-		Description: "This cluster was created to test the exoscale CSI driver in SKS.",
+		Description: exov3.Ptr("This cluster was created to test the exoscale CSI driver in SKS."),
 		Name:        c.Name,
 		Level:       exov3.CreateSKSClusterRequestLevelPro,
 		Version:     latestSKSVersion,

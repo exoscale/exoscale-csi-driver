@@ -165,11 +165,11 @@ func (d *controllerService) CreateVolume(ctx context.Context, req *csi.CreateVol
 	if req.GetCapacityRange() != nil {
 		requiredBytes := req.GetCapacityRange().RequiredBytes
 		if requiredBytes%GiB != 0 {
-			msg := fmt.Sprintf("requested size in bytes cannot be exactly converted to GiB: %d", requiredBytes)
+			msg := "requested size in bytes cannot be exactly converted to GiB: %d"
 
-			klog.Error(msg)
+			klog.Errorf(msg, requiredBytes)
 
-			return nil, fmt.Errorf(msg)
+			return nil, fmt.Errorf(msg, requiredBytes)
 		}
 
 		sizeInGiB = convertBytesToGiB(requiredBytes)
@@ -716,11 +716,11 @@ func (d *controllerService) ControllerExpandVolume(ctx context.Context, req *csi
 	}
 
 	if newSizeInBytes%GiB != 0 {
-		msg := fmt.Sprintf("requested size in bytes cannot be exactly converted to GiB: %d", newSizeInBytes)
+		msg := "requested size in bytes cannot be exactly converted to GiB: %d"
 
-		klog.Error(msg)
+		klog.Errorf(msg, newSizeInBytes)
 
-		return nil, fmt.Errorf(msg)
+		return nil, fmt.Errorf(msg, newSizeInBytes)
 	}
 
 	sizeInGiB := convertBytesToGiB(newSizeInBytes)

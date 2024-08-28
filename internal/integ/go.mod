@@ -1,9 +1,11 @@
 module github.com/exoscale/exoscale/csi-driver/internal/integ
 
-go 1.21
+go 1.22
+
+toolchain go1.23.0
 
 require (
-	github.com/exoscale/egoscale v0.102.4-0.20240222153804-ec94e9697218
+	github.com/exoscale/egoscale/v3 v3.1.1
 	github.com/stretchr/testify v1.9.0
 	k8s.io/api v0.29.0
 	k8s.io/apimachinery v0.29.0
@@ -53,7 +55,7 @@ require (
 	golang.org/x/exp v0.0.0-20240222234643-814bf88cf225 // indirect
 	golang.org/x/net v0.22.0 // indirect
 	golang.org/x/oauth2 v0.15.0 // indirect
-	golang.org/x/sys v0.18.0 // indirect
+	golang.org/x/sys v0.20.0 // indirect
 	golang.org/x/term v0.18.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/time v0.5.0 // indirect

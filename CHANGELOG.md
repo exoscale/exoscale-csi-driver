@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Improvements
+
+* Kubernetes SDK v0.31 #40
+* GO 1.23.0 #40
+
 ## 0.29.6
 
 ### Improvements
