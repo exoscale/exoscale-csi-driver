@@ -14,6 +14,10 @@ on:
 jobs:
   prepare-release:
     runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
     steps:
       - uses: actions/checkout@v4
       - run: make go.mk
@@ -22,3 +26,5 @@ jobs:
           git config --global user.name "Exoscale Tooling"
         # - run: "make prepare-release NEW_VERSION=${{ inputs.release-tag }}"
       - run: make prepare-release NEW_VERSION=vX.Y.Z
+      - run: |
+          git push origin philippsauter/sc-101978/csi-automate-manifest-release
