@@ -1,0 +1,21 @@
+name: prepare-release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release-tag:
+        description: "New release tag to create"
+        required: true
+        type: string
+  push:
+    branches:
+      - philippsauter/sc-101978/csi-automate-manifest-release
+
+jobs:
+  prepare-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: make go.mk
+      # - run: "make prepare-release NEW_VERSION=${{ inputs.release-tag }}"
+      - run: make prepare-release NEW_VERSION=vX.Y.Z
