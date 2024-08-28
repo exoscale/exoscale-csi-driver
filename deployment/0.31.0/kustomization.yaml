@@ -1,0 +1,9 @@
+resources:
+  - crds.yaml
+  - controller-rbac.yaml
+  - controller.yaml
+  - csi-driver.yaml
+  - node-driver-rbac.yaml
+  - node-driver.yaml
+  - storage-class.yaml
+  - volume-snapshot-class.yaml
