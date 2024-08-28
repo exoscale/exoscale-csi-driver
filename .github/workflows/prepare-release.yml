@@ -10,6 +10,7 @@ on:
   push:
     branches:
       - philippsauter/sc-101978/csi-automate-manifest-release
+#dummy change
 
 jobs:
   prepare-release:
