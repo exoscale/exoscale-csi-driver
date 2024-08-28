@@ -10,7 +10,6 @@ on:
   push:
     branches:
       - philippsauter/sc-101978/csi-automate-manifest-release
-#dummy change
 
 jobs:
   prepare-release:
@@ -21,6 +20,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - run: make go.mk
       - run: |
           git config --global user.email "tooling@exoscale.ch"
