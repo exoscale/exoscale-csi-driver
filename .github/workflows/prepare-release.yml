@@ -17,5 +17,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: make go.mk
-      # - run: "make prepare-release NEW_VERSION=${{ inputs.release-tag }}"
+      - run: |
+          git config --global user.email "tooling@exoscale.ch"
+          git config --global user.name "Exoscale Tooling"
+        # - run: "make prepare-release NEW_VERSION=${{ inputs.release-tag }}"
       - run: make prepare-release NEW_VERSION=vX.Y.Z
