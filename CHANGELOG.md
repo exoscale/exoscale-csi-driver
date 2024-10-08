@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Improvements
+
+* doc: warn against manually modifying volumes through Exoscale API #44 
+
 ## 0.31.0
 
 ### Improvements
