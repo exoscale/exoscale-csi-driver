@@ -60,6 +60,8 @@ kubectl apply -f doc/examples/pvc.yaml
 kubectl apply -f doc/examples/deployment.yaml
 ```
 
+> Warning: It is discouraged to manually modify volumes managed by the CSI through the Exoscale API(Portal, CLI or otherwise). We recommend applying changes through kubernetes whenever possible.
+
 ## Building from source
 
 You can build a binary
