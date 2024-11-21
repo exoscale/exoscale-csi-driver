@@ -7,6 +7,11 @@ spec:
   selector:
     matchLabels:
       app: exoscale-csi-controller
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
   replicas: 2
   template:
     metadata:
