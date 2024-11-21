@@ -4,6 +4,7 @@
 
 ### Improvements
 
+* Deployment: Add node toleration exist #46
 * doc: warn against manually modifying volumes through Exoscale API #44 
 
 ## 0.31.0
