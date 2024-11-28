@@ -248,6 +248,59 @@ func TestDeleteVolume(t *testing.T) {
 	t.Run("storage-class-retain", testFunc(true))
 }
 
+func TestDeleteVolumeNotFound(t *testing.T) {
+	testName := "del-vol-not-found"
+	ns := k8s.CreateTestNamespace(t, cluster.Get().K8s, testName)
+
+	egoClient, err := util.CreateEgoscaleClient(ns.CTX, v3.ZoneName(*flags.Zone))
+	assert.NoError(t, err)
+
+	pvcName := generatePVCName(testName)
+	ns.ApplyPVC(pvcName, "10Gi", false)
+	pvcClient := ns.K.ClientSet.CoreV1().PersistentVolumeClaims(ns.Name)
+	getPVC := func() *corev1.PersistentVolumeClaim {
+		pvc, err := pvcClient.Get(ns.CTX, pvcName, metav1.GetOptions{})
+		assert.NoError(t, err)
+
+		return pvc
+	}
+
+	awaitExpectation(t, corev1.ClaimBound, func() corev1.PersistentVolumeClaimPhase {
+		pvc := getPVC()
+
+		return pvc.Status.Phase
+	})
+
+	pvc := getPVC()
+	assert.NotNil(t, pvc)
+	pvName := getPVC().Spec.VolumeName
+
+	bsVolList, err := egoClient.ListBlockStorageVolumes(ns.CTX)
+	assert.NoError(t, err)
+
+	bsVol, err := bsVolList.FindBlockStorageVolume(pvName)
+	assert.NoError(t, err)
+
+	op, err := egoClient.DeleteBlockStorageVolume(ns.CTX, bsVol.ID)
+	assert.NoError(t, err)
+
+	_, err = egoClient.Wait(ns.CTX, op, v3.OperationStateSuccess)
+	assert.NoError(t, err)
+
+	err = pvcClient.Delete(ns.CTX, pvcName, metav1.DeleteOptions{})
+	assert.NoError(t, err)
+
+	awaitExpectation(t, 0, func() int {
+		pvcs, err := pvcClient.List(ns.CTX, metav1.ListOptions{})
+		assert.NoError(t, err)
+
+		return len(pvcs.Items)
+	})
+
+	_, err = egoClient.GetBlockStorageVolume(ns.CTX, bsVol.ID)
+	assert.ErrorIs(t, err, v3.ErrNotFound)
+}
+
 func TestVolumeExpand(t *testing.T) {
 	testName := "expand-vol"
 	ns := k8s.CreateTestNamespace(t, cluster.Get().K8s, testName)
