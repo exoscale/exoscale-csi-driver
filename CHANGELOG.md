@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+* Deployment: Resolved an issue where volumes could become stuck in a Terminating or Released state, ensuring proper deletion and cleanup
+
 ### Improvements
 
 * Deployment: Add node toleration exist #46

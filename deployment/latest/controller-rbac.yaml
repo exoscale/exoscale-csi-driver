@@ -57,7 +57,7 @@ metadata:
 rules:
   - apiGroups: [""]
     resources: ["persistentvolumes"]
-    verbs: ["get", "watch", "list", "update", "patch"]
+    verbs: ["get", "watch", "list", "update", "patch", "delete"]
   - apiGroups: [""]
     resources: ["nodes"]
     verbs: ["get", "watch", "list"]
@@ -88,7 +88,7 @@ metadata:
 rules:
   - apiGroups: [""]
     resources: ["persistentvolumes", "persistentvolumeclaims", "events"]
-    verbs: ["get", "watch", "list", "create", "update", "patch"]
+    verbs: ["get", "watch", "list", "create", "update", "patch", "delete"]
   - apiGroups: ["storage.k8s.io"]
     resources: ["storageclasses"]
     verbs: ["get", "watch", "list"]
@@ -122,7 +122,7 @@ metadata:
 rules:
   - apiGroups: [""]
     resources: ["persistentvolumes", "persistentvolumeclaims", "persistentvolumeclaims/status"]
-    verbs: ["get", "watch", "list", "create", "update", "patch"]
+    verbs: ["get", "watch", "list", "create", "update", "patch", "delete"]
   - apiGroups: [""]
     resources: ["pods", "events"]
     verbs: ["get", "watch", "list"]
