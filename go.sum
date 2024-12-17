@@ -15,6 +15,8 @@ github.com/emicklei/go-restful/v3 v3.11.0 h1:rAQeMHw1c7zTmncogyy8VvRZwtkmkZ4FxER
 github.com/emicklei/go-restful/v3 v3.11.0/go.mod h1:6n3XBCmQQb25CM2LCACGz8ukIrRry+4bhvbpWn3mrbc=
 github.com/exoscale/egoscale/v3 v3.1.1 h1:NwTlXE2sKe2kBWm+c3bsHV+aWDFiEJ9JQpS6X3j4wbc=
 github.com/exoscale/egoscale/v3 v3.1.1/go.mod h1:lPsza7G+giSxdzvzaHSEcjEAYz/YTiu2bEEha9KVAc4=
+github.com/exoscale/egoscale/v3 v3.1.7 h1:Q6p9tOVY0IiOW0fUpaPQWY7ggGEuSPZLAGxFgDd2sCE=
+github.com/exoscale/egoscale/v3 v3.1.7/go.mod h1:GHKucK/J26v8PGWztGdhxWNMjrjG9PbelxKCJ4YI11Q=
 github.com/frankban/quicktest v1.14.6 h1:7Xjx+VpznH+oBnejlPUj8oUpdxnVs4f8XU8WnHkI4W8=
 github.com/frankban/quicktest v1.14.6/go.mod h1:4ptaffx2x8+WTWXmUCuVU6aPUX1/Mz7zb5vbUoiM6w0=
 github.com/fsnotify/fsnotify v1.7.0 h1:8JEhPFa5W2WU7YfeZzPNqzMP6Lwt7L2715Ggo0nosvA=
