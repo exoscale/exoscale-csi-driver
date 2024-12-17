@@ -6,7 +6,7 @@ require (
 	github.com/container-storage-interface/spec v1.8.0
 	github.com/exoscale/egoscale/v3 v3.1.1
 	github.com/golang/protobuf v1.5.4
-	github.com/stretchr/testify v1.9.0
+	github.com/stretchr/testify v1.10.0
 	golang.org/x/sys v0.21.0
 	google.golang.org/grpc v1.59.0
 	google.golang.org/protobuf v1.34.2
