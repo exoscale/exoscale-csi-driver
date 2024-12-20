@@ -74,7 +74,7 @@ var (
 
 const (
 	DefaultVolumeSizeGiB = 100
-	MinimalVolumeSizeGiB = 10
+	MinimalVolumeSizeGiB = 1
 	MaximumVolumeSizeGiB = 10000
 )
 
