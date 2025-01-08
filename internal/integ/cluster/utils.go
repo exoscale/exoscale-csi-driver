@@ -222,11 +222,11 @@ func (c *Cluster) applyCSI(ctx context.Context) error {
 
 func retry(trial func() error, nRetries int, retryInterval time.Duration) error {
 	if nRetries == 0 {
-		nRetries = 10
+		nRetries = 20
 	}
 
 	if retryInterval == 0 {
-		retryInterval = 10 * time.Second
+		retryInterval = 20 * time.Second
 	}
 
 	for i := 0; i < nRetries-1; i++ {
