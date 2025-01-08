@@ -2,9 +2,6 @@ name: destroy-integ-test-cluster
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - philippsauter/gh-action-delete-test-cluster
 
 jobs:
   destroy-integ-test-cluster:
