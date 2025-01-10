@@ -4,7 +4,7 @@ go 1.23.0
 
 require (
 	github.com/container-storage-interface/spec v1.8.0
-	github.com/exoscale/egoscale/v3 v3.1.1
+	github.com/exoscale/egoscale/v3 v3.1.8
 	github.com/golang/protobuf v1.5.4
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/sys v0.29.0
@@ -58,12 +58,12 @@ require (
 	github.com/x448/float16 v0.8.4 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.9.0 // indirect
-	golang.org/x/crypto v0.28.0 // indirect
+	golang.org/x/crypto v0.31.0 // indirect
 	golang.org/x/exp v0.0.0-20240213143201-ec583247a57a // indirect
 	golang.org/x/net v0.30.0 // indirect
 	golang.org/x/oauth2 v0.23.0 // indirect
-	golang.org/x/term v0.25.0 // indirect
-	golang.org/x/text v0.19.0 // indirect
+	golang.org/x/term v0.27.0 // indirect
+	golang.org/x/text v0.21.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20241015192408-796eee8c2d53 // indirect
 	gopkg.in/djherbis/times.v1 v1.3.0 // indirect
