@@ -8,6 +8,7 @@
 
 * Deployment: Add node toleration exist #46
 * doc: warn against manually modifying volumes through Exoscale API #44 
+* CI: action to manually destroy integ test cluster #41 
 
 ## 0.31.0
 

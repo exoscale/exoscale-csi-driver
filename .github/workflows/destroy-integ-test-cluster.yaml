@@ -1,0 +1,23 @@
+name: destroy-integ-test-cluster
+
+on:
+  workflow_dispatch:
+
+jobs:
+  destroy-integ-test-cluster:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Install exo CLI
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/exoscale/cli/master/install-latest.sh | sh
+
+      - name: delete the integ test cluster
+        run: |
+          exo compute sks delete \
+            -n \
+            -f csi-pr-integ-test \
+            -z ch-gva-2
+        env:
+          EXOSCALE_API_KEY: ${{ secrets.EXOSCALE_API_KEY_IAMV3 }}
+          EXOSCALE_API_SECRET: ${{ secrets.EXOSCALE_API_SECRET_IAMV3 }}
