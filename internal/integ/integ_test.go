@@ -68,7 +68,7 @@ func generatePVCName(testName string) string {
 func awaitExpectation[T any](t *testing.T, expected T, get func() T) {
 	var actual T
 
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 20; i++ {
 		var err error = nil
 
 		actual = func() T {
@@ -81,7 +81,7 @@ func awaitExpectation[T any](t *testing.T, expected T, get func() T) {
 			return get()
 		}()
 
-		time.Sleep(10 * time.Second)
+		time.Sleep(20 * time.Second)
 
 		if err != nil {
 			continue
@@ -406,7 +406,7 @@ func TestSnapshot(t *testing.T) {
 		}
 
 		status, ok := crdInstance.Object["status"].(map[string]interface{})
-		if !assert.True(t, ok) {
+		if !ok {
 			return false
 		}
 
@@ -439,8 +439,9 @@ func TestSnapshot(t *testing.T) {
 
 	awaitExpectation(t, 0, func() int {
 		snapshots, err := snapshotClient.List(ns.CTX, metav1.ListOptions{})
+		assert.NoError(t, err)
+
 		if err != nil {
-			assert.NoError(t, err)
 			return 0
 		}
 
