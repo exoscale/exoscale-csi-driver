@@ -1,0 +1,53 @@
+name: Prepare Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag parameter, e.g., v0.31.1'
+        required: true
+
+jobs:
+  prepare_release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set variables
+        id: vars
+        run: |
+          TAG="${{ github.event.inputs.tag }}"
+          VERSION="${TAG#v}"
+          echo "TAG=${TAG}" >> $GITHUB_ENV
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+
+      - name: Copy deployment files
+        run: |
+          mkdir -p deployment/${VERSION}
+          cp -r deployment/latest/* "deployment/${VERSION}"
+
+      - name: Replace 'latest' with version in deployment files
+        run: |
+          sed -i 's/csi-driver:latest/csi-driver:${VERSION}/g' deployment/${VERSION}/*
+
+      - name: Update CHANGELOG.md
+        run: |
+          sed -i "s/[Uu]nreleased/${{ github.event.inputs.tag }}/" CHANGELOG.md
+
+      - name: Commit changes
+        run: |
+          git config --global user.name "Exoscale"
+          git config --global user.email "operation+build@exoscale.net"
+          git add deployment/${VERSION} CHANGELOG.md
+          git commit -m "prepare release ${{ github.event.inputs.tag }}"
+
+      - name: Tag the commit
+        run: |
+          git tag "${{ github.event.inputs.tag }}"
+
+      - name: Push commit and tags
+        run: |
+          git push origin HEAD
+          git push origin "${{ github.event.inputs.tag }}"
