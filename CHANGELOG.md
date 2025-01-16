@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.31.1
 
 * Deployment: Resolved an issue where volumes could become stuck in a Terminating or Released state, ensuring proper deletion and cleanup
 * Reduce minimum blockstorage volume size to 1GB
