@@ -81,6 +81,8 @@ const (
 type controllerService struct {
 	client   *v3.Client
 	zoneName v3.ZoneName
+
+	csi.UnimplementedControllerServer
 }
 
 func newControllerService(client *v3.Client, nodeMeta *nodeMetadata) controllerService {
@@ -776,6 +778,11 @@ func (d *controllerService) ControllerGetVolume(ctx context.Context, req *csi.Co
 			PublishedNodeIds: instancesID,
 		},
 	}, nil
+}
+
+func (d *controllerService) ControllerModifyVolume(context.Context, *csi.ControllerModifyVolumeRequest) (*csi.ControllerModifyVolumeResponse, error) {
+
+	return nil, nil
 }
 
 func newClientZone(ctx context.Context, c *v3.Client, z v3.ZoneName) (*v3.Client, error) {

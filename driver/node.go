@@ -23,6 +23,8 @@ type nodeService struct {
 	nodeID    v3.UUID
 	zoneName  v3.ZoneName
 	diskUtils *diskUtils
+
+	csi.UnimplementedNodeServer
 }
 
 func newNodeService(meta *nodeMetadata) nodeService {
