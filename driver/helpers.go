@@ -46,8 +46,8 @@ func validateVolumeCapability(volumeCapability *csi.VolumeCapability) error {
 	if volumeCapability == nil {
 		return fmt.Errorf("volumeCapability is nil")
 	}
-	for _, accessMode := range supportedAccessModes {
-		if accessMode.Mode == volumeCapability.GetAccessMode().GetMode() {
+	for i := range supportedAccessModes {
+		if supportedAccessModes[i].Mode == volumeCapability.GetAccessMode().GetMode() {
 			return nil
 		}
 	}

@@ -780,11 +780,6 @@ func (d *controllerService) ControllerGetVolume(ctx context.Context, req *csi.Co
 	}, nil
 }
 
-func (d *controllerService) ControllerModifyVolume(context.Context, *csi.ControllerModifyVolumeRequest) (*csi.ControllerModifyVolumeResponse, error) {
-
-	return nil, nil
-}
-
 func newClientZone(ctx context.Context, c *v3.Client, z v3.ZoneName) (*v3.Client, error) {
 	endpoint, err := c.GetZoneAPIEndpoint(ctx, z)
 	if err != nil {
