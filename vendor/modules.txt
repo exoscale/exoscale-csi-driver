@@ -1,9 +1,6 @@
 # github.com/container-storage-interface/spec v1.11.0
 ## explicit; go 1.18
 github.com/container-storage-interface/spec/lib/go/csi
-# github.com/coreos/go-systemd/v22 v22.5.0
-## explicit; go 1.12
-github.com/coreos/go-systemd/v22/dbus
 # github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 ## explicit
 github.com/davecgh/go-spew/spew
@@ -47,9 +44,6 @@ github.com/go-playground/universal-translator
 # github.com/go-playground/validator/v10 v10.9.0
 ## explicit; go 1.13
 github.com/go-playground/validator/v10
-# github.com/godbus/dbus/v5 v5.1.0
-## explicit; go 1.12
-github.com/godbus/dbus/v5
 # github.com/gogo/protobuf v1.3.2
 ## explicit; go 1.15
 github.com/gogo/protobuf/proto
@@ -88,24 +82,21 @@ github.com/magiconair/properties
 # github.com/mitchellh/mapstructure v1.5.0
 ## explicit; go 1.14
 github.com/mitchellh/mapstructure
-# github.com/moby/sys/mountinfo v0.7.1
-## explicit; go 1.16
+# github.com/moby/sys/mountinfo v0.7.2
+## explicit; go 1.17
 github.com/moby/sys/mountinfo
+# github.com/moby/sys/userns v0.1.0
+## explicit; go 1.21
+github.com/moby/sys/userns
 # github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd
 ## explicit
 github.com/modern-go/concurrent
 # github.com/modern-go/reflect2 v1.0.2
 ## explicit; go 1.12
 github.com/modern-go/reflect2
-# github.com/opencontainers/runc v1.1.13
-## explicit; go 1.18
-github.com/opencontainers/runc/libcontainer/configs
-github.com/opencontainers/runc/libcontainer/devices
-github.com/opencontainers/runc/libcontainer/user
-github.com/opencontainers/runc/libcontainer/userns
-# github.com/opencontainers/runtime-spec v1.0.3-0.20220909204839-494a5a6aca78
+# github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
 ## explicit
-github.com/opencontainers/runtime-spec/specs-go
+github.com/munnerz/goautoneg
 # github.com/pelletier/go-toml/v2 v2.1.0
 ## explicit; go 1.16
 github.com/pelletier/go-toml/v2
@@ -190,7 +181,7 @@ go.uber.org/multierr
 # golang.org/x/crypto v0.31.0
 ## explicit; go 1.20
 golang.org/x/crypto/sha3
-# golang.org/x/exp v0.0.0-20240213143201-ec583247a57a
+# golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56
 ## explicit; go 1.20
 golang.org/x/exp/constraints
 golang.org/x/exp/slices
@@ -234,7 +225,7 @@ golang.org/x/text/secure/bidirule
 golang.org/x/text/transform
 golang.org/x/text/unicode/bidi
 golang.org/x/text/unicode/norm
-# golang.org/x/time v0.5.0
+# golang.org/x/time v0.7.0
 ## explicit; go 1.18
 golang.org/x/time/rate
 # google.golang.org/genproto/googleapis/rpc v0.0.0-20241202173237-19429a94021a
@@ -345,14 +336,11 @@ gopkg.in/inf.v0
 # gopkg.in/ini.v1 v1.67.0
 ## explicit
 gopkg.in/ini.v1
-# gopkg.in/yaml.v2 v2.4.0
-## explicit; go 1.15
-gopkg.in/yaml.v2
 # gopkg.in/yaml.v3 v3.0.1
 ## explicit
 gopkg.in/yaml.v3
-# k8s.io/apimachinery v0.31.0
-## explicit; go 1.22.0
+# k8s.io/apimachinery v0.32.1
+## explicit; go 1.23.0
 k8s.io/apimachinery/pkg/api/errors
 k8s.io/apimachinery/pkg/api/meta
 k8s.io/apimachinery/pkg/api/resource
@@ -365,6 +353,7 @@ k8s.io/apimachinery/pkg/labels
 k8s.io/apimachinery/pkg/runtime
 k8s.io/apimachinery/pkg/runtime/schema
 k8s.io/apimachinery/pkg/runtime/serializer
+k8s.io/apimachinery/pkg/runtime/serializer/cbor
 k8s.io/apimachinery/pkg/runtime/serializer/cbor/direct
 k8s.io/apimachinery/pkg/runtime/serializer/cbor/internal/modes
 k8s.io/apimachinery/pkg/runtime/serializer/json
@@ -390,8 +379,8 @@ k8s.io/apimachinery/pkg/util/yaml
 k8s.io/apimachinery/pkg/version
 k8s.io/apimachinery/pkg/watch
 k8s.io/apimachinery/third_party/forked/golang/reflect
-# k8s.io/client-go v0.31.0
-## explicit; go 1.22.0
+# k8s.io/client-go v0.32.1
+## explicit; go 1.23.0
 k8s.io/client-go/features
 k8s.io/client-go/pkg/apis/clientauthentication
 k8s.io/client-go/pkg/apis/clientauthentication/install
@@ -418,8 +407,8 @@ k8s.io/klog/v2/internal/dbg
 k8s.io/klog/v2/internal/serialize
 k8s.io/klog/v2/internal/severity
 k8s.io/klog/v2/internal/sloghandler
-# k8s.io/mount-utils v0.31.0
-## explicit; go 1.22.0
+# k8s.io/mount-utils v0.32.1
+## explicit; go 1.23.0
 k8s.io/mount-utils
 # k8s.io/utils v0.0.0-20241210054802-24370beab758
 ## explicit; go 1.18
@@ -431,12 +420,11 @@ k8s.io/utils/io
 k8s.io/utils/keymutex
 k8s.io/utils/net
 k8s.io/utils/ptr
-k8s.io/utils/strings/slices
-# sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd
-## explicit; go 1.18
+# sigs.k8s.io/json v0.0.0-20241010143419-9aa6b5e7a4b3
+## explicit; go 1.21
 sigs.k8s.io/json
 sigs.k8s.io/json/internal/golang/encoding/json
-# sigs.k8s.io/structured-merge-diff/v4 v4.4.1
+# sigs.k8s.io/structured-merge-diff/v4 v4.4.2
 ## explicit; go 1.13
 sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.4.0
