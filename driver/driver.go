@@ -58,6 +58,7 @@ type Driver struct {
 	config *DriverConfig
 
 	srv *grpc.Server
+	csi.UnimplementedIdentityServer
 }
 
 // NewDriver returns a CSI plugin

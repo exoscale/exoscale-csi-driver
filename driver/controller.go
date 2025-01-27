@@ -81,6 +81,8 @@ const (
 type controllerService struct {
 	client   *v3.Client
 	zoneName v3.ZoneName
+
+	csi.UnimplementedControllerServer
 }
 
 func newControllerService(client *v3.Client, nodeMeta *nodeMetadata) controllerService {
