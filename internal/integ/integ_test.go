@@ -100,7 +100,7 @@ func TestVolumeCreation(t *testing.T) {
 	ns := k8s.CreateTestNamespace(t, cluster.Get().K8s, testName)
 
 	pvcName := generatePVCName(testName)
-	ns.ApplyPVC(pvcName, "10Gi", false)
+	ns.ApplyPVC(pvcName, "1Gi", false)
 
 	awaitExpectation(t, "Bound", func() interface{} {
 		pvc, err := ns.K.ClientSet.CoreV1().PersistentVolumeClaims(ns.Name).Get(ns.CTX, pvcName, metav1.GetOptions{})
@@ -142,7 +142,7 @@ func TestVolumeAttach(t *testing.T) {
 	ns := k8s.CreateTestNamespace(t, cluster.Get().K8s, testName)
 
 	pvcName := generatePVCName(testName)
-	ns.ApplyPVC(pvcName, "10Gi", false)
+	ns.ApplyPVC(pvcName, "1Gi", false)
 	ns.Apply(fmt.Sprintf(basicDeployment, pvcName))
 
 	awaitExpectation(t, "Bound", func() interface{} {
@@ -179,7 +179,7 @@ func TestDeleteVolume(t *testing.T) {
 			} else {
 				pvcName = generatePVCName(testName)
 			}
-			ns.ApplyPVC(pvcName, "10Gi", useRetainStorageClass)
+			ns.ApplyPVC(pvcName, "1Gi", useRetainStorageClass)
 
 			pvcClient := ns.K.ClientSet.CoreV1().PersistentVolumeClaims(ns.Name)
 
@@ -256,7 +256,7 @@ func TestDeleteVolumeNotFound(t *testing.T) {
 	assert.NoError(t, err)
 
 	pvcName := generatePVCName(testName)
-	ns.ApplyPVC(pvcName, "10Gi", false)
+	ns.ApplyPVC(pvcName, "1Gi", false)
 	pvcClient := ns.K.ClientSet.CoreV1().PersistentVolumeClaims(ns.Name)
 	getPVC := func() *corev1.PersistentVolumeClaim {
 		pvc, err := pvcClient.Get(ns.CTX, pvcName, metav1.GetOptions{})
@@ -306,7 +306,7 @@ func TestVolumeExpand(t *testing.T) {
 	ns := k8s.CreateTestNamespace(t, cluster.Get().K8s, testName)
 
 	pvcName := generatePVCName(testName)
-	ns.ApplyPVC(pvcName, "10Gi", false)
+	ns.ApplyPVC(pvcName, "1Gi", false)
 	ns.Apply(fmt.Sprintf(basicDeployment, pvcName))
 
 	awaitExpectation(t, "Bound", func() interface{} {
@@ -331,7 +331,7 @@ func TestVolumeExpand(t *testing.T) {
 		ns.CTX,
 		pvcName,
 		types.MergePatchType,
-		[]byte(`{"spec":{"resources":{"requests":{"storage":"50Gi"}}}}`),
+		[]byte(`{"spec":{"resources":{"requests":{"storage":"5Gi"}}}}`),
 		metav1.PatchOptions{},
 	)
 	assert.NoError(t, err)
@@ -344,7 +344,7 @@ func TestVolumeExpand(t *testing.T) {
 		pvc, err := ns.K.ClientSet.CoreV1().PersistentVolumeClaims(ns.Name).Get(ns.CTX, pvcName, metav1.GetOptions{})
 		assert.NoError(t, err)
 
-		return pvc.Status.Capacity.Storage().CmpInt64(50 * 1024 * 1024 * 1024)
+		return pvc.Status.Capacity.Storage().CmpInt64(5 * 1024 * 1024 * 1024)
 	})
 }
 
@@ -369,7 +369,7 @@ spec:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 100Gi
+      storage: 10Gi
   dataSource:
     name: my-snap-1
     kind: VolumeSnapshot
@@ -383,7 +383,7 @@ func TestSnapshot(t *testing.T) {
 	ns := k8s.CreateTestNamespace(t, cluster.Get().K8s, testName)
 
 	pvcName := generatePVCName(testName)
-	ns.ApplyPVC(pvcName, "10Gi", false)
+	ns.ApplyPVC(pvcName, "1Gi", false)
 
 	pvcClient := ns.K.ClientSet.CoreV1().PersistentVolumeClaims(ns.Name)
 

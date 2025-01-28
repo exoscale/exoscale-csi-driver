@@ -5,6 +5,7 @@
 ### Improvements
 
 * container-storage-interface: upgrade to v1.11.0 #73
+* egoscale: update to v3.1.9 to allow volumes of minimum size 1GiB #74 
 
 ## v0.31.1
 
