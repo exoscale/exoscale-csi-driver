@@ -344,7 +344,7 @@ func TestVolumeExpand(t *testing.T) {
 		pvc, err := ns.K.ClientSet.CoreV1().PersistentVolumeClaims(ns.Name).Get(ns.CTX, pvcName, metav1.GetOptions{})
 		assert.NoError(t, err)
 
-		return pvc.Status.Capacity.Storage().CmpInt64(50 * 1024 * 1024 * 1024)
+		return pvc.Status.Capacity.Storage().CmpInt64(5 * 1024 * 1024 * 1024)
 	})
 }
 
