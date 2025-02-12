@@ -7,7 +7,7 @@ require (
 	github.com/exoscale/egoscale/v3 v3.1.9
 	github.com/golang/protobuf v1.5.4
 	github.com/stretchr/testify v1.10.0
-	golang.org/x/sys v0.29.0
+	golang.org/x/sys v0.30.0
 	google.golang.org/grpc v1.70.0
 	google.golang.org/protobuf v1.36.5
 	k8s.io/client-go v0.31.0
