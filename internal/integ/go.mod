@@ -2,7 +2,7 @@ module github.com/exoscale/exoscale/csi-driver/internal/integ
 
 go 1.22.0
 
-toolchain go1.23.5
+toolchain go1.24.0
 
 require (
 	github.com/exoscale/egoscale/v3 v3.1.8
