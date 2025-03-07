@@ -15,23 +15,24 @@ import (
 )
 
 const (
-	// TODO: replace it to get from Exoscale account resource limit.
-	maxVolumesPerNode = 5
+	defaultMaxVolumesPerNode int64 = 5
 )
 
 type nodeService struct {
 	nodeID    v3.UUID
 	zoneName  v3.ZoneName
 	diskUtils *diskUtils
+	client    *v3.Client
 
 	csi.UnimplementedNodeServer
 }
 
-func newNodeService(meta *nodeMetadata) nodeService {
+func newNodeService(client *v3.Client, meta *nodeMetadata) nodeService {
 	return nodeService{
 		nodeID:    meta.InstanceID,
 		zoneName:  meta.zoneName,
 		diskUtils: newDiskUtils(),
+		client:    client,
 	}
 }
 
@@ -413,6 +414,17 @@ func (d *nodeService) NodeGetCapabilities(ctx context.Context, req *csi.NodeGetC
 // NodeGetInfo returns inqformation about node's volumes
 func (d *nodeService) NodeGetInfo(ctx context.Context, req *csi.NodeGetInfoRequest) (*csi.NodeGetInfoResponse, error) {
 	klog.V(4).Infof("NodeGetInfo")
+
+	maxVolumesPerNode := defaultMaxVolumesPerNode
+	quotas, err := d.client.ListQuotas(ctx)
+	if err == nil {
+		for _, q := range quotas.Quotas {
+			if q.Resource == "block-storage-volume-attachments" {
+				maxVolumesPerNode = q.Limit
+			}
+		}
+	}
+
 	return &csi.NodeGetInfoResponse{
 		// Store the zone and the instanceID to let the CSI controller know the zone of the node.
 		NodeId: exoscaleID(d.zoneName, d.nodeID),

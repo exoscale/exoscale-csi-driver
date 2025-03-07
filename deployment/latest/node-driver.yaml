@@ -29,6 +29,9 @@ spec:
           env:
             - name: CSI_ENDPOINT
               value: unix:///csi/csi.sock
+          envFrom:
+            - secretRef:
+                name: exoscale-credentials
           securityContext:
             privileged: true
           ports:
