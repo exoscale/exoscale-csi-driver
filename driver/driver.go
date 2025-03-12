@@ -79,13 +79,6 @@ func NewDriver(config *DriverConfig) (*Driver, error) {
 		config: config,
 	}
 
-	// Node Mode is not using client API.
-	// Config API credentials are not provided.
-	if config.Mode == NodeMode {
-		driver.nodeService = newNodeService(nodeMeta)
-		return driver, nil
-	}
-
 	var client *v3.Client
 	if config.ZoneEndpoint != "" {
 		client, err = v3.NewClient(config.Credentials,
@@ -108,9 +101,11 @@ func NewDriver(config *DriverConfig) (*Driver, error) {
 	switch config.Mode {
 	case ControllerMode:
 		driver.controllerService = newControllerService(client, nodeMeta)
+	case NodeMode:
+		driver.nodeService = newNodeService(client, nodeMeta)
 	case AllMode:
 		driver.controllerService = newControllerService(client, nodeMeta)
-		driver.nodeService = newNodeService(nodeMeta)
+		driver.nodeService = newNodeService(client, nodeMeta)
 	default:
 		return nil, fmt.Errorf("unknown mode for driver: %s", config.Mode)
 	}
