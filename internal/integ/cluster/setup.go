@@ -46,6 +46,36 @@ func (c *Cluster) provisionSKSCluster(ctx context.Context) error {
 		return nil
 	}
 
+	op, err := c.Ego.CreateSecurityGroup(ctx, exov3.CreateSecurityGroupRequest{
+		Name: c.Name + "-security-group",
+	})
+	sgID, err := c.awaitID(ctx, op, err)
+	if err != nil {
+		return fmt.Errorf("error creating security group: %w", err)
+	}
+
+	op, err = c.Ego.AddRuleToSecurityGroup(ctx, sgID, exov3.AddRuleToSecurityGroupRequest{
+		Network:       "0.0.0.0/0",
+		StartPort:     10250,
+		EndPort:       10250,
+		Protocol:      exov3.AddRuleToSecurityGroupRequestProtocolTCP,
+		FlowDirection: exov3.AddRuleToSecurityGroupRequestFlowDirectionIngress,
+	})
+	if err = c.awaitSuccess(ctx, op, err); err != nil {
+		return fmt.Errorf("error adding security group rule 10250: %w", err)
+	}
+
+	op, err = c.Ego.AddRuleToSecurityGroup(ctx, sgID, exov3.AddRuleToSecurityGroupRequest{
+		Network:       "0.0.0.0/0",
+		StartPort:     4789,
+		EndPort:       4789,
+		Protocol:      exov3.AddRuleToSecurityGroupRequestProtocolUDP,
+		FlowDirection: exov3.AddRuleToSecurityGroupRequestFlowDirectionIngress,
+	})
+	if err = c.awaitSuccess(ctx, op, err); err != nil {
+		return fmt.Errorf("error adding security group rule 4789: %w", err)
+	}
+
 	latestSKSVersion, err := c.getLatestSKSVersion(ctx)
 	if err != nil {
 		return err
@@ -57,7 +87,7 @@ func (c *Cluster) provisionSKSCluster(ctx context.Context) error {
 		return err
 	}
 
-	op, err := c.Ego.CreateSKSCluster(ctx, exov3.CreateSKSClusterRequest{
+	op, err = c.Ego.CreateSKSCluster(ctx, exov3.CreateSKSClusterRequest{
 		Cni:         "calico",
 		Description: exov3.Ptr("This cluster was created to test the exoscale CSI driver in SKS."),
 		Name:        c.Name,
@@ -77,6 +107,9 @@ func (c *Cluster) provisionSKSCluster(ctx context.Context) error {
 		Size:           int64(2),
 		InstancePrefix: "pool",
 		InstanceType:   instanceType,
+		SecurityGroups: []exov3.SecurityGroup{{
+			ID: sgID,
+		}},
 	})
 	if err = c.awaitSuccess(ctx, op, err); err != nil {
 		// this can error even when the nodepool is successfully created

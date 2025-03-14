@@ -2,6 +2,7 @@ package cluster
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"path/filepath"
@@ -26,6 +27,23 @@ func (c *Cluster) tearDownCluster(ctx context.Context) error {
 		op, err := c.Ego.DeleteSKSNodepool(ctx, cluster.ID, cluster.Nodepools[0].ID)
 		if err := c.awaitSuccess(ctx, op, err); err != nil {
 			return fmt.Errorf("error deleting nodepool: %w", err)
+		}
+	}
+
+	sgs, err := c.Ego.ListSecurityGroups(ctx)
+	if err != nil {
+		return fmt.Errorf("error listing security group: %w", err)
+	}
+
+	sg, err := sgs.FindSecurityGroup(c.Name + "-security-group")
+	if err != nil {
+		if !errors.Is(err, exov3.ErrNotFound) {
+			return err
+		}
+	} else {
+		op, err := c.Ego.DeleteSecurityGroup(ctx, sg.ID)
+		if err := c.awaitSuccess(ctx, op, err); err != nil {
+			return fmt.Errorf("error deleting security group: %w", err)
 		}
 	}
 
