@@ -4,7 +4,7 @@ go 1.23.0
 
 require (
 	github.com/container-storage-interface/spec v1.11.0
-	github.com/exoscale/egoscale/v3 v3.1.9
+	github.com/exoscale/egoscale/v3 v3.1.13
 	github.com/golang/protobuf v1.5.4
 	github.com/stretchr/testify v1.10.0
 	golang.org/x/sys v0.30.0
