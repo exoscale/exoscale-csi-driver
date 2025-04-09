@@ -1,0 +1,128 @@
+kind: DaemonSet
+apiVersion: apps/v1
+metadata:
+  name: exoscale-csi-node
+  namespace: kube-system
+  labels:
+spec:
+  selector:
+    matchLabels:
+      app: exoscale-csi-node
+  template:
+    metadata:
+      labels:
+        app: exoscale-csi-node
+        role: csi
+    spec:
+      serviceAccount: exoscale-csi-node
+      nodeSelector:
+        kubernetes.io/os: linux
+      priorityClassName: system-node-critical
+      containers:
+        - name: exoscale-csi-plugin
+          image: exoscale/csi-driver:0.31.4
+          imagePullPolicy: Always
+          args :
+            - "--endpoint=$(CSI_ENDPOINT)"
+            - "--v=4"
+            - "--mode=node"
+          env:
+            - name: CSI_ENDPOINT
+              value: unix:///csi/csi.sock
+          envFrom:
+            - secretRef:
+                name: exoscale-credentials
+          securityContext:
+            privileged: true
+          ports:
+            - name: healthz
+              containerPort: 9808
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: healthz
+            initialDelaySeconds: 10
+            timeoutSeconds: 3
+            periodSeconds: 2
+            failureThreshold: 5
+          volumeMounts:
+            - name: plugin-dir
+              mountPath: /csi
+            - name: kubelet-dir
+              mountPath: /var/lib/kubelet
+              mountPropagation: "Bidirectional"
+            - name: device-dir
+              mountPath: /dev
+          resources:
+            limits:
+              cpu: 400m
+              memory: 200Mi
+            requests:
+              cpu: 10m
+              memory: 20Mi
+        - name: csi-node-driver-registrar
+          image: registry.k8s.io/sig-storage/csi-node-driver-registrar:v2.9.0
+          args:
+            - "--v=2"
+            - "--csi-address=$(CSI_ADDRESS)"
+            - "--kubelet-registration-path=$(KUBELET_REGISTRATION_PATH)"
+          env:
+            - name: CSI_ADDRESS
+              value: /csi/csi.sock
+            - name: KUBELET_REGISTRATION_PATH
+              value: /var/lib/kubelet/plugins/csi.exoscale.com/csi.sock
+            - name: KUBE_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          volumeMounts:
+            - name: plugin-dir
+              mountPath: /csi/
+            - name: registration-dir
+              mountPath: /registration/
+          resources:
+            limits:
+              cpu: 200m
+              memory: 100Mi
+            requests:
+              cpu: 10m
+              memory: 20Mi
+        - name: liveness-probe
+          image: registry.k8s.io/sig-storage/livenessprobe:v2.11.0
+          args:
+            - "--csi-address=$(CSI_ADDRESS)"
+          env:
+            - name: CSI_ADDRESS
+              value: /csi/csi.sock
+          volumeMounts:
+            - name: plugin-dir
+              mountPath: /csi
+          resources:
+            limits:
+              cpu: 200m
+              memory: 100Mi
+            requests:
+              cpu: 10m
+              memory: 20Mi
+      volumes:
+        - name: registration-dir
+          hostPath:
+            path: /var/lib/kubelet/plugins_registry/
+            type: DirectoryOrCreate
+        - name: plugin-dir
+          hostPath:
+            path: /var/lib/kubelet/plugins/csi.exoscale.com
+            type: DirectoryOrCreate
+        - name: kubelet-dir
+          hostPath:
+            path: /var/lib/kubelet
+            type: Directory
+        - name: device-dir
+          hostPath:
+            path: /dev
+      # https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
+      # See "special case". This will tolerate everything. Node component should
+      # be scheduled on all nodes.
+      tolerations:
+      - operator: Exists
