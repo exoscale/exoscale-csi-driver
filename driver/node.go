@@ -417,7 +417,9 @@ func (d *nodeService) NodeGetInfo(ctx context.Context, req *csi.NodeGetInfoReque
 
 	maxVolumesPerNode := defaultMaxVolumesPerNode
 	quotas, err := d.client.ListQuotas(ctx)
-	if err == nil {
+	if err != nil {
+		klog.Errorf("failed to list quotas: %v", err)
+	} else {
 		for _, q := range quotas.Quotas {
 			if q.Resource == "block-storage-volume-attachments" {
 				maxVolumesPerNode = q.Limit
