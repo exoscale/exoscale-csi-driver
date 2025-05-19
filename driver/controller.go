@@ -196,6 +196,7 @@ func (d *controllerService) CreateVolume(ctx context.Context, req *csi.CreateVol
 
 	opDone, err := client.Wait(ctx, op, v3.OperationStateSuccess)
 	if err != nil {
+		klog.Errorf("wait create block storage volume: %v", err)
 		return nil, err
 	}
 
