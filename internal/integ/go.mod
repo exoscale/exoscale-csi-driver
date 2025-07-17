@@ -1,11 +1,11 @@
 module github.com/exoscale/exoscale/csi-driver/internal/integ
 
-go 1.22.0
+go 1.23.8
 
 toolchain go1.24.0
 
 require (
-	github.com/exoscale/egoscale/v3 v3.1.13
+	github.com/exoscale/egoscale/v3 v3.1.24
 	github.com/stretchr/testify v1.10.0
 	k8s.io/api v0.29.0
 	k8s.io/apimachinery v0.29.0
