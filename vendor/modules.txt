@@ -425,7 +425,7 @@ k8s.io/klog/v2/internal/sloghandler
 # k8s.io/mount-utils v0.31.0
 ## explicit; go 1.22.0
 k8s.io/mount-utils
-# k8s.io/utils v0.0.0-20241210054802-24370beab758
+# k8s.io/utils v0.0.0-20250820121507-0af2bda4dd1d
 ## explicit; go 1.18
 k8s.io/utils/clock
 k8s.io/utils/clock/testing
