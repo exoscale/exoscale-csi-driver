@@ -47,7 +47,7 @@ exoscale-csi-node-v8skv                             3/3     Running   0         
 ...
 ```
 
-Since one `exoscale-csi-node` is deployed per node, you should see one pod per node.
+Since one `exoscale-csi-node` is deployed per node, you should see one Pod per node.
 
 ### Example
 
