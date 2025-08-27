@@ -6,7 +6,7 @@ toolchain go1.24.0
 
 require (
 	github.com/exoscale/egoscale/v3 v3.1.13
-	github.com/stretchr/testify v1.11.0
+	github.com/stretchr/testify v1.11.1
 	k8s.io/api v0.29.0
 	k8s.io/apimachinery v0.29.0
 	k8s.io/client-go v0.29.0
