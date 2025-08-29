@@ -691,7 +691,7 @@ func (d *controllerService) ControllerExpandVolume(ctx context.Context, req *csi
 		return nil, err
 	}
 
-	_, err = client.GetBlockStorageVolume(ctx, volumeID)
+	volume, err := client.GetBlockStorageVolume(ctx, volumeID)
 	if err != nil {
 		if errors.Is(err, v3.ErrNotFound) {
 			return nil, status.Errorf(codes.NotFound, "volume %s not found", volumeID)
@@ -716,6 +716,13 @@ func (d *controllerService) ControllerExpandVolume(ctx context.Context, req *csi
 	newSizeInBytes, err := getNewVolumeSize(req.GetCapacityRange())
 	if err != nil {
 		return nil, status.Errorf(codes.OutOfRange, "invalid capacity range: %v", err)
+	}
+
+	// Check if volume is attached to any instance
+	if volume.Instance != nil && volume.Instance.ID != "" {
+		instanceInfo := fmt.Sprintf(" (attached to instance %s)", volume.Instance.ID)
+		return nil, status.Error(codes.FailedPrecondition,
+			"Volume must be detached before expanding"+instanceInfo+". Scale down workloads using this PVC, then resize will complete automatically once Kubernetes retries.")
 	}
 
 	if newSizeInBytes%GiB != 0 {

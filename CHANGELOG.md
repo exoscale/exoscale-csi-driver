@@ -7,6 +7,7 @@
 * Bump go.mk #113
 * Add topologySpreadConstraints to controller deployment #115
 * integ-tests: delete old SG before creating test cluster #116
+* Volume Expansion: Set capability to OFFLINE for proper offline expansion behavior and provide error message
 
 ## v0.31.2
 
