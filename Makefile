@@ -46,3 +46,7 @@ include go.mk/public.mk
 # Docker
 go.mk/init.mk:
 include Makefile.docker
+
+# Podman
+go.mk/init.mk:
+include Makefile.podman

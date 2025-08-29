@@ -70,9 +70,19 @@ make build
 ```
 
 Or you can build a container image
+
+### Using Docker
 ```Bash
 make docker
 ```
+
+### Using Podman
+```Bash
+gmake podman
+# Override: CSI_IMAGE=myregistry/image CSI_TAG=v1.0.0 gmake podman
+```
+
+**Note**: Podman explicitly targets `linux/amd64` for compatibility when building on ARM64 Macs for Intel Kubernetes nodes. The CSI driver works without this targeting, but some filesystem features like volume expansion require proper architecture matching.
 
 ## Versioning and compatibility policy
 
