@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Improvements
+
+* Volume Expansion: Set capability to OFFLINE for proper offline expansion behavior and provide error message
+
 ## v0.31.2
 
 ### Improvements
