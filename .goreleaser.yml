@@ -1,3 +1,5 @@
+version: 2
+
 builds:
 - id: exoscale-csi-driver
   binary: exoscale-csi-driver
@@ -39,7 +41,7 @@ checksum:
   name_template: 'checksums.txt'
 
 snapshot:
-  name_template: "{{ .Tag }}-snapshot"
+  version_template: "{{ .Tag }}-snapshot"
 
 release:
   github:
