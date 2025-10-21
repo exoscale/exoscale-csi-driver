@@ -26,7 +26,7 @@ func TestMain(m *testing.M) {
 	// cluster creation takes a while so we increase the test timeout
 	// This call has to happen before testing.M.Run as that's where
 	// the flag `test.timeout` is used.
-	err := flag.Set("test.timeout", "30m")
+	err := flag.Set("test.timeout", "60m")
 	if err != nil {
 		slog.Warn("failed to set test timeout", "error", err)
 	}
