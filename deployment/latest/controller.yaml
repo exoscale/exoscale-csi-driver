@@ -184,6 +184,13 @@ spec:
             requests:
               cpu: 10m
               memory: 20Mi
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: exoscale-csi-controller
       volumes:
         - name: socket-dir
           emptyDir: {}

@@ -5,6 +5,7 @@
 ### Improvements
 
 * Bump go.mk #113
+* Add topologySpreadConstraints to controller deployment #115
 
 ## v0.31.2
 
