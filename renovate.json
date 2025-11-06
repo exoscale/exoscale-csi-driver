@@ -1,8 +1,37 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-
   "extends": [
     "config:recommended"
   ],
-  "postUpdateOptions": ["gomodTidy"]
+  "labels": [
+    "dependencies"
+  ],
+  "minimumReleaseAge": "3 days",
+  "prConcurrentLimit": 5,
+  "prHourlyLimit": 2,
+  "packageRules": [
+    {
+      "description": "Group Kubernetes dependencies together",
+      "groupName": "kubernetes",
+      "matchPackageNames": [
+        "k8s.io/{/,}**"
+      ]
+    }
+  ],
+  "gomod": {
+    "enabled": true
+  },
+  "postUpdateOptions": [
+    "gomodTidy",
+    "gomodUpdateImportPaths"
+  ],
+  "ignorePaths": [
+    "**/vendor/**"
+  ],
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "labels": [
+      "security"
+    ]
+  }
 }
