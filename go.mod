@@ -8,7 +8,7 @@ require (
 	github.com/golang/protobuf v1.5.4
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/sys v0.35.0
-	google.golang.org/grpc v1.75.0
+	google.golang.org/grpc v1.76.0
 	google.golang.org/protobuf v1.36.10
 	k8s.io/client-go v0.31.0
 	k8s.io/klog/v2 v2.130.1
