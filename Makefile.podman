@@ -1,0 +1,25 @@
+go.mk/version.mk:
+include go.mk/version.mk
+
+# Default to same image as docker, but allow override with CSI_IMAGE env var
+CSI_IMAGE ?= exoscale/csi-driver
+# Allow overriding the latest tag behavior
+CSI_TAG ?= latest
+
+.PHONY: podman
+podman:
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(MAKE) build
+	podman build --platform linux/amd64 --rm \
+	  -t ${CSI_IMAGE}:${CSI_TAG} \
+	  --build-arg VERSION="${VERSION}" \
+	  --build-arg VCS_REF="${GIT_REVISION}" \
+	  --build-arg BUILD_DATE="$(shell date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+	  -f ./Dockerfile \
+	  bin/
+	podman tag ${CSI_IMAGE}:${CSI_TAG} ${CSI_IMAGE}:${VERSION}
+
+.PHONY: podman-push
+podman-push:
+	podman push ${CSI_IMAGE}:${CSI_TAG} \
+	  && podman push ${CSI_IMAGE}:${VERSION}
+
