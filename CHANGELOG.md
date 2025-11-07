@@ -6,6 +6,7 @@
 
 * Bump go.mk #113
 * Add topologySpreadConstraints to controller deployment #115
+* integ-tests: delete old SG before creating test cluster #116
 
 ## v0.31.2
 
@@ -14,7 +15,7 @@
 * Fix integ test and integ test cluster #87
 * Node: Max volumes per node from organization quota #85
 * container-storage-interface: upgrade to v1.11.0 #73
-* egoscale: update to v3.1.9 to allow volumes of minimum size 1GiB #74 
+* egoscale: update to v3.1.9 to allow volumes of minimum size 1GiB #74
 
 ## v0.31.1
 

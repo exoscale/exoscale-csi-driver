@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/exoscale/exoscale/csi-driver/internal/integ/flags"
 	"github.com/exoscale/exoscale/csi-driver/internal/integ/util"
 
 	exov3 "github.com/exoscale/egoscale/v3"
+	v3 "github.com/exoscale/egoscale/v3"
 )
 
 func (c *Cluster) getLatestSKSVersion(ctx context.Context) (string, error) {
@@ -39,19 +41,32 @@ func (c *Cluster) getInstanceType(ctx context.Context, family, size string) (*ex
 	return nil, fmt.Errorf("unable to find instance type %s.%s", family, size)
 }
 
-func (c *Cluster) provisionSKSCluster(ctx context.Context) error {
-	// do nothing if cluster exists
-	_, err := c.getCluster(ctx)
-	if err == nil {
-		return nil
+func (c *Cluster) createSecurityGroup(ctx context.Context) (v3.UUID, error) {
+	sgName := c.Name + "-security-group"
+	sgs, err := c.Ego.ListSecurityGroups(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	sg, err := sgs.FindSecurityGroup(sgName)
+	if err == nil { // sg was found
+		op, err := c.Ego.DeleteSecurityGroup(ctx, sg.ID)
+		if err != nil {
+			return "", fmt.Errorf("error deleting old security group: %w", err)
+		}
+
+		_, err = c.awaitID(ctx, op, err)
+		if err != nil {
+			return "", fmt.Errorf("error deleting old security group: %w", err)
+		}
 	}
 
 	op, err := c.Ego.CreateSecurityGroup(ctx, exov3.CreateSecurityGroupRequest{
-		Name: c.Name + "-security-group",
+		Name: sgName,
 	})
 	sgID, err := c.awaitID(ctx, op, err)
 	if err != nil {
-		return fmt.Errorf("error creating security group: %w", err)
+		return "", fmt.Errorf("error creating security group: %w", err)
 	}
 
 	op, err = c.Ego.AddRuleToSecurityGroup(ctx, sgID, exov3.AddRuleToSecurityGroupRequest{
@@ -62,7 +77,7 @@ func (c *Cluster) provisionSKSCluster(ctx context.Context) error {
 		FlowDirection: exov3.AddRuleToSecurityGroupRequestFlowDirectionIngress,
 	})
 	if err = c.awaitSuccess(ctx, op, err); err != nil {
-		return fmt.Errorf("error adding security group rule 10250: %w", err)
+		return "", fmt.Errorf("error adding security group rule 10250: %w", err)
 	}
 
 	op, err = c.Ego.AddRuleToSecurityGroup(ctx, sgID, exov3.AddRuleToSecurityGroupRequest{
@@ -73,7 +88,22 @@ func (c *Cluster) provisionSKSCluster(ctx context.Context) error {
 		FlowDirection: exov3.AddRuleToSecurityGroupRequestFlowDirectionIngress,
 	})
 	if err = c.awaitSuccess(ctx, op, err); err != nil {
-		return fmt.Errorf("error adding security group rule 4789: %w", err)
+		return "", fmt.Errorf("error adding security group rule 4789: %w", err)
+	}
+
+	return sgID, nil
+}
+
+func (c *Cluster) provisionSKSCluster(ctx context.Context) error {
+	// do nothing if cluster exists
+	_, err := c.getCluster(ctx)
+	if err == nil {
+		return nil
+	}
+
+	sgID, err := c.createSecurityGroup(ctx)
+	if err != nil {
+		return err
 	}
 
 	latestSKSVersion, err := c.getLatestSKSVersion(ctx)
@@ -87,7 +117,7 @@ func (c *Cluster) provisionSKSCluster(ctx context.Context) error {
 		return err
 	}
 
-	op, err = c.Ego.CreateSKSCluster(ctx, exov3.CreateSKSClusterRequest{
+	op, err := c.Ego.CreateSKSCluster(ctx, exov3.CreateSKSClusterRequest{
 		Cni:         "calico",
 		Description: exov3.Ptr("This cluster was created to test the exoscale CSI driver in SKS."),
 		Name:        c.Name,
@@ -101,6 +131,9 @@ func (c *Cluster) provisionSKSCluster(ctx context.Context) error {
 
 	c.ID = newClusterID
 
+	// CreateSKSNodepool seems to fail if you do it took quickly ater creating the cluster.
+	time.Sleep(10 * time.Second)
+
 	op, err = c.Ego.CreateSKSNodepool(ctx, newClusterID, exov3.CreateSKSNodepoolRequest{
 		Name:           c.Name + "-nodepool",
 		DiskSize:       int64(20),
@@ -112,9 +145,7 @@ func (c *Cluster) provisionSKSCluster(ctx context.Context) error {
 		}},
 	})
 	if err = c.awaitSuccess(ctx, op, err); err != nil {
-		// this can error even when the nodepool is successfully created
-		// it's probably a bug, so we're not returning the error
-		slog.Warn("error creating nodepool", "err", err)
+		return err
 	}
 	slog.Info("successfully created cluster", "clusterID", c.ID)
 
