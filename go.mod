@@ -1,6 +1,6 @@
 module github.com/exoscale/exoscale-csi-driver
 
-go 1.23.0
+go 1.25.4
 
 require (
 	github.com/container-storage-interface/spec v1.11.0
