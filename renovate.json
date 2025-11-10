@@ -23,7 +23,8 @@
   },
   "postUpdateOptions": [
     "gomodTidy",
-    "gomodUpdateImportPaths"
+    "gomodUpdateImportPaths",
+    "gomodVendor"
   ],
   "ignorePaths": [
     "**/vendor/**"
