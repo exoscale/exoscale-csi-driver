@@ -1,9 +1,11 @@
 # Changelog
 
-## Unreleased
+## v0.32.0 (Unreleased)
 
 ### Improvements
 
+* Kubernetes SDK v0.32 #40
+* GO 1.25.4
 * Bump go.mk #113
 * Add topologySpreadConstraints to controller deployment #115
 * integ-tests: delete old SG before creating test cluster #116
