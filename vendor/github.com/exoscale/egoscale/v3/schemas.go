@@ -165,6 +165,27 @@ type BlockStorageVolumeTarget struct {
 	ID UUID `json:"id,omitempty"`
 }
 
+// Deployment an AI model onto a set of GPUs
+type CreateDeploymentRequest struct {
+	// Number of GPUs (1-8)
+	GpuCount int64 `json:"gpu-count" validate:"required,gt=0"`
+	// GPU type family (e.g., gpua5000, gpu3080ti)
+	GpuType string    `json:"gpu-type" validate:"required"`
+	Model   *ModelRef `json:"model,omitempty"`
+	// Deployment name
+	Name string `json:"name,omitempty" validate:"omitempty,gte=1"`
+	// Number of replicas (>=1)
+	Replicas int64 `json:"replicas" validate:"required,gt=0"`
+}
+
+// AI model
+type CreateModelRequest struct {
+	// Huggingface Token
+	HuggingfaceToken string `json:"huggingface-token,omitempty"`
+	// Model name
+	Name string `json:"name,omitempty" validate:"omitempty,gte=1"`
+}
+
 // DBaaS plan backup config
 type DBAASBackupConfig struct {
 	// Interval of taking a frequent backup in service types supporting different backup schedules
@@ -696,7 +717,7 @@ type DBAASKafkaTopicAclEntry struct {
 }
 
 type DBAASMigrationStatusDetails struct {
-	// Migrated db name (PG) or number (Redis)
+	// Migrated db name
 	Dbname string `json:"dbname,omitempty"`
 	// Error message in case that migration has failed
 	Error string `json:"error,omitempty"`
@@ -710,9 +731,6 @@ type DBAASMigrationStatus struct {
 	Details []DBAASMigrationStatusDetails `json:"details,omitempty"`
 	// Error message in case that migration has failed
 	Error string `json:"error,omitempty"`
-	// Redis only: how many seconds since last I/O with redis master
-	MasterLastIoSecondsAgo int64                `json:"master-last-io-seconds-ago,omitempty"`
-	MasterLinkStatus       EnumMasterLinkStatus `json:"master-link-status,omitempty"`
 	// Migration method. Empty in case of multiple methods or error
 	Method string `json:"method,omitempty"`
 	// Migration status
@@ -811,6 +829,7 @@ const (
 	DBAASPGTargetVersions14 DBAASPGTargetVersions = "14"
 	DBAASPGTargetVersions17 DBAASPGTargetVersions = "17"
 	DBAASPGTargetVersions15 DBAASPGTargetVersions = "15"
+	DBAASPGTargetVersions18 DBAASPGTargetVersions = "18"
 	DBAASPGTargetVersions13 DBAASPGTargetVersions = "13"
 	DBAASPGTargetVersions16 DBAASPGTargetVersions = "16"
 )
@@ -941,6 +960,12 @@ type DBAASServiceGrafanaConnectionInfo struct {
 	Username string `json:"username,omitempty"`
 }
 
+// Prometheus integration URI
+type DBAASServiceGrafanaPrometheusURI struct {
+	Host string `json:"host,omitempty"`
+	Port int64  `json:"port,omitempty" validate:"omitempty,gte=0,lte=65535"`
+}
+
 type DBAASServiceGrafanaUsers struct {
 	Password string `json:"password,omitempty"`
 	Type     string `json:"type,omitempty"`
@@ -980,8 +1005,10 @@ type DBAASServiceGrafana struct {
 	// Service notifications
 	Notifications []DBAASServiceNotification `json:"notifications,omitempty"`
 	// Subscription plan
-	Plan  string           `json:"plan" validate:"required"`
-	State EnumServiceState `json:"state,omitempty"`
+	Plan string `json:"plan" validate:"required"`
+	// Prometheus integration URI
+	PrometheusURI *DBAASServiceGrafanaPrometheusURI `json:"prometheus-uri" validate:"required"`
+	State         EnumServiceState                  `json:"state,omitempty"`
 	// Service is protected against termination and powering off
 	TerminationProtection *bool                `json:"termination-protection,omitempty"`
 	Type                  DBAASServiceTypeName `json:"type" validate:"required,gte=0,lte=64"`
@@ -1029,6 +1056,12 @@ type DBAASServiceKafkaConnectionInfo struct {
 	RestURI     string   `json:"rest-uri,omitempty"`
 }
 
+// Prometheus integration URI
+type DBAASServiceKafkaPrometheusURI struct {
+	Host string `json:"host,omitempty"`
+	Port int64  `json:"port,omitempty" validate:"omitempty,gte=0,lte=65535"`
+}
+
 type DBAASServiceKafkaUsers struct {
 	AccessCert       string    `json:"access-cert,omitempty"`
 	AccessCertExpiry time.Time `json:"access-cert-expiry,omitempty"`
@@ -1058,13 +1091,13 @@ type DBAASServiceKafka struct {
 	// Whether Kafka Connect is enabled
 	KafkaConnectEnabled *bool `json:"kafka-connect-enabled,omitempty"`
 	// Kafka Connect configuration values
-	KafkaConnectSettings JSONSchemaKafkaConnect `json:"kafka-connect-settings,omitempty"`
+	KafkaConnectSettings *JSONSchemaKafkaConnect `json:"kafka-connect-settings,omitempty"`
 	// Whether Kafka REST is enabled
 	KafkaRestEnabled *bool `json:"kafka-rest-enabled,omitempty"`
 	// Kafka REST configuration
-	KafkaRestSettings JSONSchemaKafkaRest `json:"kafka-rest-settings,omitempty"`
+	KafkaRestSettings *JSONSchemaKafkaRest `json:"kafka-rest-settings,omitempty"`
 	// Kafka broker configuration values
-	KafkaSettings JSONSchemaKafka `json:"kafka-settings,omitempty"`
+	KafkaSettings *JSONSchemaKafka `json:"kafka-settings,omitempty"`
 	// Automatic maintenance settings
 	Maintenance *DBAASServiceMaintenance `json:"maintenance,omitempty"`
 	Name        DBAASServiceName         `json:"name" validate:"required,gte=0,lte=63"`
@@ -1080,11 +1113,13 @@ type DBAASServiceKafka struct {
 	Notifications []DBAASServiceNotification `json:"notifications,omitempty"`
 	// Subscription plan
 	Plan string `json:"plan" validate:"required"`
+	// Prometheus integration URI
+	PrometheusURI *DBAASServiceKafkaPrometheusURI `json:"prometheus-uri" validate:"required"`
 	// Whether Schema-Registry is enabled
 	SchemaRegistryEnabled *bool `json:"schema-registry-enabled,omitempty"`
 	// Schema Registry configuration
-	SchemaRegistrySettings JSONSchemaSchemaRegistry `json:"schema-registry-settings,omitempty"`
-	State                  EnumServiceState         `json:"state,omitempty"`
+	SchemaRegistrySettings *JSONSchemaSchemaRegistry `json:"schema-registry-settings,omitempty"`
+	State                  EnumServiceState          `json:"state,omitempty"`
 	// Service is protected against termination and powering off
 	TerminationProtection *bool                `json:"termination-protection,omitempty"`
 	Type                  DBAASServiceTypeName `json:"type" validate:"required,gte=0,lte=64"`
@@ -1164,6 +1199,12 @@ type DBAASServiceMysqlConnectionInfo struct {
 	URI     []string            `json:"uri,omitempty"`
 }
 
+// Prometheus integration URI
+type DBAASServiceMysqlPrometheusURI struct {
+	Host string `json:"host,omitempty"`
+	Port int64  `json:"port,omitempty" validate:"omitempty,gte=0,lte=65535"`
+}
+
 type DBAASServiceMysqlUsers struct {
 	Authentication string `json:"authentication,omitempty"`
 	Password       string `json:"password,omitempty"`
@@ -1193,7 +1234,7 @@ type DBAASServiceMysql struct {
 	// Automatic maintenance settings
 	Maintenance *DBAASServiceMaintenance `json:"maintenance,omitempty"`
 	// mysql.conf configuration values
-	MysqlSettings JSONSchemaMysql  `json:"mysql-settings,omitempty"`
+	MysqlSettings *JSONSchemaMysql `json:"mysql-settings,omitempty"`
 	Name          DBAASServiceName `json:"name" validate:"required,gte=0,lte=63"`
 	// Number of service nodes in the active plan
 	NodeCount int64 `json:"node-count,omitempty" validate:"omitempty,gte=0"`
@@ -1206,8 +1247,10 @@ type DBAASServiceMysql struct {
 	// Service notifications
 	Notifications []DBAASServiceNotification `json:"notifications,omitempty"`
 	// Subscription plan
-	Plan  string           `json:"plan" validate:"required"`
-	State EnumServiceState `json:"state,omitempty"`
+	Plan string `json:"plan" validate:"required"`
+	// Prometheus integration URI
+	PrometheusURI *DBAASServiceMysqlPrometheusURI `json:"prometheus-uri" validate:"required"`
+	State         EnumServiceState                `json:"state,omitempty"`
 	// Service is protected against termination and powering off
 	TerminationProtection *bool                `json:"termination-protection,omitempty"`
 	Type                  DBAASServiceTypeName `json:"type" validate:"required,gte=0,lte=64"`
@@ -1281,7 +1324,7 @@ const (
 
 type DBAASServiceOpensearchIndexPatterns struct {
 	// Maximum number of indexes to keep
-	MaxIndexCount int64 `json:"max-index-count,omitempty" validate:"omitempty,gte=0"`
+	MaxIndexCount *int64 `json:"max-index-count,omitempty" validate:"omitempty,gte=0"`
 	// fnmatch pattern
 	Pattern string `json:"pattern,omitempty" validate:"omitempty,lte=1024"`
 	// Deletion sorting algorithm
@@ -1306,6 +1349,12 @@ type DBAASServiceOpensearchOpensearchDashboards struct {
 	MaxOldSpaceSize int64 `json:"max-old-space-size,omitempty" validate:"omitempty,gte=64,lte=1024"`
 	// Timeout in milliseconds for requests made by OpenSearch Dashboards towards OpenSearch (default: 30000)
 	OpensearchRequestTimeout int64 `json:"opensearch-request-timeout,omitempty" validate:"omitempty,gte=5000,lte=120000"`
+}
+
+// Prometheus integration URI
+type DBAASServiceOpensearchPrometheusURI struct {
+	Host string `json:"host,omitempty"`
+	Port int64  `json:"port,omitempty" validate:"omitempty,gte=0,lte=65535"`
 }
 
 type DBAASServiceOpensearchUsers struct {
@@ -1340,7 +1389,7 @@ type DBAASServiceOpensearch struct {
 	// Automatic maintenance settings
 	Maintenance *DBAASServiceMaintenance `json:"maintenance,omitempty"`
 	// Maximum number of indexes to keep before deleting the oldest one
-	MaxIndexCount int64            `json:"max-index-count,omitempty" validate:"omitempty,gte=0"`
+	MaxIndexCount *int64           `json:"max-index-count,omitempty" validate:"omitempty,gte=0"`
 	Name          DBAASServiceName `json:"name" validate:"required,gte=0,lte=63"`
 	// Number of service nodes in the active plan
 	NodeCount int64 `json:"node-count,omitempty" validate:"omitempty,gte=0"`
@@ -1355,10 +1404,12 @@ type DBAASServiceOpensearch struct {
 	// OpenSearch Dashboards settings
 	OpensearchDashboards *DBAASServiceOpensearchOpensearchDashboards `json:"opensearch-dashboards,omitempty"`
 	// OpenSearch settings
-	OpensearchSettings JSONSchemaOpensearch `json:"opensearch-settings,omitempty"`
+	OpensearchSettings *JSONSchemaOpensearch `json:"opensearch-settings,omitempty"`
 	// Subscription plan
-	Plan  string           `json:"plan" validate:"required"`
-	State EnumServiceState `json:"state,omitempty"`
+	Plan string `json:"plan" validate:"required"`
+	// Prometheus integration URI
+	PrometheusURI *DBAASServiceOpensearchPrometheusURI `json:"prometheus-uri" validate:"required"`
+	State         EnumServiceState                     `json:"state,omitempty"`
 	// Service is protected against termination and powering off
 	TerminationProtection *bool                `json:"termination-protection,omitempty"`
 	Type                  DBAASServiceTypeName `json:"type" validate:"required,gte=0,lte=64"`
@@ -1413,6 +1464,12 @@ type DBAASServicePGConnectionPools struct {
 	Username      DBAASPGPoolUsername `json:"username" validate:"required,gte=1,lte=64"`
 }
 
+// Prometheus integration URI
+type DBAASServicePGPrometheusURI struct {
+	Host string `json:"host,omitempty"`
+	Port int64  `json:"port,omitempty" validate:"omitempty,gte=0,lte=65535"`
+}
+
 // List of service users
 type DBAASServicePGUsers struct {
 	AllowReplication *bool `json:"allow-replication,omitempty"`
@@ -1461,13 +1518,15 @@ type DBAASServicePG struct {
 	// Service notifications
 	Notifications []DBAASServiceNotification `json:"notifications,omitempty"`
 	// postgresql.conf configuration values
-	PGSettings JSONSchemaPG `json:"pg-settings,omitempty"`
+	PGSettings *JSONSchemaPG `json:"pg-settings,omitempty"`
 	// System-wide settings for pgbouncer.
 	PgbouncerSettings *JSONSchemaPgbouncer `json:"pgbouncer-settings,omitempty"`
 	// System-wide settings for pglookout.
 	PglookoutSettings *JSONSchemaPglookout `json:"pglookout-settings,omitempty"`
 	// Subscription plan
 	Plan string `json:"plan" validate:"required"`
+	// Prometheus integration URI
+	PrometheusURI *DBAASServicePGPrometheusURI `json:"prometheus-uri" validate:"required"`
 	// Percentage of total RAM that the database server uses for shared memory buffers. Valid range is 20-60 (float), which corresponds to 20% - 60%. This setting adjusts the shared_buffers configuration value.
 	SharedBuffersPercentage int64                        `json:"shared-buffers-percentage,omitempty" validate:"omitempty,gte=20,lte=60"`
 	State                   EnumServiceState             `json:"state,omitempty"`
@@ -1493,7 +1552,7 @@ type DBAASServicePG struct {
 	Zone string `json:"zone,omitempty"`
 }
 
-type DBAASServiceRedisComponents struct {
+type DBAASServiceThanosComponents struct {
 	// Service component name
 	Component string `json:"component" validate:"required"`
 	// DNS name for connecting to the service component
@@ -1508,42 +1567,33 @@ type DBAASServiceRedisComponents struct {
 	Usage EnumComponentUsage `json:"usage" validate:"required"`
 }
 
-// Redis connection information properties
-type DBAASServiceRedisConnectionInfo struct {
-	Password string   `json:"password,omitempty"`
-	Slave    []string `json:"slave,omitempty"`
-	URI      []string `json:"uri,omitempty"`
+// Thanos connection information properties
+type DBAASServiceThanosConnectionInfo struct {
+	QueryFrontendURI       string `json:"query-frontend-uri,omitempty"`
+	QueryURI               string `json:"query-uri,omitempty"`
+	ReceiverRemoteWriteURI string `json:"receiver-remote-write-uri,omitempty"`
+	RulerURI               string `json:"ruler-uri,omitempty"`
 }
 
-type DBAASServiceRedisUsersAccessControl struct {
-	Categories []string `json:"categories,omitempty"`
-	Channels   []string `json:"channels,omitempty"`
-	Commands   []string `json:"commands,omitempty"`
-	Keys       []string `json:"keys,omitempty"`
+// Prometheus integration URI
+type DBAASServiceThanosPrometheusURI struct {
+	Host string `json:"host,omitempty"`
+	Port int64  `json:"port,omitempty" validate:"omitempty,gte=0,lte=65535"`
 }
 
-type DBAASServiceRedisUsers struct {
-	AccessControl *DBAASServiceRedisUsersAccessControl `json:"access-control,omitempty"`
-	Password      string                               `json:"password,omitempty"`
-	Type          string                               `json:"type,omitempty"`
-	Username      string                               `json:"username,omitempty"`
-}
-
-type DBAASServiceRedis struct {
+type DBAASServiceThanos struct {
 	// List of backups for the service
 	Backups []DBAASServiceBackup `json:"backups,omitempty"`
 	// Service component information objects
-	Components []DBAASServiceRedisComponents `json:"components,omitempty"`
-	// Redis connection information properties
-	ConnectionInfo *DBAASServiceRedisConnectionInfo `json:"connection-info,omitempty"`
+	Components []DBAASServiceThanosComponents `json:"components,omitempty"`
+	// Thanos connection information properties
+	ConnectionInfo *DBAASServiceThanosConnectionInfo `json:"connection-info,omitempty"`
 	// Service creation timestamp (ISO 8601)
 	CreatedAT time.Time `json:"created-at,omitempty"`
 	// TODO UNIT disk space for data storage
 	DiskSize int64 `json:"disk-size,omitempty" validate:"omitempty,gte=0"`
 	// Service integrations
 	Integrations []DBAASIntegration `json:"integrations,omitempty"`
-	// Allowed CIDR address blocks for incoming connections
-	IPFilter []string `json:"ip-filter,omitempty"`
 	// Automatic maintenance settings
 	Maintenance *DBAASServiceMaintenance `json:"maintenance,omitempty"`
 	Name        DBAASServiceName         `json:"name" validate:"required,gte=0,lte=63"`
@@ -1559,22 +1609,20 @@ type DBAASServiceRedis struct {
 	Notifications []DBAASServiceNotification `json:"notifications,omitempty"`
 	// Subscription plan
 	Plan string `json:"plan" validate:"required"`
-	// Redis settings
-	RedisSettings *JSONSchemaRedis `json:"redis-settings,omitempty"`
-	State         EnumServiceState `json:"state,omitempty"`
+	// Prometheus integration URI
+	PrometheusURI *DBAASServiceThanosPrometheusURI `json:"prometheus-uri" validate:"required"`
+	State         EnumServiceState                 `json:"state,omitempty"`
 	// Service is protected against termination and powering off
-	TerminationProtection *bool                `json:"termination-protection,omitempty"`
-	Type                  DBAASServiceTypeName `json:"type" validate:"required,gte=0,lte=64"`
+	TerminationProtection *bool `json:"termination-protection,omitempty"`
+	// Thanos settings
+	ThanosSettings *JSONSchemaThanos    `json:"thanos-settings,omitempty"`
+	Type           DBAASServiceTypeName `json:"type" validate:"required,gte=0,lte=64"`
 	// Service last update timestamp (ISO 8601)
 	UpdatedAT time.Time `json:"updated-at,omitempty"`
 	// URI for connecting to the service (may be absent)
 	URI string `json:"uri,omitempty"`
 	// service_uri parameterized into key-value pairs
 	URIParams map[string]any `json:"uri-params,omitempty"`
-	// List of service users
-	Users []DBAASServiceRedisUsers `json:"users,omitempty"`
-	// Redis version
-	Version string `json:"version,omitempty"`
 	// The zone where the service is running
 	Zone string `json:"zone,omitempty"`
 }
@@ -1628,6 +1676,12 @@ type DBAASServiceValkeyConnectionInfo struct {
 	URI      []string `json:"uri,omitempty"`
 }
 
+// Prometheus integration URI
+type DBAASServiceValkeyPrometheusURI struct {
+	Host string `json:"host,omitempty"`
+	Port int64  `json:"port,omitempty" validate:"omitempty,gte=0,lte=65535"`
+}
+
 type DBAASServiceValkeyUsersAccessControl struct {
 	Categories []string `json:"categories,omitempty"`
 	Channels   []string `json:"channels,omitempty"`
@@ -1671,8 +1725,10 @@ type DBAASServiceValkey struct {
 	// Service notifications
 	Notifications []DBAASServiceNotification `json:"notifications,omitempty"`
 	// Subscription plan
-	Plan  string           `json:"plan" validate:"required"`
-	State EnumServiceState `json:"state,omitempty"`
+	Plan string `json:"plan" validate:"required"`
+	// Prometheus integration URI
+	PrometheusURI *DBAASServiceValkeyPrometheusURI `json:"prometheus-uri" validate:"required"`
+	State         EnumServiceState                 `json:"state,omitempty"`
 	// Service is protected against termination and powering off
 	TerminationProtection *bool                `json:"termination-protection,omitempty"`
 	Type                  DBAASServiceTypeName `json:"type" validate:"required,gte=0,lte=64"`
@@ -1761,14 +1817,6 @@ type DBAASUserPostgresSecrets struct {
 	Username string `json:"username,omitempty"`
 }
 
-// Redis User secrets
-type DBAASUserRedisSecrets struct {
-	// Redis password
-	Password string `json:"password,omitempty"`
-	// Redis username
-	Username string `json:"username,omitempty"`
-}
-
 type DBAASUserUsername string
 
 // Valkey User secrets
@@ -1777,6 +1825,12 @@ type DBAASUserValkeySecrets struct {
 	Password string `json:"password,omitempty"`
 	// Valkey username
 	Username string `json:"username,omitempty"`
+}
+
+// Model is in use: deletion forbidden
+type DeleteModelConflictResponse struct {
+	// Deployments using models
+	Deployments []string `json:"deployments,omitempty"`
 }
 
 type DeployTargetType string
@@ -2045,6 +2099,57 @@ const (
 	EnumSortOrderAsc  EnumSortOrder = "asc"
 )
 
+type EnvImpactDetail struct {
+	// Amount
+	Amount float64 `json:"amount,omitempty"`
+	// Unit
+	Unit string `json:"unit,omitempty"`
+	// Value
+	Value string `json:"value,omitempty"`
+}
+
+type EnvImpactIndicator struct {
+	// Amount
+	Amount float64 `json:"amount,omitempty"`
+	// Details
+	Details []EnvImpactDetail `json:"details,omitempty"`
+	// Unit
+	Unit string `json:"unit,omitempty"`
+	// Value
+	Value string `json:"value,omitempty"`
+}
+
+type EnvImpactReport struct {
+	// Metadata
+	Metadata []EnvMetadataEntry `json:"metadata,omitempty"`
+	// Products
+	Products []EnvProduct `json:"products,omitempty"`
+}
+
+type EnvMetadataEntry struct {
+	// Amount
+	Amount float64 `json:"amount,omitempty"`
+	// Unit
+	Unit string `json:"unit,omitempty"`
+	// Value
+	Value string `json:"value,omitempty"`
+}
+
+type EnvProduct struct {
+	// Impacts
+	Impacts []EnvImpactIndicator `json:"impacts,omitempty"`
+	// Metadata
+	Metadata []EnvMetadataEntry `json:"metadata,omitempty"`
+	// Value
+	Value string `json:"value,omitempty"`
+}
+
+// Error
+type ErrorResponse struct {
+	// Error description
+	Error string `json:"error,omitempty"`
+}
+
 // A notable Mutation Event which happened on the infrastructure
 type Event struct {
 	// Body parameters (free form map)
@@ -2077,6 +2182,67 @@ type Event struct {
 	URI string `json:"uri,omitempty"`
 	// Operation targeted zone
 	Zone string `json:"zone,omitempty"`
+}
+
+type GetDeploymentLogsResponse string
+
+type GetDeploymentResponseStatus string
+
+const (
+	GetDeploymentResponseStatusReady     GetDeploymentResponseStatus = "ready"
+	GetDeploymentResponseStatusCreating  GetDeploymentResponseStatus = "creating"
+	GetDeploymentResponseStatusError     GetDeploymentResponseStatus = "error"
+	GetDeploymentResponseStatusDeploying GetDeploymentResponseStatus = "deploying"
+)
+
+// AI deployment
+type GetDeploymentResponse struct {
+	// Creation time
+	CreatedAT time.Time `json:"created-at,omitempty"`
+	// Deployment URL (nullable)
+	DeploymentURL string `json:"deployment-url,omitempty"`
+	// Number of GPUs
+	GpuCount int64 `json:"gpu-count,omitempty" validate:"omitempty,gt=0"`
+	// GPU type family
+	GpuType string `json:"gpu-type,omitempty" validate:"omitempty,gte=1"`
+	// Deployment ID
+	ID    UUID      `json:"id,omitempty"`
+	Model *ModelRef `json:"model,omitempty"`
+	// Deployment name
+	Name string `json:"name,omitempty" validate:"omitempty,gte=1"`
+	// Number of replicas (>=0)
+	Replicas int64 `json:"replicas,omitempty" validate:"omitempty,gte=0"`
+	// Service level
+	ServiceLevel string `json:"service-level,omitempty" validate:"omitempty,gte=1"`
+	// Deployment status
+	Status GetDeploymentResponseStatus `json:"status,omitempty"`
+	// Update time
+	UpdatedAT time.Time `json:"updated-at,omitempty"`
+}
+
+type GetModelResponseStatus string
+
+const (
+	GetModelResponseStatusReady       GetModelResponseStatus = "ready"
+	GetModelResponseStatusCreating    GetModelResponseStatus = "creating"
+	GetModelResponseStatusDownloading GetModelResponseStatus = "downloading"
+	GetModelResponseStatusError       GetModelResponseStatus = "error"
+)
+
+// AI model
+type GetModelResponse struct {
+	// Creation time
+	CreatedAT time.Time `json:"created-at,omitempty"`
+	// Model ID
+	ID UUID `json:"id,omitempty"`
+	// Model size (nullable)
+	ModelSize int64 `json:"model-size,omitempty" validate:"omitempty,gte=0"`
+	// Model name
+	Name string `json:"name,omitempty" validate:"omitempty,gte=1"`
+	// Model status
+	Status GetModelResponseStatus `json:"status,omitempty"`
+	// Update time
+	UpdatedAT time.Time `json:"updated-at,omitempty"`
 }
 
 // IAM API Key
@@ -2171,6 +2337,8 @@ type InstancePrivateNetworks struct {
 type Instance struct {
 	// Instance Anti-affinity Groups
 	AntiAffinityGroups []AntiAffinityGroup `json:"anti-affinity-groups,omitempty"`
+	// Indicates if the instance will take application-consistent snapshots
+	ApplicationConsistentSnapshotEnabled *bool `json:"application-consistent-snapshot-enabled,omitempty"`
 	// Instance creation date
 	CreatedAT time.Time `json:"created-at,omitempty"`
 	// Deploy target
@@ -2197,6 +2365,8 @@ type Instance struct {
 	// Instance public IPv4 address
 	PublicIP           net.IP             `json:"public-ip,omitempty"`
 	PublicIPAssignment PublicIPAssignment `json:"public-ip-assignment,omitempty"`
+	// Indicates if the instance has secure boot enabled
+	SecurebootEnabled *bool `json:"secureboot-enabled,omitempty"`
 	// Instance Security Groups
 	SecurityGroups []SecurityGroup `json:"security-groups,omitempty"`
 	// Instance Snapshots
@@ -2208,6 +2378,8 @@ type Instance struct {
 	State   InstanceState `json:"state,omitempty"`
 	// Instance template
 	Template *Template `json:"template,omitempty"`
+	// Indicates if the instance has tpm enabled
+	TpmEnabled *bool `json:"tpm-enabled,omitempty"`
 	// Instance Cloud-init user-data (base64 encoded)
 	UserData string `json:"user-data,omitempty" validate:"omitempty,gte=1"`
 }
@@ -2301,16 +2473,18 @@ type InstanceTarget struct {
 type InstanceTypeFamily string
 
 const (
-	InstanceTypeFamilyGpu3      InstanceTypeFamily = "gpu3"
-	InstanceTypeFamilyGpu3080ti InstanceTypeFamily = "gpu3080ti"
-	InstanceTypeFamilyGpu2      InstanceTypeFamily = "gpu2"
-	InstanceTypeFamilyGpu       InstanceTypeFamily = "gpu"
-	InstanceTypeFamilyMemory    InstanceTypeFamily = "memory"
-	InstanceTypeFamilyGpua5000  InstanceTypeFamily = "gpua5000"
-	InstanceTypeFamilyStorage   InstanceTypeFamily = "storage"
-	InstanceTypeFamilyStandard  InstanceTypeFamily = "standard"
-	InstanceTypeFamilyColossus  InstanceTypeFamily = "colossus"
-	InstanceTypeFamilyCPU       InstanceTypeFamily = "cpu"
+	InstanceTypeFamilyGpu3          InstanceTypeFamily = "gpu3"
+	InstanceTypeFamilyGpua30        InstanceTypeFamily = "gpua30"
+	InstanceTypeFamilyGpu3080ti     InstanceTypeFamily = "gpu3080ti"
+	InstanceTypeFamilyGpu2          InstanceTypeFamily = "gpu2"
+	InstanceTypeFamilyGpu           InstanceTypeFamily = "gpu"
+	InstanceTypeFamilyMemory        InstanceTypeFamily = "memory"
+	InstanceTypeFamilyGpua5000      InstanceTypeFamily = "gpua5000"
+	InstanceTypeFamilyGpurtx6000pro InstanceTypeFamily = "gpurtx6000pro"
+	InstanceTypeFamilyStorage       InstanceTypeFamily = "storage"
+	InstanceTypeFamilyStandard      InstanceTypeFamily = "standard"
+	InstanceTypeFamilyColossus      InstanceTypeFamily = "colossus"
+	InstanceTypeFamilyCPU           InstanceTypeFamily = "cpu"
 )
 
 type InstanceTypeSize string
@@ -2323,6 +2497,7 @@ const (
 	InstanceTypeSizeMega       InstanceTypeSize = "mega"
 	InstanceTypeSizeSmall      InstanceTypeSize = "small"
 	InstanceTypeSizeExtraLarge InstanceTypeSize = "extra-large"
+	InstanceTypeSizeTitan48c   InstanceTypeSize = "titan48c"
 	InstanceTypeSizeTitan      InstanceTypeSize = "titan"
 	InstanceTypeSizeMicro      InstanceTypeSize = "micro"
 	InstanceTypeSizeColossus   InstanceTypeSize = "colossus"
@@ -2365,6 +2540,98 @@ const (
 	JSONSchemaGrafanaAlertingNodataORNullvaluesOk        JSONSchemaGrafanaAlertingNodataORNullvalues = "ok"
 )
 
+// Azure AD OAuth integration
+type JSONSchemaGrafanaAuthAzuread struct {
+	// Automatically sign-up users on successful sign-in
+	AllowSignUP *bool `json:"allow_sign_up,omitempty"`
+	// Allowed domains
+	AllowedDomains []string `json:"allowed_domains,omitempty"`
+	// Require users to belong to one of given groups
+	AllowedGroups []string `json:"allowed_groups,omitempty"`
+	// Authorization URL
+	AuthURL string `json:"auth_url" validate:"required,lte=2048"`
+	// Client ID from provider
+	ClientID string `json:"client_id" validate:"required,lte=1024"`
+	// Client secret from provider
+	ClientSecret string `json:"client_secret" validate:"required,lte=1024"`
+	// Token URL
+	TokenURL string `json:"token_url" validate:"required,lte=2048"`
+}
+
+// Generic OAuth integration
+type JSONSchemaGrafanaAuthGenericOauth struct {
+	// Automatically sign-up users on successful sign-in
+	AllowSignUP *bool `json:"allow_sign_up,omitempty"`
+	// Allowed domains
+	AllowedDomains []string `json:"allowed_domains,omitempty"`
+	// Require user to be member of one of the listed organizations
+	AllowedOrganizations []string `json:"allowed_organizations,omitempty"`
+	// API URL
+	APIURL string `json:"api_url" validate:"required,lte=2048"`
+	// Authorization URL
+	AuthURL string `json:"auth_url" validate:"required,lte=2048"`
+	// Allow users to bypass the login screen and automatically log in
+	AutoLogin *bool `json:"auto_login,omitempty"`
+	// Client ID from provider
+	ClientID string `json:"client_id" validate:"required,lte=1024"`
+	// Client secret from provider
+	ClientSecret string `json:"client_secret" validate:"required,lte=1024"`
+	// Name of the OAuth integration
+	Name string `json:"name,omitempty" validate:"omitempty,lte=128"`
+	// OAuth scopes
+	Scopes []string `json:"scopes,omitempty"`
+	// Token URL
+	TokenURL string `json:"token_url" validate:"required,lte=2048"`
+}
+
+// Github Auth integration
+type JSONSchemaGrafanaAuthGithub struct {
+	// Automatically sign-up users on successful sign-in
+	AllowSignUP *bool `json:"allow_sign_up,omitempty"`
+	// Require users to belong to one of given organizations
+	AllowedOrganizations []string `json:"allowed_organizations,omitempty"`
+	// Allow users to bypass the login screen and automatically log in
+	AutoLogin *bool `json:"auto_login,omitempty"`
+	// Client ID from provider
+	ClientID string `json:"client_id" validate:"required,lte=1024"`
+	// Client secret from provider
+	ClientSecret string `json:"client_secret" validate:"required,lte=1024"`
+	// Stop automatically syncing user roles
+	SkipOrgRoleSync *bool `json:"skip_org_role_sync,omitempty"`
+	// Require users to belong to one of given team IDs
+	TeamIDS []int `json:"team_ids,omitempty"`
+}
+
+// GitLab Auth integration
+type JSONSchemaGrafanaAuthGitlab struct {
+	// Automatically sign-up users on successful sign-in
+	AllowSignUP *bool `json:"allow_sign_up,omitempty"`
+	// Require users to belong to one of given groups
+	AllowedGroups []string `json:"allowed_groups" validate:"required"`
+	// API URL. This only needs to be set when using self hosted GitLab
+	APIURL string `json:"api_url,omitempty" validate:"omitempty,lte=2048"`
+	// Authorization URL. This only needs to be set when using self hosted GitLab
+	AuthURL string `json:"auth_url,omitempty" validate:"omitempty,lte=2048"`
+	// Client ID from provider
+	ClientID string `json:"client_id" validate:"required,lte=1024"`
+	// Client secret from provider
+	ClientSecret string `json:"client_secret" validate:"required,lte=1024"`
+	// Token URL. This only needs to be set when using self hosted GitLab
+	TokenURL string `json:"token_url,omitempty" validate:"omitempty,lte=2048"`
+}
+
+// Google Auth integration
+type JSONSchemaGrafanaAuthGoogle struct {
+	// Automatically sign-up users on successful sign-in
+	AllowSignUP *bool `json:"allow_sign_up,omitempty"`
+	// Domains allowed to sign-in to this Grafana
+	AllowedDomains []string `json:"allowed_domains" validate:"required"`
+	// Client ID from provider
+	ClientID string `json:"client_id" validate:"required,lte=1024"`
+	// Client secret from provider
+	ClientSecret string `json:"client_secret" validate:"required,lte=1024"`
+}
+
 type JSONSchemaGrafanaCookieSamesite string
 
 const (
@@ -2372,6 +2639,54 @@ const (
 	JSONSchemaGrafanaCookieSamesiteStrict JSONSchemaGrafanaCookieSamesite = "strict"
 	JSONSchemaGrafanaCookieSamesiteNone   JSONSchemaGrafanaCookieSamesite = "none"
 )
+
+// Grafana date format specifications
+type JSONSchemaGrafanaDateFormats struct {
+	// Default time zone for user preferences. Value 'browser' uses browser local time zone.
+	DefaultTimezone string `json:"default_timezone,omitempty" validate:"omitempty,lte=64"`
+	// Moment.js style format string for cases where full date is shown
+	FullDate string `json:"full_date,omitempty" validate:"omitempty,lte=128"`
+	// Moment.js style format string used when a time requiring day accuracy is shown
+	IntervalDay string `json:"interval_day,omitempty" validate:"omitempty,lte=128"`
+	// Moment.js style format string used when a time requiring hour accuracy is shown
+	IntervalHour string `json:"interval_hour,omitempty" validate:"omitempty,lte=128"`
+	// Moment.js style format string used when a time requiring minute accuracy is shown
+	IntervalMinute string `json:"interval_minute,omitempty" validate:"omitempty,lte=128"`
+	// Moment.js style format string used when a time requiring month accuracy is shown
+	IntervalMonth string `json:"interval_month,omitempty" validate:"omitempty,lte=128"`
+	// Moment.js style format string used when a time requiring second accuracy is shown
+	IntervalSecond string `json:"interval_second,omitempty" validate:"omitempty,lte=128"`
+	// Moment.js style format string used when a time requiring year accuracy is shown
+	IntervalYear string `json:"interval_year,omitempty" validate:"omitempty,lte=128"`
+}
+
+type JSONSchemaGrafanaSMTPServerStarttlsPolicy string
+
+const (
+	JSONSchemaGrafanaSMTPServerStarttlsPolicyOpportunisticStartTLS JSONSchemaGrafanaSMTPServerStarttlsPolicy = "OpportunisticStartTLS"
+	JSONSchemaGrafanaSMTPServerStarttlsPolicyMandatoryStartTLS     JSONSchemaGrafanaSMTPServerStarttlsPolicy = "MandatoryStartTLS"
+	JSONSchemaGrafanaSMTPServerStarttlsPolicyNoStartTLS            JSONSchemaGrafanaSMTPServerStarttlsPolicy = "NoStartTLS"
+)
+
+// SMTP server settings
+type JSONSchemaGrafanaSMTPServer struct {
+	// Address used for sending emails
+	FromAddress string `json:"from_address" validate:"required,lte=319"`
+	// Name used in outgoing emails, defaults to Grafana
+	FromName *string `json:"from_name,omitempty" validate:"omitempty,lte=128"`
+	// Server hostname or IP
+	Host string `json:"host" validate:"required,lte=255"`
+	// Password for SMTP authentication
+	Password *string `json:"password,omitempty" validate:"omitempty,lte=255"`
+	// SMTP server port
+	Port int `json:"port" validate:"required,gte=1,lte=65535"`
+	// Skip verifying server certificate. Defaults to false
+	SkipVerify *bool `json:"skip_verify,omitempty"`
+	// Either OpportunisticStartTLS, MandatoryStartTLS or NoStartTLS. Default is OpportunisticStartTLS.
+	StarttlsPolicy JSONSchemaGrafanaSMTPServerStarttlsPolicy `json:"starttls_policy,omitempty"`
+	// Username for SMTP authentication
+	Username *string `json:"username,omitempty" validate:"omitempty,lte=255"`
+}
 
 type JSONSchemaGrafanaUserAutoAssignOrgRole string
 
@@ -2394,17 +2709,17 @@ type JSONSchemaGrafana struct {
 	// Allow embedding Grafana dashboards with iframe/frame/object/embed tags. Disabled by default to limit impact of clickjacking
 	AllowEmbedding *bool `json:"allow_embedding,omitempty"`
 	// Azure AD OAuth integration
-	AuthAzuread map[string]any `json:"auth_azuread,omitempty"`
+	AuthAzuread *JSONSchemaGrafanaAuthAzuread `json:"auth_azuread,omitempty"`
 	// Enable or disable basic authentication form, used by Grafana built-in login
 	AuthBasicEnabled *bool `json:"auth_basic_enabled,omitempty"`
 	// Generic OAuth integration
-	AuthGenericOauth map[string]any `json:"auth_generic_oauth,omitempty"`
+	AuthGenericOauth *JSONSchemaGrafanaAuthGenericOauth `json:"auth_generic_oauth,omitempty"`
 	// Github Auth integration
-	AuthGithub map[string]any `json:"auth_github,omitempty"`
+	AuthGithub *JSONSchemaGrafanaAuthGithub `json:"auth_github,omitempty"`
 	// GitLab Auth integration
-	AuthGitlab map[string]any `json:"auth_gitlab,omitempty"`
+	AuthGitlab *JSONSchemaGrafanaAuthGitlab `json:"auth_gitlab,omitempty"`
 	// Google Auth integration
-	AuthGoogle map[string]any `json:"auth_google,omitempty"`
+	AuthGoogle *JSONSchemaGrafanaAuthGoogle `json:"auth_google,omitempty"`
 	// Cookie SameSite attribute: 'strict' prevents sending cookie for cross-site requests, effectively disabling direct linking from other sites to Grafana. 'lax' is the default value.
 	CookieSamesite JSONSchemaGrafanaCookieSamesite `json:"cookie_samesite,omitempty"`
 	// Serve the web frontend using a custom CNAME pointing to the Aiven DNS name
@@ -2420,7 +2735,7 @@ type JSONSchemaGrafana struct {
 	// Timeout for data proxy requests in seconds
 	DataproxyTimeout int `json:"dataproxy_timeout,omitempty" validate:"omitempty,gte=15,lte=90"`
 	// Grafana date format specifications
-	DateFormats map[string]any `json:"date_formats,omitempty"`
+	DateFormats *JSONSchemaGrafanaDateFormats `json:"date_formats,omitempty"`
 	// Set to true to disable gravatar. Defaults to false (gravatar is enabled)
 	DisableGravatar *bool `json:"disable_gravatar,omitempty"`
 	// Editors can manage folders, teams and dashboards created by them
@@ -2434,7 +2749,7 @@ type JSONSchemaGrafana struct {
 	// Store logs for the service so that they are available in the HTTP API and console.
 	ServiceLog *bool `json:"service_log,omitempty"`
 	// SMTP server settings
-	SMTPServer map[string]any `json:"smtp_server,omitempty"`
+	SMTPServer *JSONSchemaGrafanaSMTPServer `json:"smtp_server,omitempty"`
 	// Enable or disable Grafana unified alerting functionality. By default this is enabled and any legacy alerts will be migrated on upgrade to Grafana 9+. To stay on legacy alerting, set unified_alerting_enabled to false and alerting_enabled to true. See https://grafana.com/docs/grafana/latest/alerting/set-up/migrating-alerts/ for more details.
 	UnifiedAlertingEnabled *bool `json:"unified_alerting_enabled,omitempty"`
 	// Auto-assign new users on signup to main organization. Defaults to false
@@ -2757,6 +3072,66 @@ type JSONSchemaMysql struct {
 	WaitTimeout int `json:"wait_timeout,omitempty" validate:"omitempty,gte=1,lte=2.147483e+06"`
 }
 
+type JSONSchemaOpensearchAuthFailureListenersInternalAuthenticationBackendLimitingAuthenticationBackend string
+
+const (
+	JSONSchemaOpensearchAuthFailureListenersInternalAuthenticationBackendLimitingAuthenticationBackendInternal JSONSchemaOpensearchAuthFailureListenersInternalAuthenticationBackendLimitingAuthenticationBackend = "internal"
+)
+
+type JSONSchemaOpensearchAuthFailureListenersInternalAuthenticationBackendLimitingType string
+
+const (
+	JSONSchemaOpensearchAuthFailureListenersInternalAuthenticationBackendLimitingTypeUsername JSONSchemaOpensearchAuthFailureListenersInternalAuthenticationBackendLimitingType = "username"
+)
+
+// Internal Authentication Backend Limiting
+type JSONSchemaOpensearchAuthFailureListenersInternalAuthenticationBackendLimiting struct {
+	// The number of login attempts allowed before login is blocked
+	AllowedTries int `json:"allowed_tries,omitempty" validate:"omitempty,gte=0,lte=2.147483647e+09"`
+	// The internal backend. Enter `internal`
+	AuthenticationBackend JSONSchemaOpensearchAuthFailureListenersInternalAuthenticationBackendLimitingAuthenticationBackend `json:"authentication_backend,omitempty" validate:"omitempty,lte=1024"`
+	// The duration of time that login remains blocked after a failed login
+	BlockExpirySeconds int `json:"block_expiry_seconds,omitempty" validate:"omitempty,gte=0,lte=2.147483647e+09"`
+	// The maximum number of blocked IP addresses
+	MaxBlockedClients int `json:"max_blocked_clients,omitempty" validate:"omitempty,gte=0,lte=2.147483647e+09"`
+	// The maximum number of tracked IP addresses that have failed login
+	MaxTrackedClients int `json:"max_tracked_clients,omitempty" validate:"omitempty,gte=0,lte=2.147483647e+09"`
+	// The window of time in which the value for `allowed_tries` is enforced
+	TimeWindowSeconds int `json:"time_window_seconds,omitempty" validate:"omitempty,gte=0,lte=2.147483647e+09"`
+	// The type of rate limiting
+	Type JSONSchemaOpensearchAuthFailureListenersInternalAuthenticationBackendLimitingType `json:"type,omitempty" validate:"omitempty,lte=1024"`
+}
+
+type JSONSchemaOpensearchAuthFailureListenersIPRateLimitingType string
+
+const (
+	JSONSchemaOpensearchAuthFailureListenersIPRateLimitingTypeIP JSONSchemaOpensearchAuthFailureListenersIPRateLimitingType = "ip"
+)
+
+// IP address rate limiting settings
+type JSONSchemaOpensearchAuthFailureListenersIPRateLimiting struct {
+	// The number of login attempts allowed before login is blocked
+	AllowedTries int `json:"allowed_tries,omitempty" validate:"omitempty,gte=1,lte=2.147483647e+09"`
+	// The duration of time that login remains blocked after a failed login
+	BlockExpirySeconds int `json:"block_expiry_seconds,omitempty" validate:"omitempty,gte=1,lte=36000"`
+	// The maximum number of blocked IP addresses
+	MaxBlockedClients int `json:"max_blocked_clients,omitempty" validate:"omitempty,gte=0,lte=2.147483647e+09"`
+	// The maximum number of tracked IP addresses that have failed login
+	MaxTrackedClients int `json:"max_tracked_clients,omitempty" validate:"omitempty,gte=0,lte=2.147483647e+09"`
+	// The window of time in which the value for `allowed_tries` is enforced
+	TimeWindowSeconds int `json:"time_window_seconds,omitempty" validate:"omitempty,gte=1,lte=36000"`
+	// The type of rate limiting
+	Type JSONSchemaOpensearchAuthFailureListenersIPRateLimitingType `json:"type,omitempty" validate:"omitempty,lte=1024"`
+}
+
+// Opensearch Security Plugin Settings
+type JSONSchemaOpensearchAuthFailureListeners struct {
+	// Internal Authentication Backend Limiting
+	InternalAuthenticationBackendLimiting *JSONSchemaOpensearchAuthFailureListenersInternalAuthenticationBackendLimiting `json:"internal_authentication_backend_limiting,omitempty"`
+	// IP address rate limiting settings
+	IPRateLimiting *JSONSchemaOpensearchAuthFailureListenersIPRateLimiting `json:"ip_rate_limiting,omitempty"`
+}
+
 // Opensearch Email Sender Settings
 type JSONSchemaOpensearchEmailSender struct {
 	// This should be identical to the Sender name defined in Opensearch dashboards
@@ -2783,6 +3158,118 @@ type JSONSchemaOpensearchIsmHistory struct {
 	IsmHistoryRolloverRetentionPeriod int `json:"ism_history_rollover_retention_period,omitempty" validate:"omitempty,gte=1,lte=2.147483647e+09"`
 }
 
+type JSONSchemaOpensearchSearchBackpressureMode string
+
+const (
+	JSONSchemaOpensearchSearchBackpressureModeMonitorOnly JSONSchemaOpensearchSearchBackpressureMode = "monitor_only"
+	JSONSchemaOpensearchSearchBackpressureModeEnforced    JSONSchemaOpensearchSearchBackpressureMode = "enforced"
+	JSONSchemaOpensearchSearchBackpressureModeDisabled    JSONSchemaOpensearchSearchBackpressureMode = "disabled"
+)
+
+// Node duress settings
+type JSONSchemaOpensearchSearchBackpressureNodeDuress struct {
+	// The CPU usage threshold (as a percentage) required for a node to be considered to be under duress. Default is 0.9
+	CPUThreshold float64 `json:"cpu_threshold,omitempty" validate:"omitempty,gte=0,lte=1"`
+	// The heap usage threshold (as a percentage) required for a node to be considered to be under duress. Default is 0.7
+	HeapThreshold float64 `json:"heap_threshold,omitempty" validate:"omitempty,gte=0,lte=1"`
+	// The number of successive limit breaches after which the node is considered to be under duress. Default is 3
+	NumSuccessiveBreaches int `json:"num_successive_breaches,omitempty" validate:"omitempty,gte=1"`
+}
+
+// Search shard settings
+type JSONSchemaOpensearchSearchBackpressureSearchShardTask struct {
+	// The maximum number of search tasks to cancel in a single iteration of the observer thread. Default is 10.0
+	CancellationBurst float64 `json:"cancellation_burst,omitempty" validate:"omitempty,gte=1"`
+	// The maximum number of tasks to cancel per millisecond of elapsed time. Default is 0.003
+	CancellationRate float64 `json:"cancellation_rate,omitempty" validate:"omitempty,gte=0"`
+	// The maximum number of tasks to cancel, as a percentage of successful task completions. Default is 0.1
+	CancellationRatio float64 `json:"cancellation_ratio,omitempty" validate:"omitempty,gte=0,lte=1"`
+	// The CPU usage threshold (in milliseconds) required for a single search shard task before it is considered for cancellation. Default is 15000
+	CPUTimeMillisThreshold int `json:"cpu_time_millis_threshold,omitempty" validate:"omitempty,gte=0"`
+	// The elapsed time threshold (in milliseconds) required for a single search shard task before it is considered for cancellation. Default is 30000
+	ElapsedTimeMillisThreshold int `json:"elapsed_time_millis_threshold,omitempty" validate:"omitempty,gte=0"`
+	// The number of previously completed search shard tasks to consider when calculating the rolling average of heap usage. Default is 100
+	HeapMovingAverageWindowSize int `json:"heap_moving_average_window_size,omitempty" validate:"omitempty,gte=0"`
+	// The heap usage threshold (as a percentage) required for a single search shard task before it is considered for cancellation. Default is 0.5
+	HeapPercentThreshold float64 `json:"heap_percent_threshold,omitempty" validate:"omitempty,gte=0,lte=1"`
+	// The minimum variance required for a single search shard task’s heap usage compared to the rolling average of previously completed tasks before it is considered for cancellation. Default is 2.0
+	HeapVariance float64 `json:"heap_variance,omitempty" validate:"omitempty,gte=0"`
+	// The heap usage threshold (as a percentage) required for the sum of heap usages of all search shard tasks before cancellation is applied. Default is 0.5
+	TotalHeapPercentThreshold float64 `json:"total_heap_percent_threshold,omitempty" validate:"omitempty,gte=0,lte=1"`
+}
+
+// Search task settings
+type JSONSchemaOpensearchSearchBackpressureSearchTask struct {
+	// The maximum number of search tasks to cancel in a single iteration of the observer thread. Default is 5.0
+	CancellationBurst float64 `json:"cancellation_burst,omitempty" validate:"omitempty,gte=1"`
+	// The maximum number of search tasks to cancel per millisecond of elapsed time. Default is 0.003
+	CancellationRate float64 `json:"cancellation_rate,omitempty" validate:"omitempty,gte=0"`
+	// The maximum number of search tasks to cancel, as a percentage of successful search task completions. Default is 0.1
+	CancellationRatio float64 `json:"cancellation_ratio,omitempty" validate:"omitempty,gte=0,lte=1"`
+	// The CPU usage threshold (in milliseconds) required for an individual parent task before it is considered for cancellation. Default is 30000
+	CPUTimeMillisThreshold int `json:"cpu_time_millis_threshold,omitempty" validate:"omitempty,gte=0"`
+	// The elapsed time threshold (in milliseconds) required for an individual parent task before it is considered for cancellation. Default is 45000
+	ElapsedTimeMillisThreshold int `json:"elapsed_time_millis_threshold,omitempty" validate:"omitempty,gte=0"`
+	// The window size used to calculate the rolling average of the heap usage for the completed parent tasks. Default is 10
+	HeapMovingAverageWindowSize int `json:"heap_moving_average_window_size,omitempty" validate:"omitempty,gte=0"`
+	// The heap usage threshold (as a percentage) required for an individual parent task before it is considered for cancellation. Default is 0.2
+	HeapPercentThreshold float64 `json:"heap_percent_threshold,omitempty" validate:"omitempty,gte=0,lte=1"`
+	// The heap usage variance required for an individual parent task before it is considered for cancellation. A task is considered for cancellation when taskHeapUsage is greater than or equal to heapUsageMovingAverage * variance. Default is 2.0
+	HeapVariance float64 `json:"heap_variance,omitempty" validate:"omitempty,gte=0"`
+	// The heap usage threshold (as a percentage) required for the sum of heap usages of all search tasks before cancellation is applied. Default is 0.5
+	TotalHeapPercentThreshold float64 `json:"total_heap_percent_threshold,omitempty" validate:"omitempty,gte=0,lte=1"`
+}
+
+// Search Backpressure Settings
+type JSONSchemaOpensearchSearchBackpressure struct {
+	// The search backpressure mode. Valid values are monitor_only, enforced, or disabled. Default is monitor_only
+	Mode JSONSchemaOpensearchSearchBackpressureMode `json:"mode,omitempty"`
+	// Node duress settings
+	NodeDuress *JSONSchemaOpensearchSearchBackpressureNodeDuress `json:"node_duress,omitempty"`
+	// Search shard settings
+	SearchShardTask *JSONSchemaOpensearchSearchBackpressureSearchShardTask `json:"search_shard_task,omitempty"`
+	// Search task settings
+	SearchTask *JSONSchemaOpensearchSearchBackpressureSearchTask `json:"search_task,omitempty"`
+}
+
+// Operating factor
+type JSONSchemaOpensearchShardIndexingPressureOperatingFactor struct {
+	// Specify the lower occupancy limit of the allocated quota of memory for the shard. If the total memory usage of a shard is below this limit, shard indexing backpressure decreases the current allocated memory for that shard. Default is 0.75
+	Lower float64 `json:"lower,omitempty" validate:"omitempty,gte=0"`
+	// Specify the optimal occupancy of the allocated quota of memory for the shard. If the total memory usage of a shard is at this level, shard indexing backpressure doesn’t change the current allocated memory for that shard. Default is 0.85
+	Optimal float64 `json:"optimal,omitempty" validate:"omitempty,gte=0"`
+	// Specify the upper occupancy limit of the allocated quota of memory for the shard. If the total memory usage of a shard is above this limit, shard indexing backpressure increases the current allocated memory for that shard. Default is 0.95
+	Upper float64 `json:"upper,omitempty" validate:"omitempty,gte=0"`
+}
+
+type JSONSchemaOpensearchShardIndexingPressurePrimaryParameterNode struct {
+	// Define the percentage of the node-level memory threshold that acts as a soft indicator for strain on a node. Default is 0.7
+	SoftLimit float64 `json:"soft_limit,omitempty" validate:"omitempty,gte=0"`
+}
+
+type JSONSchemaOpensearchShardIndexingPressurePrimaryParameterShard struct {
+	// Specify the minimum assigned quota for a new shard in any role (coordinator, primary, or replica). Shard indexing backpressure increases or decreases this allocated quota based on the inflow of traffic for the shard. Default is 0.001
+	MinLimit float64 `json:"min_limit,omitempty" validate:"omitempty,gte=0"`
+}
+
+// Primary parameter
+type JSONSchemaOpensearchShardIndexingPressurePrimaryParameter struct {
+	Node  *JSONSchemaOpensearchShardIndexingPressurePrimaryParameterNode  `json:"node,omitempty"`
+	Shard *JSONSchemaOpensearchShardIndexingPressurePrimaryParameterShard `json:"shard,omitempty"`
+}
+
+// Shard indexing back pressure settings
+type JSONSchemaOpensearchShardIndexingPressure struct {
+	// Enable or disable shard indexing backpressure. Default is false
+	Enabled *bool `json:"enabled,omitempty"`
+	// Run shard indexing backpressure in shadow mode or enforced mode. In shadow mode (value set as false), shard indexing backpressure tracks all granular-level metrics, but it doesn’t actually reject any indexing requests. In enforced mode (value set as true), shard indexing backpressure rejects any requests to the cluster that might cause a dip in its performance. Default is false
+	Enforced *bool `json:"enforced,omitempty"`
+	// Operating factor
+	OperatingFactor *JSONSchemaOpensearchShardIndexingPressureOperatingFactor `json:"operating_factor,omitempty"`
+	// Primary parameter
+	PrimaryParameter *JSONSchemaOpensearchShardIndexingPressurePrimaryParameter `json:"primary_parameter,omitempty"`
+}
+
 // OpenSearch settings
 type JSONSchemaOpensearch struct {
 	// Explicitly allow or block automatic creation of indices. Defaults to true
@@ -2790,7 +3277,7 @@ type JSONSchemaOpensearch struct {
 	// Require explicit index names when deleting
 	ActionDestructiveRequiresName *bool `json:"action_destructive_requires_name,omitempty"`
 	// Opensearch Security Plugin Settings
-	AuthFailureListeners map[string]any `json:"auth_failure_listeners,omitempty"`
+	AuthFailureListeners *JSONSchemaOpensearchAuthFailureListeners `json:"auth_failure_listeners,omitempty"`
 	// Controls the number of shards allowed in the cluster per data node
 	ClusterMaxShardsPerNode int `json:"cluster_max_shards_per_node,omitempty" validate:"omitempty,gte=100,lte=10000"`
 	// How many concurrent incoming/outgoing shard recoveries (normally replicas) are allowed to happen on a node. Defaults to 2.
@@ -2836,11 +3323,11 @@ type JSONSchemaOpensearch struct {
 	// Script compilation circuit breaker limits the number of inline script compilations within a period of time. Default is use-context
 	ScriptMaxCompilationsRate string `json:"script_max_compilations_rate,omitempty" validate:"omitempty,lte=1024"`
 	// Search Backpressure Settings
-	SearchBackpressure map[string]any `json:"search_backpressure,omitempty"`
+	SearchBackpressure *JSONSchemaOpensearchSearchBackpressure `json:"search_backpressure,omitempty"`
 	// Maximum number of aggregation buckets allowed in a single response. OpenSearch default value is used when this is not defined.
 	SearchMaxBuckets *int `json:"search_max_buckets,omitempty" validate:"omitempty,gte=1,lte=1e+06"`
 	// Shard indexing back pressure settings
-	ShardIndexingPressure map[string]any `json:"shard_indexing_pressure,omitempty"`
+	ShardIndexingPressure *JSONSchemaOpensearchShardIndexingPressure `json:"shard_indexing_pressure,omitempty"`
 	// Size for the thread pool queue. See documentation for exact details.
 	ThreadPoolAnalyzeQueueSize int `json:"thread_pool_analyze_queue_size,omitempty" validate:"omitempty,gte=10,lte=2000"`
 	// Size for the thread pool. See documentation for exact details. Do note this may have maximum value depending on CPU count - value is automatically lowered if set to higher than maximum value.
@@ -2867,37 +3354,37 @@ type JSONSchemaOpensearch struct {
 
 // Autovacuum settings
 type JSONSchemaPGAutovacuum struct {
-	// Specifies a fraction of the table size to add to autovacuum_analyze_threshold when deciding whether to trigger an ANALYZE. The default is 0.2 (20% of table size)
+	// Specifies a fraction of the table size to add to autovacuum_analyze_threshold when deciding whether to trigger an ANALYZE (e.g. `0.2` for 20% of the table size). The default is `0.2`.
 	AutovacuumAnalyzeScaleFactor float64 `json:"autovacuum_analyze_scale_factor,omitempty" validate:"omitempty,gte=0,lte=1"`
-	// Specifies the minimum number of inserted, updated or deleted tuples needed to trigger an ANALYZE in any one table. The default is 50 tuples.
+	// Specifies the minimum number of inserted, updated or deleted tuples needed to trigger an ANALYZE in any one table. The default is `50`.
 	AutovacuumAnalyzeThreshold int `json:"autovacuum_analyze_threshold,omitempty" validate:"omitempty,gte=0,lte=2.147483647e+09"`
-	// Specifies the maximum age (in transactions) that a table's pg_class.relfrozenxid field can attain before a VACUUM operation is forced to prevent transaction ID wraparound within the table. Note that the system will launch autovacuum processes to prevent wraparound even when autovacuum is otherwise disabled. This parameter will cause the server to be restarted.
+	// Specifies the maximum age (in transactions) that a table's pg_class.relfrozenxid field can attain before a VACUUM operation is forced to prevent transaction ID wraparound within the table. The system launches autovacuum processes to prevent wraparound even when autovacuum is otherwise disabled. Changing this parameter causes a service restart.
 	AutovacuumFreezeMaxAge int `json:"autovacuum_freeze_max_age,omitempty" validate:"omitempty,gte=2e+08,lte=1.5e+09"`
-	// Specifies the maximum number of autovacuum processes (other than the autovacuum launcher) that may be running at any one time. The default is three. This parameter can only be set at server start.
+	// Specifies the maximum number of autovacuum processes (other than the autovacuum launcher) that may be running at any one time. The default is `3`. Changing this parameter causes a service restart.
 	AutovacuumMaxWorkers int `json:"autovacuum_max_workers,omitempty" validate:"omitempty,gte=1,lte=20"`
-	// Specifies the minimum delay between autovacuum runs on any given database. The delay is measured in seconds, and the default is one minute
+	// Specifies the minimum delay between autovacuum runs on any given database. The delay is measured in seconds. The default is `60`.
 	AutovacuumNaptime int `json:"autovacuum_naptime,omitempty" validate:"omitempty,gte=1,lte=86400"`
-	// Specifies the cost delay value that will be used in automatic VACUUM operations. If -1 is specified, the regular vacuum_cost_delay value will be used. The default value is 20 milliseconds
+	// Specifies the cost delay value that will be used in automatic VACUUM operations. If `-1` is specified, the regular vacuum_cost_delay value will be used. The default is `2` (upstream default).
 	AutovacuumVacuumCostDelay int `json:"autovacuum_vacuum_cost_delay,omitempty" validate:"omitempty,gte=-1,lte=100"`
-	// Specifies the cost limit value that will be used in automatic VACUUM operations. If -1 is specified (which is the default), the regular vacuum_cost_limit value will be used.
+	// Specifies the cost limit value that will be used in automatic VACUUM operations. If `-1` is specified, the regular vacuum_cost_limit value will be used. The default is `-1` (upstream default).
 	AutovacuumVacuumCostLimit int `json:"autovacuum_vacuum_cost_limit,omitempty" validate:"omitempty,gte=-1,lte=10000"`
-	// Specifies a fraction of the table size to add to autovacuum_vacuum_threshold when deciding whether to trigger a VACUUM. The default is 0.2 (20% of table size)
+	// Specifies a fraction of the table size to add to autovacuum_vacuum_threshold when deciding whether to trigger a VACUUM (e.g. `0.2` for 20% of the table size). The default is `0.2`.
 	AutovacuumVacuumScaleFactor float64 `json:"autovacuum_vacuum_scale_factor,omitempty" validate:"omitempty,gte=0,lte=1"`
-	// Specifies the minimum number of updated or deleted tuples needed to trigger a VACUUM in any one table. The default is 50 tuples
+	// Specifies the minimum number of updated or deleted tuples needed to trigger a VACUUM in any one table. The default is `50`.
 	AutovacuumVacuumThreshold int `json:"autovacuum_vacuum_threshold,omitempty" validate:"omitempty,gte=0,lte=2.147483647e+09"`
-	// Causes each action executed by autovacuum to be logged if it ran for at least the specified number of milliseconds. Setting this to zero logs all autovacuum actions. Minus-one (the default) disables logging autovacuum actions.
+	// Causes each action executed by autovacuum to be logged if it ran for at least the specified number of milliseconds. Setting this to zero logs all autovacuum actions. Minus-one disables logging autovacuum actions. The default is `1000`.
 	LogAutovacuumMinDuration int `json:"log_autovacuum_min_duration,omitempty" validate:"omitempty,gte=-1,lte=2.147483647e+09"`
 }
 
 // Background (BG) writer settings
 type JSONSchemaPGBGWriter struct {
-	// Specifies the delay between activity rounds for the background writer in milliseconds. Default is 200.
+	// Specifies the delay between activity rounds for the background writer in milliseconds. The default is `200`.
 	BgwriterDelay int `json:"bgwriter_delay,omitempty" validate:"omitempty,gte=10,lte=10000"`
-	// Whenever more than bgwriter_flush_after bytes have been written by the background writer, attempt to force the OS to issue these writes to the underlying storage. Specified in kilobytes, default is 512. Setting of 0 disables forced writeback.
+	// Whenever more than bgwriter_flush_after bytes have been written by the background writer, attempt to force the OS to issue these writes to the underlying storage. Specified in kilobytes. Setting of 0 disables forced writeback. The default is `512`.
 	BgwriterFlushAfter int `json:"bgwriter_flush_after,omitempty" validate:"omitempty,gte=0,lte=2048"`
-	// In each round, no more than this many buffers will be written by the background writer. Setting this to zero disables background writing. Default is 100.
+	// In each round, no more than this many buffers will be written by the background writer. Setting this to zero disables background writing. The default is `100`.
 	BgwriterLruMaxpages int `json:"bgwriter_lru_maxpages,omitempty" validate:"omitempty,gte=0,lte=1.073741823e+09"`
-	// The average recent need for new buffers is multiplied by bgwriter_lru_multiplier to arrive at an estimate of the number that will be needed during the next round, (up to bgwriter_lru_maxpages). 1.0 represents a “just in time” policy of writing exactly the number of buffers predicted to be needed. Larger values provide some cushion against spikes in demand, while smaller values intentionally leave writes to be done by server processes. The default is 2.0.
+	// The average recent need for new buffers is multiplied by bgwriter_lru_multiplier to arrive at an estimate of the number that will be needed during the next round, (up to bgwriter_lru_maxpages). 1.0 represents a “just in time” policy of writing exactly the number of buffers predicted to be needed. Larger values provide some cushion against spikes in demand, while smaller values intentionally leave writes to be done by server processes. The default is `2.0`.
 	BgwriterLruMultiplier float64 `json:"bgwriter_lru_multiplier,omitempty" validate:"omitempty,gte=0,lte=10"`
 }
 
@@ -2908,12 +3395,27 @@ const (
 	JSONSchemaPGDefaultToastCompressionPglz JSONSchemaPGDefaultToastCompression = "pglz"
 )
 
+type JSONSchemaPGIoMethod string
+
+const (
+	JSONSchemaPGIoMethodWorker  JSONSchemaPGIoMethod = "worker"
+	JSONSchemaPGIoMethodSync    JSONSchemaPGIoMethod = "sync"
+	JSONSchemaPGIoMethodIoUring JSONSchemaPGIoMethod = "io_uring"
+)
+
 type JSONSchemaPGLogErrorVerbosity string
 
 const (
 	JSONSchemaPGLogErrorVerbosityTERSE   JSONSchemaPGLogErrorVerbosity = "TERSE"
 	JSONSchemaPGLogErrorVerbosityDEFAULT JSONSchemaPGLogErrorVerbosity = "DEFAULT"
 	JSONSchemaPGLogErrorVerbosityVERBOSE JSONSchemaPGLogErrorVerbosity = "VERBOSE"
+)
+
+type JSONSchemaPGPasswordEncryption string
+
+const (
+	JSONSchemaPGPasswordEncryptionMd5         JSONSchemaPGPasswordEncryption = "md5"
+	JSONSchemaPGPasswordEncryptionScramSha256 JSONSchemaPGPasswordEncryption = "scram-sha-256"
 )
 
 type JSONSchemaPGPGStatStatementsTrack string
@@ -2948,13 +3450,13 @@ const (
 
 // Write-ahead log (WAL) settings
 type JSONSchemaPGWal struct {
-	// PostgreSQL maximum WAL size (MB) reserved for replication slots. Default is -1 (unlimited). wal_keep_size minimum WAL size setting takes precedence over this.
+	// PostgreSQL maximum WAL size (MB) reserved for replication slots. If `-1` is specified, replication slots may retain an unlimited amount of WAL files. The default is `-1` (upstream default). wal_keep_size minimum WAL size setting takes precedence over this.
 	MaxSlotWalKeepSize int `json:"max_slot_wal_keep_size,omitempty" validate:"omitempty,gte=-1,lte=2.147483647e+09"`
-	// PostgreSQL maximum WAL senders
-	MaxWalSenders int `json:"max_wal_senders,omitempty" validate:"omitempty,gte=20,lte=64"`
+	// PostgreSQL maximum WAL senders. The default is `20`. Changing this parameter causes a service restart.
+	MaxWalSenders int `json:"max_wal_senders,omitempty" validate:"omitempty,gte=20,lte=256"`
 	// Terminate replication connections that are inactive for longer than this amount of time, in milliseconds.
 	WalSenderTimeout int `json:"wal_sender_timeout,omitempty" validate:"omitempty,gte=0,lte=1.08e+07"`
-	// WAL flush interval in milliseconds. Note that setting this value to lower than the default 200ms may negatively impact performance
+	// WAL flush interval in milliseconds. The default is `200`. Setting this parameter to a lower value may negatively impact performance.
 	WalWriterDelay int `json:"wal_writer_delay,omitempty" validate:"omitempty,gte=10,lte=200"`
 }
 
@@ -2964,67 +3466,81 @@ type JSONSchemaPG struct {
 	Autovacuum *JSONSchemaPGAutovacuum `json:"autovacuum,omitempty"`
 	// Background (BG) writer settings
 	BGWriter *JSONSchemaPGBGWriter `json:"bg-writer,omitempty"`
-	// This is the amount of time, in milliseconds, to wait on a lock before checking to see if there is a deadlock condition.
+	// This is the amount of time, in milliseconds, to wait on a lock before checking to see if there is a deadlock condition. The default is `1000` (upstream default).
 	DeadlockTimeout int `json:"deadlock_timeout,omitempty" validate:"omitempty,gte=500,lte=1.8e+06"`
-	// Specifies the default TOAST compression method for values of compressible columns (the default is lz4).
+	// Specifies the default TOAST compression method for values of compressible columns. The default is `lz4`. Only available for PostgreSQL 14+.
 	DefaultToastCompression JSONSchemaPGDefaultToastCompression `json:"default_toast_compression,omitempty"`
 	// Time out sessions with open transactions after this number of milliseconds
 	IdleInTransactionSessionTimeout int `json:"idle_in_transaction_session_timeout,omitempty" validate:"omitempty,gte=0,lte=6.048e+08"`
+	// EXPERIMENTAL: Controls the largest I/O size in operations that combine I/O in 8kB units. Version 17 and up only.
+	IoCombineLimit int `json:"io_combine_limit,omitempty" validate:"omitempty,gte=1,lte=32"`
+	// EXPERIMENTAL: Controls the largest I/O size in operations that combine I/O in 8kB units, and silently limits the user-settable parameter io_combine_limit. Version 18 and up only. Changing this parameter causes a service restart.
+	IoMaxCombineLimit int `json:"io_max_combine_limit,omitempty" validate:"omitempty,gte=1,lte=128"`
+	// EXPERIMENTAL: Controls the maximum number of I/O operations that one process can execute simultaneously. Version 18 and up only. Changing this parameter causes a service restart.
+	IoMaxConcurrency int `json:"io_max_concurrency,omitempty" validate:"omitempty,gte=-1,lte=1024"`
+	// EXPERIMENTAL: Controls the maximum number of I/O operations that one process can execute simultaneously. Version 18 and up only. Changing this parameter causes a service restart.
+	IoMethod JSONSchemaPGIoMethod `json:"io_method,omitempty"`
+	// EXPERIMENTAL: Number of IO worker processes, for io_method=worker. Version 18 and up only. Changing this parameter causes a service restart.
+	IoWorkers int `json:"io_workers,omitempty" validate:"omitempty,gte=1,lte=32"`
 	// Controls system-wide use of Just-in-Time Compilation (JIT).
 	Jit *bool `json:"jit,omitempty"`
 	// Controls the amount of detail written in the server log for each message that is logged.
 	LogErrorVerbosity JSONSchemaPGLogErrorVerbosity `json:"log_error_verbosity,omitempty"`
-	// Choose from one of the available log-formats. These can support popular log analyzers like pgbadger, pganalyze etc.
+	// Choose from one of the available log formats.
 	LogLinePrefix string `json:"log_line_prefix,omitempty"`
 	// Log statements that take more than this number of milliseconds to run, -1 disables
 	LogMinDurationStatement int `json:"log_min_duration_statement,omitempty" validate:"omitempty,gte=-1,lte=8.64e+07"`
 	// Log statements for each temporary file created larger than this number of kilobytes, -1 disables
 	LogTempFiles int `json:"log_temp_files,omitempty" validate:"omitempty,gte=-1,lte=2.147483647e+09"`
-	// PostgreSQL maximum number of files that can be open per process
+	// PostgreSQL maximum number of files that can be open per process. The default is `1000` (upstream default). Changing this parameter causes a service restart.
 	MaxFilesPerProcess int `json:"max_files_per_process,omitempty" validate:"omitempty,gte=1000,lte=4096"`
-	// PostgreSQL maximum locks per transaction
+	// PostgreSQL maximum locks per transaction. Changing this parameter causes a service restart.
 	MaxLocksPerTransaction int `json:"max_locks_per_transaction,omitempty" validate:"omitempty,gte=64,lte=6400"`
-	// PostgreSQL maximum logical replication workers (taken from the pool of max_parallel_workers)
-	MaxLogicalReplicationWorkers int `json:"max_logical_replication_workers,omitempty" validate:"omitempty,gte=4,lte=64"`
-	// Sets the maximum number of workers that the system can support for parallel queries
+	// PostgreSQL maximum logical replication workers (taken from the pool of max_parallel_workers). The default is `4` (upstream default). Changing this parameter causes a service restart.
+	MaxLogicalReplicationWorkers int `json:"max_logical_replication_workers,omitempty" validate:"omitempty,gte=4,lte=256"`
+	// Sets the maximum number of workers that the system can support for parallel queries. The default is `8` (upstream default).
 	MaxParallelWorkers int `json:"max_parallel_workers,omitempty" validate:"omitempty,gte=0,lte=96"`
-	// Sets the maximum number of workers that can be started by a single Gather or Gather Merge node
+	// Sets the maximum number of workers that can be started by a single Gather or Gather Merge node. The default is `2` (upstream default).
 	MaxParallelWorkersPerGather int `json:"max_parallel_workers_per_gather,omitempty" validate:"omitempty,gte=0,lte=96"`
-	// PostgreSQL maximum predicate locks per transaction
+	// PostgreSQL maximum predicate locks per transaction. The default is `64` (upstream default). Changing this parameter causes a service restart.
 	MaxPredLocksPerTransaction int `json:"max_pred_locks_per_transaction,omitempty" validate:"omitempty,gte=64,lte=5120"`
-	// PostgreSQL maximum prepared transactions
+	// PostgreSQL maximum prepared transactions. The default is `0`. Changing this parameter causes a service restart.
 	MaxPreparedTransactions int `json:"max_prepared_transactions,omitempty" validate:"omitempty,gte=0,lte=10000"`
-	// PostgreSQL maximum replication slots
-	MaxReplicationSlots int `json:"max_replication_slots,omitempty" validate:"omitempty,gte=8,lte=64"`
-	// Maximum depth of the stack in bytes
+	// PostgreSQL maximum replication slots. The default is `20`. Changing this parameter causes a service restart.
+	MaxReplicationSlots int `json:"max_replication_slots,omitempty" validate:"omitempty,gte=8,lte=256"`
+	// Maximum depth of the stack in bytes. The default is `2097152` (upstream default).
 	MaxStackDepth int `json:"max_stack_depth,omitempty" validate:"omitempty,gte=2.097152e+06,lte=6.291456e+06"`
-	// Max standby archive delay in milliseconds
+	// Max standby archive delay in milliseconds. The default is `30000` (upstream default).
 	MaxStandbyArchiveDelay int `json:"max_standby_archive_delay,omitempty" validate:"omitempty,gte=1,lte=4.32e+07"`
-	// Max standby streaming delay in milliseconds
+	// Max standby streaming delay in milliseconds. The default is `30000` (upstream default).
 	MaxStandbyStreamingDelay int `json:"max_standby_streaming_delay,omitempty" validate:"omitempty,gte=1,lte=4.32e+07"`
-	// Sets the maximum number of background processes that the system can support
-	MaxWorkerProcesses int `json:"max_worker_processes,omitempty" validate:"omitempty,gte=8,lte=96"`
-	// Sets the time interval to run pg_partman's scheduled tasks
+	// Maximum number of synchronization workers per subscription. The default is `2`.
+	MaxSyncWorkersPerSubscription int `json:"max_sync_workers_per_subscription,omitempty" validate:"omitempty,gte=2,lte=8"`
+	// Sets the maximum number of background processes that the system can support. The default is `8`. Changing this parameter causes a service restart.
+	MaxWorkerProcesses int `json:"max_worker_processes,omitempty" validate:"omitempty,gte=8,lte=288"`
+	// Chooses the algorithm for encrypting passwords.
+	PasswordEncryption JSONSchemaPGPasswordEncryption `json:"password_encryption,omitempty"`
+	// Sets the time interval in seconds to run pg_partman's scheduled tasks. The default is `3600`.
 	PGPartmanBgwInterval int `json:"pg_partman_bgw.interval,omitempty" validate:"omitempty,gte=3600,lte=604800"`
 	// Controls which role to use for pg_partman's scheduled background tasks.
 	PGPartmanBgwRole string `json:"pg_partman_bgw.role,omitempty" validate:"omitempty,lte=64"`
-	// Enables or disables query plan monitoring
+	// Enables or disables query plan monitoring. Changing this parameter causes a service restart. Only available for PostgreSQL 13+.
 	PGStatMonitorPgsmEnableQueryPlan *bool `json:"pg_stat_monitor.pgsm_enable_query_plan,omitempty"`
-	// Sets the maximum number of buckets
+	// Sets the maximum number of buckets. Changing this parameter causes a service restart. Only available for PostgreSQL 13+.
 	PGStatMonitorPgsmMaxBuckets int `json:"pg_stat_monitor.pgsm_max_buckets,omitempty" validate:"omitempty,gte=1,lte=10"`
-	// Controls which statements are counted. Specify top to track top-level statements (those issued directly by clients), all to also track nested statements (such as statements invoked within functions), or none to disable statement statistics collection. The default value is top.
+	// Controls which statements are counted. Specify top to track top-level statements (those issued directly by clients), all to also track nested statements (such as statements invoked within functions), or none to disable statement statistics collection. The default is `top`.
 	PGStatStatementsTrack JSONSchemaPGPGStatStatementsTrack `json:"pg_stat_statements.track,omitempty"`
 	// PostgreSQL temporary file limit in KiB, -1 for unlimited
 	TempFileLimit int `json:"temp_file_limit,omitempty" validate:"omitempty,gte=-1,lte=2.147483647e+09"`
 	// PostgreSQL service timezone
 	Timezone string `json:"timezone,omitempty" validate:"omitempty,lte=64"`
-	// Specifies the number of bytes reserved to track the currently executing command for each active session.
+	// Specifies the number of bytes reserved to track the currently executing command for each active session. Changing this parameter causes a service restart.
 	TrackActivityQuerySize int `json:"track_activity_query_size,omitempty" validate:"omitempty,gte=1024,lte=10240"`
-	// Record commit time of transactions.
+	// Record commit time of transactions. Changing this parameter causes a service restart.
 	TrackCommitTimestamp JSONSchemaPGTrackCommitTimestamp `json:"track_commit_timestamp,omitempty"`
 	// Enables tracking of function call counts and time used.
 	TrackFunctions JSONSchemaPGTrackFunctions `json:"track_functions,omitempty"`
-	// Enables timing of database I/O calls. This parameter is off by default, because it will repeatedly query the operating system for the current time, which may cause significant overhead on some platforms.
+	// Enables timing of database I/O calls. The default is `off`. When on, it will repeatedly query the operating system for the current time, which may cause significant overhead on some platforms.
 	TrackIoTiming JSONSchemaPGTrackIoTiming `json:"track_io_timing,omitempty"`
 	// Write-ahead log (WAL) settings
 	Wal *JSONSchemaPGWal `json:"wal,omitempty"`
@@ -3068,59 +3584,6 @@ type JSONSchemaPglookout struct {
 	MaxFailoverReplicationTimeLag int `json:"max_failover_replication_time_lag,omitempty" validate:"omitempty,gte=10,lte=9.223372036854776e+18"`
 }
 
-type JSONSchemaRedisAclChannelsDefault string
-
-const (
-	JSONSchemaRedisAclChannelsDefaultAllchannels   JSONSchemaRedisAclChannelsDefault = "allchannels"
-	JSONSchemaRedisAclChannelsDefaultResetchannels JSONSchemaRedisAclChannelsDefault = "resetchannels"
-)
-
-type JSONSchemaRedisMaxmemoryPolicy string
-
-const (
-	JSONSchemaRedisMaxmemoryPolicyNoeviction     JSONSchemaRedisMaxmemoryPolicy = "noeviction"
-	JSONSchemaRedisMaxmemoryPolicyAllkeysLru     JSONSchemaRedisMaxmemoryPolicy = "allkeys-lru"
-	JSONSchemaRedisMaxmemoryPolicyVolatileLru    JSONSchemaRedisMaxmemoryPolicy = "volatile-lru"
-	JSONSchemaRedisMaxmemoryPolicyAllkeysRandom  JSONSchemaRedisMaxmemoryPolicy = "allkeys-random"
-	JSONSchemaRedisMaxmemoryPolicyVolatileRandom JSONSchemaRedisMaxmemoryPolicy = "volatile-random"
-	JSONSchemaRedisMaxmemoryPolicyVolatileTtl    JSONSchemaRedisMaxmemoryPolicy = "volatile-ttl"
-	JSONSchemaRedisMaxmemoryPolicyVolatileLfu    JSONSchemaRedisMaxmemoryPolicy = "volatile-lfu"
-	JSONSchemaRedisMaxmemoryPolicyAllkeysLfu     JSONSchemaRedisMaxmemoryPolicy = "allkeys-lfu"
-)
-
-type JSONSchemaRedisPersistence string
-
-const (
-	JSONSchemaRedisPersistenceOff JSONSchemaRedisPersistence = "off"
-	JSONSchemaRedisPersistenceRdb JSONSchemaRedisPersistence = "rdb"
-)
-
-// Redis settings
-type JSONSchemaRedis struct {
-	// Determines default pub/sub channels' ACL for new users if ACL is not supplied. When this option is not defined, all_channels is assumed to keep backward compatibility. This option doesn't affect Redis configuration acl-pubsub-default.
-	AclChannelsDefault JSONSchemaRedisAclChannelsDefault `json:"acl_channels_default,omitempty"`
-	// Set Redis IO thread count. Changing this will cause a restart of the Redis service.
-	IoThreads int `json:"io_threads,omitempty" validate:"omitempty,gte=1,lte=32"`
-	// LFU maxmemory-policy counter decay time in minutes
-	LfuDecayTime int `json:"lfu_decay_time,omitempty" validate:"omitempty,gte=1,lte=120"`
-	// Counter logarithm factor for volatile-lfu and allkeys-lfu maxmemory-policies
-	LfuLogFactor int `json:"lfu_log_factor,omitempty" validate:"omitempty,gte=0,lte=100"`
-	// Redis maxmemory-policy
-	MaxmemoryPolicy JSONSchemaRedisMaxmemoryPolicy `json:"maxmemory_policy,omitempty"`
-	// Set notify-keyspace-events option
-	NotifyKeyspaceEvents string `json:"notify_keyspace_events,omitempty" validate:"omitempty,lte=32"`
-	// Set number of Redis databases. Changing this will cause a restart of the Redis service.
-	NumberOfDatabases int `json:"number_of_databases,omitempty" validate:"omitempty,gte=1,lte=128"`
-	// When persistence is 'rdb', Redis does RDB dumps each 10 minutes if any key is changed. Also RDB dumps are done according to backup schedule for backup purposes. When persistence is 'off', no RDB dumps and backups are done, so data can be lost at any moment if service is restarted for any reason, or if service is powered off. Also service can't be forked.
-	Persistence JSONSchemaRedisPersistence `json:"persistence,omitempty"`
-	// Set output buffer limit for pub / sub clients in MB. The value is the hard limit, the soft limit is 1/4 of the hard limit. When setting the limit, be mindful of the available memory in the selected service plan.
-	PubsubClientOutputBufferLimit int `json:"pubsub_client_output_buffer_limit,omitempty" validate:"omitempty,gte=32,lte=512"`
-	// Require SSL to access Redis
-	SSL *bool `json:"ssl,omitempty"`
-	// Redis idle connection timeout in seconds
-	Timeout int `json:"timeout,omitempty" validate:"omitempty,gte=0,lte=3.1536e+07"`
-}
-
 // Schema Registry configuration
 type JSONSchemaSchemaRegistry struct {
 	// If true, Karapace / Schema Registry on the service nodes can participate in leader election. It might be needed to disable this when the schemas topic is replicated to a secondary cluster and Karapace / Schema Registry there must not participate in leader election. Defaults to `true`.
@@ -3129,9 +3592,47 @@ type JSONSchemaSchemaRegistry struct {
 	TopicName string `json:"topic_name,omitempty" validate:"omitempty,gte=1,lte=249"`
 }
 
+// Configuration options for Thanos Compactor.
+type JSONSchemaThanosCompactor struct {
+	// Retention time for data in days for each resolution (5m, 1h, raw)
+	RetentionDays int `json:"retention.days,omitempty" validate:"omitempty,gte=0"`
+}
+
+// Configuration options for Thanos Query.
+type JSONSchemaThanosQuery struct {
+	// Set the default evaluation interval for subqueries.
+	QueryDefaultEvaluationInterval string `json:"query.default-evaluation-interval,omitempty" validate:"omitempty,lte=20"`
+	// The maximum lookback duration for retrieving metrics during expression evaluations in PromQL. PromQL always evaluates the query for a certain timestamp, and it looks back for the given amount of time to get the latest sample. If it exceeds the maximum lookback delta, it assumes the series is stale and returns none (a gap). The lookback delta should be set to at least 2 times the slowest scrape interval. If unset, it will use the promql default of 5m.
+	QueryLookbackDelta string `json:"query.lookback-delta,omitempty" validate:"omitempty,lte=20"`
+	// The default metadata time range duration for retrieving labels through Labels and Series API when the range parameters are not specified. The zero value means the range covers the time since the beginning.
+	QueryMetadataDefaultTimeRange string `json:"query.metadata.default-time-range,omitempty" validate:"omitempty,lte=20"`
+	// Maximum time to process a query by the query node.
+	QueryTimeout string `json:"query.timeout,omitempty" validate:"omitempty,lte=20"`
+	// The maximum samples allowed for a single Series request. The Series call fails if this limit is exceeded. Set to 0 for no limit. NOTE: For efficiency, the limit is internally implemented as 'chunks limit' considering each chunk contains a maximum of 120 samples. The default value is 100 * store.limits.request-series.
+	StoreLimitsRequestSamples int `json:"store.limits.request-samples,omitempty" validate:"omitempty,gte=0,lte=1e+08"`
+	// The maximum series allowed for a single Series request. The Series call fails if this limit is exceeded. Set to 0 for no limit. The default value is 1000 * cpu_count.
+	StoreLimitsRequestSeries int `json:"store.limits.request-series,omitempty" validate:"omitempty,gte=0,lte=1e+08"`
+}
+
+// Configuration options for Thanos Query Frontend.
+type JSONSchemaThanosQueryFrontend struct {
+	// Whether to align the query range boundaries with the step. If enabled, the query range boundaries will be aligned to the step, providing more accurate results for queries with high-resolution data.
+	QueryRangeAlignRangeWithStep *bool `json:"query-range.align-range-with-step,omitempty"`
+}
+
+// Thanos settings
+type JSONSchemaThanos struct {
+	// Configuration options for Thanos Compactor.
+	Compactor *JSONSchemaThanosCompactor `json:"compactor,omitempty"`
+	// Configuration options for Thanos Query.
+	Query *JSONSchemaThanosQuery `json:"query,omitempty"`
+	// Configuration options for Thanos Query Frontend.
+	QueryFrontend *JSONSchemaThanosQueryFrontend `json:"query-frontend,omitempty"`
+}
+
 // System-wide settings for the timescaledb extension
 type JSONSchemaTimescaledb struct {
-	// The number of background workers for timescaledb operations. You should configure this setting to the sum of your number of databases and the total number of concurrent background workers you want running at any given point in time.
+	// The number of background workers for timescaledb operations. You should configure this setting to the sum of your number of databases and the total number of concurrent background workers you want running at any given point in time. Changing this parameter causes a service restart.
 	MaxBackgroundWorkers int `json:"max_background_workers,omitempty" validate:"omitempty,gte=1,lte=4096"`
 }
 
@@ -3196,6 +3697,75 @@ type KubeletImageGC struct {
 }
 
 type Labels map[string]string
+
+// AI model list
+type ListDeploymentsResponse struct {
+	Deployments []ListDeploymentsResponseEntry `json:"deployments,omitempty"`
+}
+
+type ListDeploymentsResponseEntryStatus string
+
+const (
+	ListDeploymentsResponseEntryStatusReady     ListDeploymentsResponseEntryStatus = "ready"
+	ListDeploymentsResponseEntryStatusCreating  ListDeploymentsResponseEntryStatus = "creating"
+	ListDeploymentsResponseEntryStatusError     ListDeploymentsResponseEntryStatus = "error"
+	ListDeploymentsResponseEntryStatusDeploying ListDeploymentsResponseEntryStatus = "deploying"
+)
+
+// AI deployment
+type ListDeploymentsResponseEntry struct {
+	// Creation time
+	CreatedAT time.Time `json:"created-at,omitempty"`
+	// Deployment URL (nullable)
+	DeploymentURL string `json:"deployment-url,omitempty"`
+	// Number of GPUs
+	GpuCount int64 `json:"gpu-count,omitempty" validate:"omitempty,gt=0"`
+	// GPU type family
+	GpuType string `json:"gpu-type,omitempty" validate:"omitempty,gte=1"`
+	// Deployment ID
+	ID    UUID      `json:"id,omitempty"`
+	Model *ModelRef `json:"model,omitempty"`
+	// Deployment name
+	Name string `json:"name,omitempty" validate:"omitempty,gte=1"`
+	// Number of replicas (>=0)
+	Replicas int64 `json:"replicas,omitempty" validate:"omitempty,gte=0"`
+	// Service level
+	ServiceLevel string `json:"service-level,omitempty" validate:"omitempty,gte=1"`
+	// Deployment status
+	Status ListDeploymentsResponseEntryStatus `json:"status,omitempty"`
+	// Update time
+	UpdatedAT time.Time `json:"updated-at,omitempty"`
+}
+
+// AI model list
+type ListModelsResponse struct {
+	Models []ListModelsResponseEntry `json:"models,omitempty"`
+}
+
+type ListModelsResponseEntryStatus string
+
+const (
+	ListModelsResponseEntryStatusReady       ListModelsResponseEntryStatus = "ready"
+	ListModelsResponseEntryStatusCreating    ListModelsResponseEntryStatus = "creating"
+	ListModelsResponseEntryStatusDownloading ListModelsResponseEntryStatus = "downloading"
+	ListModelsResponseEntryStatusError       ListModelsResponseEntryStatus = "error"
+)
+
+// AI model
+type ListModelsResponseEntry struct {
+	// Creation time
+	CreatedAT time.Time `json:"created-at,omitempty"`
+	// Model ID
+	ID UUID `json:"id,omitempty"`
+	// Model size (nullable)
+	ModelSize int64 `json:"model-size,omitempty" validate:"omitempty,gte=0"`
+	// Model name
+	Name string `json:"name,omitempty" validate:"omitempty,gte=1"`
+	// Model status
+	Status ListModelsResponseEntryStatus `json:"status,omitempty"`
+	// Update time
+	UpdatedAT time.Time `json:"updated-at,omitempty"`
+}
 
 type LoadBalancerState string
 
@@ -3332,6 +3902,27 @@ type Manager struct {
 	ID UUID `json:"id,omitempty"`
 	// Manager type
 	Type ManagerType `json:"type,omitempty"`
+}
+
+type ModelRef struct {
+	// Associated model ID
+	ID UUID `json:"id,omitempty"`
+	// Associated model name
+	Name string `json:"name,omitempty" validate:"omitempty,gte=1"`
+}
+
+// Cluster networking configuration.
+type Networking struct {
+	// CIDR Range for Pods in cluster. This must not overlap with any IP ranges assigned to pods. Max of two, comma-separated, dual-stack CIDRs is allowed.
+	// If not specified, defaults to 192.168.0.0/16.
+	ClusterCidr string `json:"cluster-cidr,omitempty"`
+	// Mask size for node cidr in cluster. It must be larger than the Pod CIDR subnet mask. Defaults to 24
+	NodeCidrMaskSizeIpv4 int64 `json:"node-cidr-mask-size-ipv4,omitempty" validate:"omitempty,gt=0"`
+	// Mask size for node cidr in cluster. It must be larger than the Pod CIDR subnet mask. Defaults to 64
+	NodeCidrMaskSizeIpv6 int64 `json:"node-cidr-mask-size-ipv6,omitempty" validate:"omitempty,gt=0"`
+	// CIDR range for service cluster IPs. This must not overlap with any IP ranges assigned to nodes or pods. Max of two, comma-separated, dual-stack CIDRs is allowed.
+	// If not specified, defaults to 10.96.0.0/12.
+	ServiceClusterIPRange string `json:"service-cluster-ip-range,omitempty"`
 }
 
 type OperationReason string
@@ -3472,8 +4063,19 @@ type Resource struct {
 	Name string `json:"name,omitempty"`
 }
 
+// AI deployment inference endpoint authentication key
+type RevealDeploymentAPIKeyResponse struct {
+	APIKey string `json:"api-key,omitempty"`
+}
+
 type ReverseDNSRecord struct {
 	DomainName DomainName `json:"domain-name,omitempty" validate:"omitempty,gte=1,lte=253"`
+}
+
+// Scale AI deployment
+type ScaleDeploymentRequest struct {
+	// Number of replicas (>=0)
+	Replicas int64 `json:"replicas" validate:"required,gte=0"`
 }
 
 // Security Group
@@ -3556,6 +4158,36 @@ type SecurityGroupRule struct {
 	StartPort int64 `json:"start-port,omitempty" validate:"omitempty,gte=1,lte=65535"`
 }
 
+// Kubernetes Audit parameters
+type SKSAudit struct {
+	// Enabled
+	Enabled        *bool                  `json:"enabled,omitempty"`
+	Endpoint       SKSAuditEndpoint       `json:"endpoint,omitempty" validate:"omitempty,gte=1,lte=2000"`
+	InitialBackoff SKSAuditInitialBackoff `json:"initial-backoff,omitempty" validate:"omitempty,gte=1,lte=10"`
+}
+
+type SKSAuditBearerToken string
+
+// Kubernetes Audit parameters
+type SKSAuditCreate struct {
+	BearerToken    SKSAuditBearerToken    `json:"bearer-token" validate:"required,gte=1,lte=2000"`
+	Endpoint       SKSAuditEndpoint       `json:"endpoint" validate:"required,gte=1,lte=2000"`
+	InitialBackoff SKSAuditInitialBackoff `json:"initial-backoff,omitempty" validate:"omitempty,gte=1,lte=10"`
+}
+
+type SKSAuditEndpoint string
+
+type SKSAuditInitialBackoff string
+
+// Kubernetes Audit parameters
+type SKSAuditUpdate struct {
+	BearerToken SKSAuditBearerToken `json:"bearer-token,omitempty" validate:"omitempty,gte=1,lte=2000"`
+	// Enable or Disable Kubernetes Audit
+	Enabled        *bool                  `json:"enabled,omitempty"`
+	Endpoint       SKSAuditEndpoint       `json:"endpoint,omitempty" validate:"omitempty,gte=1,lte=2000"`
+	InitialBackoff SKSAuditInitialBackoff `json:"initial-backoff,omitempty" validate:"omitempty,gte=1,lte=10"`
+}
+
 type SKSClusterCni string
 
 const (
@@ -3573,20 +4205,25 @@ const (
 type SKSClusterState string
 
 const (
-	SKSClusterStateRotatingCcmCredentials SKSClusterState = "rotating-ccm-credentials"
-	SKSClusterStateCreating               SKSClusterState = "creating"
-	SKSClusterStateUpgrading              SKSClusterState = "upgrading"
-	SKSClusterStateDeleting               SKSClusterState = "deleting"
-	SKSClusterStateRunning                SKSClusterState = "running"
-	SKSClusterStateSuspending             SKSClusterState = "suspending"
-	SKSClusterStateUpdating               SKSClusterState = "updating"
-	SKSClusterStateError                  SKSClusterState = "error"
+	SKSClusterStateRotatingCsiCredentials       SKSClusterState = "rotating-csi-credentials"
+	SKSClusterStateRotatingCcmCredentials       SKSClusterState = "rotating-ccm-credentials"
+	SKSClusterStateCreating                     SKSClusterState = "creating"
+	SKSClusterStateUpgrading                    SKSClusterState = "upgrading"
+	SKSClusterStateDeleting                     SKSClusterState = "deleting"
+	SKSClusterStateRunning                      SKSClusterState = "running"
+	SKSClusterStateSuspending                   SKSClusterState = "suspending"
+	SKSClusterStateUpdating                     SKSClusterState = "updating"
+	SKSClusterStateError                        SKSClusterState = "error"
+	SKSClusterStateRotatingKarpenterCredentials SKSClusterState = "rotating-karpenter-credentials"
+	SKSClusterStateResuming                     SKSClusterState = "resuming"
 )
 
 // SKS Cluster
 type SKSCluster struct {
 	// Cluster addons
 	Addons []string `json:"addons,omitempty"`
+	// Kubernetes Audit parameters
+	Audit *SKSAudit `json:"audit,omitempty"`
 	// Enable auto upgrade of the control plane to the latest patch version available
 	AutoUpgrade *bool `json:"auto-upgrade,omitempty"`
 	// Cluster CNI
@@ -3595,11 +4232,17 @@ type SKSCluster struct {
 	CreatedAT time.Time `json:"created-at,omitempty"`
 	// Cluster description
 	Description string `json:"description,omitempty" validate:"omitempty,lte=255"`
+	// Indicates whether to deploy the Kubernetes network proxy.
+	EnableKubeProxy *bool `json:"enable-kube-proxy,omitempty"`
+	// Indicates whether to add operators certificate authority (CA) as part of trusted CAs for the API server.
+	EnableOperatorsCA *bool `json:"enable-operators-ca,omitempty"`
 	// Cluster endpoint
 	Endpoint string `json:"endpoint,omitempty"`
+	// A list of Kubernetes-only Alpha features to enable for API server component
+	FeatureGates []string `json:"feature-gates,omitempty"`
 	// Cluster ID
-	ID     UUID   `json:"id,omitempty"`
-	Labels Labels `json:"labels,omitempty"`
+	ID     UUID             `json:"id,omitempty"`
+	Labels SKSClusterLabels `json:"labels,omitempty"`
 	// Cluster level
 	Level SKSClusterLevel `json:"level,omitempty"`
 	// Cluster name
@@ -3612,16 +4255,24 @@ type SKSCluster struct {
 	Version string `json:"version,omitempty"`
 }
 
-type SKSClusterDeprecatedResource map[string]string
+type SKSClusterDeprecatedResource struct {
+	Group          string `json:"group,omitempty"`
+	RemovedRelease string `json:"removed-release,omitempty"`
+	Resource       string `json:"resource,omitempty"`
+	Subresource    string `json:"subresource,omitempty"`
+	Version        string `json:"version,omitempty"`
+}
+
+type SKSClusterLabels map[string]string
 
 // Kubeconfig request for a SKS cluster
 type SKSKubeconfigRequest struct {
 	// List of roles. The certificate present in the Kubeconfig will have these roles set in the Org field.
-	Groups []string `json:"groups,omitempty"`
+	Groups []string `json:"groups" validate:"required"`
 	// Validity in seconds of the Kubeconfig user certificate (default: 30 days)
 	Ttl int64 `json:"ttl,omitempty" validate:"omitempty,gt=0"`
 	// User name in the generated Kubeconfig. The certificate present in the Kubeconfig will also have this name set for the CN field.
-	User string `json:"user,omitempty"`
+	User string `json:"user" validate:"required"`
 }
 
 type SKSNodepoolPublicIPAssignment string
@@ -3666,8 +4317,8 @@ type SKSNodepool struct {
 	// Compute instance type
 	InstanceType *InstanceType `json:"instance-type,omitempty"`
 	// Kubelet image GC options
-	KubeletImageGC *KubeletImageGC `json:"kubelet-image-gc,omitempty"`
-	Labels         Labels          `json:"labels,omitempty"`
+	KubeletImageGC *KubeletImageGC   `json:"kubelet-image-gc,omitempty"`
+	Labels         SKSNodepoolLabels `json:"labels,omitempty"`
 	// Nodepool name
 	Name string `json:"name,omitempty" validate:"omitempty,gte=1,lte=255"`
 	// Nodepool Private Networks
@@ -3688,6 +4339,8 @@ type SKSNodepool struct {
 	// Nodepool version
 	Version string `json:"version,omitempty"`
 }
+
+type SKSNodepoolLabels map[string]string
 
 type SKSNodepoolTaintEffect string
 
@@ -3747,6 +4400,8 @@ const (
 
 // Snapshot
 type Snapshot struct {
+	// Indicates whether the snapshot was taken using an application-consistent method
+	ApplicationConsistent *bool `json:"application-consistent,omitempty"`
 	// Snapshot creation date
 	CreatedAT time.Time `json:"created-at,omitempty"`
 	// Exported snapshot information
@@ -3869,4 +4524,5 @@ const (
 	ZoneNameDEFra1 ZoneName = "de-fra-1"
 	ZoneNameBGSof1 ZoneName = "bg-sof-1"
 	ZoneNameATVie2 ZoneName = "at-vie-2"
+	ZoneNameHrZag1 ZoneName = "hr-zag-1"
 )
