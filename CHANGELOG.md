@@ -12,6 +12,7 @@
 * chore(deps): update dependency go to v1.25.4 (#121)
 * chore(deps): update actions/checkout action to v6 (#123)
 * Bump Kubernetes SDK v0.33 (#124)
+* Bump alpine to 3.22 (#124)
 
 ## v0.32.0
 
