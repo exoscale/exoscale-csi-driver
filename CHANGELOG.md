@@ -4,11 +4,13 @@
 
 ### Improvements
 
+* chore(deps): update docker/login-action digest to 28fdb31 (#86)
 * fix(deps): update module github.com/exoscale/egoscale/v3 to v3.1.31 (#94)
 * fix(deps): update module google.golang.org/grpc to v1.77.0 (#112)
 * fix(deps): update module golang.org/x/sys to v0.38.0 (#111)
 * fix(deps): update module github.com/container-storage-interface/spec to v1.12.0 (#114)
 * chore(deps): update dependency go to v1.25.4 (#121)
+* chore(deps): update actions/checkout action to v6 (#123)
 * Bump Kubernetes SDK v0.33 (#124)
 
 ## v0.32.0
