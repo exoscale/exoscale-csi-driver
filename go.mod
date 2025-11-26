@@ -3,7 +3,7 @@ module github.com/exoscale/exoscale-csi-driver
 go 1.25.4
 
 require (
-	github.com/container-storage-interface/spec v1.11.0
+	github.com/container-storage-interface/spec v1.12.0
 	github.com/exoscale/egoscale/v3 v3.1.31
 	github.com/golang/protobuf v1.5.4
 	github.com/stretchr/testify v1.11.1
