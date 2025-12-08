@@ -79,14 +79,12 @@ func NewDriver(config *DriverConfig) (*Driver, error) {
 		config: config,
 	}
 
-	var client *v3.Client
+	clientOpts := []v3.ClientOpt{v3.ClientOptWithUserAgent(fmt.Sprintf("exoscale-csi-driver/%s/%s", buildinfo.Version, buildinfo.GitCommit))}
 	if config.ZoneEndpoint != "" {
-		client, err = v3.NewClient(config.Credentials,
-			v3.ClientOptWithEndpoint(config.ZoneEndpoint),
-		)
-	} else {
-		client, err = v3.NewClient(config.Credentials)
+		clientOpts = append(clientOpts, v3.ClientOptWithEndpoint(config.ZoneEndpoint))
 	}
+
+	client, err := v3.NewClient(config.Credentials, clientOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("new driver: %w", err)
 	}
