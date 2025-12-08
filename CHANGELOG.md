@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Improvements
+*  chores: set user-agent with build version and commit #129
+
 ## v0.33.0
 
 ### Improvements
