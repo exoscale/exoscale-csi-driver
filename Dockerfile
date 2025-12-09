@@ -2,7 +2,7 @@
 # To avoid having to maintain and use two different Dockerfiles(one for local development and one for releasing) we follow the GoReleaser approach for local development as well.
 # Please build your image using `make docker` instead of a direct docker command.
 
-FROM alpine:3.22
+FROM alpine:3.23
 
 RUN apk update
 RUN apk add --no-cache \
