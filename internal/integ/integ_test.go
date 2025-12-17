@@ -1,6 +1,7 @@
 package integ
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log/slog"
@@ -10,10 +11,12 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	v3 "github.com/exoscale/egoscale/v3"
 	"github.com/exoscale/exoscale/csi-driver/internal/integ/cluster"
@@ -454,5 +457,116 @@ func getSnapshotCRDResource() schema.GroupVersionResource {
 		Group:    "snapshot.storage.k8s.io",
 		Version:  "v1",
 		Resource: "volumesnapshots",
+	}
+}
+
+func TestDrainNode(t *testing.T) {
+	testName := "drain-node"
+	ns := k8s.CreateTestNamespace(t, cluster.Get().K8s, testName)
+
+	pvcName := generatePVCName(testName)
+	ns.ApplyPVC(pvcName, "1Gi", false)
+	ns.Apply(fmt.Sprintf(basicDeployment, pvcName))
+
+	pvcClient := ns.K.ClientSet.CoreV1().PersistentVolumeClaims(ns.Name)
+
+	awaitExpectation(t, corev1.ClaimBound, func() corev1.PersistentVolumeClaimPhase {
+		pvc, err := pvcClient.Get(ns.CTX, pvcName, metav1.GetOptions{})
+		assert.NoError(t, err)
+
+		return pvc.Status.Phase
+	})
+
+	awaitExpectation(t, "Running", func() any {
+		pods, err := ns.K.ClientSet.CoreV1().Pods(ns.Name).List(ns.CTX, metav1.ListOptions{})
+		require.NoError(t, err)
+
+		if len(pods.Items) < 1 {
+			return nil
+		}
+
+		return pods.Items[0].Status.Phase
+	})
+
+	// find the node our pod is on
+	pods, err := ns.K.ClientSet.CoreV1().Pods(ns.Name).List(ns.CTX, metav1.ListOptions{})
+	require.NoError(t, err)
+	require.NotEmpty(t, pods.Items)
+	nodeName := pods.Items[0].Spec.NodeName
+
+	// Taint the node with the cluster autoscaler taint
+	taintKey := "ToBeDeletedByClusterAutoscaler"
+	addTaint(t, ns.K.ClientSet.CoreV1().Nodes(), nodeName, taintKey)
+	t.Cleanup(func() {
+		removeTaint(t, ns.K.ClientSet.CoreV1().Nodes(), nodeName, taintKey)
+	})
+
+	awaitExpectation(t, 0, func() any {
+		attachments, err := ns.K.ClientSet.StorageV1().VolumeAttachments().List(t.Context(), metav1.ListOptions{})
+		require.NoError(t, err)
+
+		if len(attachments.Items) == 0 {
+			return 0
+		}
+		count := 0
+		for _, attachment := range attachments.Items {
+			if attachment.Spec.NodeName == nodeName {
+				count++
+			}
+		}
+		return count
+	})
+}
+
+func hasTaint(t *testing.T, node *corev1.Node, taintKey string) bool {
+	t.Helper()
+	for _, taint := range node.Spec.Taints {
+		if taint.Key == taintKey {
+			return true
+		}
+	}
+	return false
+}
+
+func addTaint(t *testing.T, client v1.NodeInterface, nodeName string, taintKey string) {
+	t.Helper()
+	node, err := client.Get(t.Context(), nodeName, metav1.GetOptions{})
+	require.NoError(t, err)
+	if hasTaint(t, node, taintKey) {
+		return
+	}
+	node.Spec.Taints = append(node.Spec.Taints, corev1.Taint{
+		Key:    taintKey,
+		Value:  fmt.Sprint(time.Now().Unix()),
+		Effect: "NoExecute",
+	})
+	// TODO: if there's a conflict on the node we need to retry this
+	// Should not happen in our test cluster, but leaving a note if this test ends up being flaky
+	_, err = client.Update(t.Context(), node, metav1.UpdateOptions{})
+	require.NoError(t, err)
+}
+
+func removeTaint(t *testing.T, client v1.NodeInterface, nodeName string, taintKey string) {
+	t.Helper()
+	// We want to clean up even if the test context expired
+	node, err := client.Get(context.Background(), nodeName, metav1.GetOptions{})
+	if err != nil {
+		t.Log("failed to obtain node to remove taint from node", nodeName, err)
+		return
+	}
+	for i, taint := range node.Spec.Taints {
+		if taint.Key == taintKey {
+			if i+1 == len(node.Spec.Taints) {
+				node.Spec.Taints = node.Spec.Taints[:i]
+			} else {
+				node.Spec.Taints = append(node.Spec.Taints[:i], node.Spec.Taints[i+1:]...)
+			}
+		}
+	}
+	// We always want to execute this, even if the test context has expired!
+	// TODO: if there's a conflict on the node we need to retry this
+	// Should not happen in our test cluster, but leaving a note if this test ends up being flaky
+	if _, err := client.Update(context.Background(), node, metav1.UpdateOptions{}); err != nil {
+		t.Log("failed to remove taint from node", nodeName, err)
 	}
 }

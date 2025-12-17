@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+* feat(node): add preStop hook #132
 
 ### Improvements
 *  chores: set user-agent with build version and commit #129

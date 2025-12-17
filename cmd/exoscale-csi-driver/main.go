@@ -10,6 +10,10 @@ import (
 	"github.com/exoscale/exoscale-csi-driver/cmd/exoscale-csi-driver/buildinfo"
 	"github.com/exoscale/exoscale-csi-driver/driver"
 
+	"github.com/kubernetes-sigs/aws-ebs-csi-driver/cmd/hooks"
+
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 )
 
@@ -42,6 +46,20 @@ func main() {
 		os.Exit(0)
 	}
 
+	// Handle pre-stop-hook
+	if len(os.Args) > 1 && os.Args[1] == "pre-stop-hook" {
+		clientset, err := inClusterClient()
+		if err != nil {
+			klog.ErrorS(err, "unable to communicate with k8s API")
+			klog.FlushAndExit(klog.ExitFlushTimeout, 1)
+		}
+		if err := hooks.PreStop(clientset); err != nil {
+			klog.ErrorS(err, "failed to execute PreStop lifecycle hook")
+			klog.FlushAndExit(klog.ExitFlushTimeout, 1)
+		}
+		klog.FlushAndExit(klog.ExitFlushTimeout, 0)
+	}
+
 	// Mostly for internal use.
 	apiEndpoint := os.Getenv("EXOSCALE_API_ENDPOINT")
 
@@ -65,4 +83,17 @@ func main() {
 	}
 
 	klog.Info("Run OK")
+}
+
+func inClusterClient() (*kubernetes.Clientset, error) {
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to obtain in cluster config: %w", err)
+	}
+	// creates the clientset
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create k8s api client: %w", err)
+	}
+	return clientset, nil
 }
