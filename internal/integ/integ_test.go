@@ -69,9 +69,11 @@ func generatePVCName(testName string) string {
 }
 
 func awaitExpectation[T any](t *testing.T, expected T, get func() T) {
+	t.Helper()
+
 	var actual T
 
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		var err error = nil
 
 		actual = func() T {
@@ -105,9 +107,9 @@ func TestVolumeCreation(t *testing.T) {
 	pvcName := generatePVCName(testName)
 	ns.ApplyPVC(pvcName, "1Gi", false)
 
-	awaitExpectation(t, "Bound", func() interface{} {
+	awaitExpectation(t, "Bound", func() any {
 		pvc, err := ns.K.ClientSet.CoreV1().PersistentVolumeClaims(ns.Name).Get(ns.CTX, pvcName, metav1.GetOptions{})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		return pvc.Status.Phase
 	})
@@ -148,16 +150,16 @@ func TestVolumeAttach(t *testing.T) {
 	ns.ApplyPVC(pvcName, "1Gi", false)
 	ns.Apply(fmt.Sprintf(basicDeployment, pvcName))
 
-	awaitExpectation(t, "Bound", func() interface{} {
+	awaitExpectation(t, "Bound", func() any {
 		pvc, err := ns.K.ClientSet.CoreV1().PersistentVolumeClaims(ns.Name).Get(ns.CTX, pvcName, metav1.GetOptions{})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		return pvc.Status.Phase
 	})
 
-	awaitExpectation(t, "Running", func() interface{} {
+	awaitExpectation(t, "Running", func() any {
 		pods, err := ns.K.ClientSet.CoreV1().Pods(ns.Name).List(ns.CTX, metav1.ListOptions{})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		if len(pods.Items) < 1 {
 			return nil
@@ -172,7 +174,7 @@ func TestDeleteVolume(t *testing.T) {
 	ns := k8s.CreateTestNamespace(t, cluster.Get().K8s, testName)
 
 	egoClient, err := util.CreateEgoscaleClient(ns.CTX, v3.ZoneName(*flags.Zone))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	testFunc := func(useRetainStorageClass bool) func(t *testing.T) {
 		return func(t *testing.T) {
@@ -188,7 +190,7 @@ func TestDeleteVolume(t *testing.T) {
 
 			getPVC := func() *corev1.PersistentVolumeClaim {
 				pvc, err := pvcClient.Get(ns.CTX, pvcName, metav1.GetOptions{})
-				assert.NoError(t, err)
+				require.NoError(t, err)
 
 				return pvc
 			}
@@ -204,11 +206,11 @@ func TestDeleteVolume(t *testing.T) {
 			pvName := getPVC().Spec.VolumeName
 
 			err = pvcClient.Delete(ns.CTX, pvcName, metav1.DeleteOptions{})
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			awaitExpectation(t, 0, func() int {
 				pvcs, err := pvcClient.List(ns.CTX, metav1.ListOptions{})
-				assert.NoError(t, err)
+				require.NoError(t, err)
 
 				return len(pvcs.Items)
 			})
@@ -221,7 +223,7 @@ func TestDeleteVolume(t *testing.T) {
 				t.Cleanup(func() {
 					// delete the retained volume after the test
 					bsVolList, err := egoClient.ListBlockStorageVolumes(ns.CTX)
-					assert.NoError(t, err)
+					require.NoError(t, err)
 
 					bsVol, err := bsVolList.FindBlockStorageVolume(pvName)
 					if err == nil {
@@ -239,7 +241,7 @@ func TestDeleteVolume(t *testing.T) {
 
 			awaitExpectation(t, expectedVolumeName, func() string {
 				bsVolList, err := egoClient.ListBlockStorageVolumes(ns.CTX)
-				assert.NoError(t, err)
+				require.NoError(t, err)
 
 				bsVol, _ := bsVolList.FindBlockStorageVolume(pvName)
 				return bsVol.Name
@@ -256,14 +258,14 @@ func TestDeleteVolumeNotFound(t *testing.T) {
 	ns := k8s.CreateTestNamespace(t, cluster.Get().K8s, testName)
 
 	egoClient, err := util.CreateEgoscaleClient(ns.CTX, v3.ZoneName(*flags.Zone))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	pvcName := generatePVCName(testName)
 	ns.ApplyPVC(pvcName, "1Gi", false)
 	pvcClient := ns.K.ClientSet.CoreV1().PersistentVolumeClaims(ns.Name)
 	getPVC := func() *corev1.PersistentVolumeClaim {
 		pvc, err := pvcClient.Get(ns.CTX, pvcName, metav1.GetOptions{})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		return pvc
 	}
@@ -275,27 +277,27 @@ func TestDeleteVolumeNotFound(t *testing.T) {
 	})
 
 	pvc := getPVC()
-	assert.NotNil(t, pvc)
+	require.NotNil(t, pvc)
 	pvName := getPVC().Spec.VolumeName
 
 	bsVolList, err := egoClient.ListBlockStorageVolumes(ns.CTX)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	bsVol, err := bsVolList.FindBlockStorageVolume(pvName)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	op, err := egoClient.DeleteBlockStorageVolume(ns.CTX, bsVol.ID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	_, err = egoClient.Wait(ns.CTX, op, v3.OperationStateSuccess)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	err = pvcClient.Delete(ns.CTX, pvcName, metav1.DeleteOptions{})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	awaitExpectation(t, 0, func() int {
 		pvcs, err := pvcClient.List(ns.CTX, metav1.ListOptions{})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		return len(pvcs.Items)
 	})
@@ -312,9 +314,9 @@ func TestVolumeExpand(t *testing.T) {
 	ns.ApplyPVC(pvcName, "1Gi", false)
 	ns.Apply(fmt.Sprintf(basicDeployment, pvcName))
 
-	awaitExpectation(t, "Bound", func() interface{} {
+	awaitExpectation(t, "Bound", func() any {
 		pvc, err := ns.K.ClientSet.CoreV1().PersistentVolumeClaims(ns.Name).Get(ns.CTX, pvcName, metav1.GetOptions{})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		return pvc.Status.Phase
 	})
 
@@ -323,9 +325,9 @@ func TestVolumeExpand(t *testing.T) {
 	// allowing the CSI to unmount and detach the volume from the node.
 	ns.Delete(fmt.Sprintf(basicDeployment, pvcName))
 
-	awaitExpectation(t, 0, func() interface{} {
+	awaitExpectation(t, 0, func() any {
 		pods, err := ns.K.ClientSet.CoreV1().Pods(ns.Name).List(ns.CTX, metav1.ListOptions{})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		return len(pods.Items)
 	})
@@ -337,15 +339,15 @@ func TestVolumeExpand(t *testing.T) {
 		[]byte(`{"spec":{"resources":{"requests":{"storage":"5Gi"}}}}`),
 		metav1.PatchOptions{},
 	)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Re-apply deployment after block storage resize.
 	// CSI will resize volume filesystem on applying
 	ns.Apply(fmt.Sprintf(basicDeployment, pvcName))
 
-	awaitExpectation(t, 0, func() interface{} {
+	awaitExpectation(t, 0, func() any {
 		pvc, err := ns.K.ClientSet.CoreV1().PersistentVolumeClaims(ns.Name).Get(ns.CTX, pvcName, metav1.GetOptions{})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		return pvc.Status.Capacity.Storage().CmpInt64(5 * 1024 * 1024 * 1024)
 	})
@@ -392,7 +394,7 @@ func TestSnapshot(t *testing.T) {
 
 	awaitExpectation(t, corev1.ClaimBound, func() corev1.PersistentVolumeClaimPhase {
 		pvc, err := pvcClient.Get(ns.CTX, pvcName, metav1.GetOptions{})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		return pvc.Status.Phase
 	})
@@ -408,7 +410,7 @@ func TestSnapshot(t *testing.T) {
 			return false
 		}
 
-		status, ok := crdInstance.Object["status"].(map[string]interface{})
+		status, ok := crdInstance.Object["status"].(map[string]any)
 		if !ok {
 			return false
 		}
@@ -431,18 +433,18 @@ func TestSnapshot(t *testing.T) {
 
 	awaitExpectation(t, corev1.ClaimBound, func() corev1.PersistentVolumeClaimPhase {
 		pvc, err := pvcClient.Get(ns.CTX, "my-snap-1-pvc", metav1.GetOptions{})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		return pvc.Status.Phase
 	})
 
 	// delete snapshot
 	err := snapshotClient.Delete(ns.CTX, "my-snap-1", metav1.DeleteOptions{})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	awaitExpectation(t, 0, func() int {
 		snapshots, err := snapshotClient.List(ns.CTX, metav1.ListOptions{})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		if err != nil {
 			return 0
@@ -472,7 +474,7 @@ func TestDrainNode(t *testing.T) {
 
 	awaitExpectation(t, corev1.ClaimBound, func() corev1.PersistentVolumeClaimPhase {
 		pvc, err := pvcClient.Get(ns.CTX, pvcName, metav1.GetOptions{})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		return pvc.Status.Phase
 	})
