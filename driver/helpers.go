@@ -108,21 +108,26 @@ func getRequiredZone(requirements *csi.TopologyRequirement, defaultZone v3.ZoneN
 		return defaultZone, nil
 	}
 
-	// Since volume can only be handle by one zone
-	// and volumes/nodes are announced with only one zone accessible topology,
-	// TopologyRequirement will always ask for one zone at a time.
-
-	if len(requirements.GetRequisite()) != 1 {
-		return "", fmt.Errorf("topology requisite must always be equal to one zone")
+	requisites := requirements.GetRequisite()
+	topology := &csi.Topology{}
+	switch len(requisites) {
+	case 0:
+		return "", fmt.Errorf("topology requisite cannot be empty")
+	case 1:
+		topology = requirements.GetRequisite()[0]
+	default:
+		if len(requirements.GetPreferred()) == 0 {
+			return "", fmt.Errorf("topology preferred cannot be empty when multiple requisites are provided")
+		}
+		//spec: The topology of that selected node will then be set as the first entry in CreateVolumeRequest.accessibility_requirements.preferred.
+		topology = requirements.GetPreferred()[0]
 	}
 
-	required := requirements.GetRequisite()[0]
-
-	if len(required.Segments) != 1 {
-		return "", fmt.Errorf("topology requisite segments must always be equal to one zone")
+	if len(topology.Segments) != 1 {
+		return "", fmt.Errorf("topology segments must always be equal to one zone")
 	}
 
-	zone, ok := required.Segments[ZoneTopologyKey]
+	zone, ok := topology.Segments[ZoneTopologyKey]
 	if !ok {
 		return "", fmt.Errorf("zone topology key %s not found", ZoneTopologyKey)
 	}
