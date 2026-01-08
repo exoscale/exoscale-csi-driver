@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.33.1
 * feat(node): add preStop hook #132
 
 ### Improvements
