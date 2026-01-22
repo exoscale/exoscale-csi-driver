@@ -53,8 +53,8 @@ github.com/elliotwutingfeng/asciiset v0.0.0-20230602022725-51bbb787efab h1:h1Ugj
 github.com/elliotwutingfeng/asciiset v0.0.0-20230602022725-51bbb787efab/go.mod h1:GLo/8fDswSAniFG+BFIaiSPcK610jyzgEhWYPQwuQdw=
 github.com/emicklei/go-restful/v3 v3.13.0 h1:C4Bl2xDndpU6nJ4bc1jXd+uTmYPVUwkD6bFY/oTyCes=
 github.com/emicklei/go-restful/v3 v3.13.0/go.mod h1:6n3XBCmQQb25CM2LCACGz8ukIrRry+4bhvbpWn3mrbc=
-github.com/exoscale/egoscale/v3 v3.1.31 h1:/dySEUSAxU+hlAS/eLxAoY8ZYmtOtaoL1P+lDwH7ojY=
-github.com/exoscale/egoscale/v3 v3.1.31/go.mod h1:0iY8OxgHJCS5TKqDNhwOW95JBKCnBZl3YGU4Yt+NqkU=
+github.com/exoscale/egoscale/v3 v3.1.33 h1:5Lk/pwZ+K0sjNu9obS0VYPfhZQffRkvvO0BpdPoir4o=
+github.com/exoscale/egoscale/v3 v3.1.33/go.mod h1:0iY8OxgHJCS5TKqDNhwOW95JBKCnBZl3YGU4Yt+NqkU=
 github.com/fatih/color v1.16.0 h1:zmkK9Ngbjj+K0yRhTVONQh1p/HknKYSlNT+vZCzyokM=
 github.com/fatih/color v1.16.0/go.mod h1:fL2Sau1YI5c0pdGEVCbKQbLXB6edEj1ZgiY4NijnWvE=
 github.com/frankban/quicktest v1.14.6 h1:7Xjx+VpznH+oBnejlPUj8oUpdxnVs4f8XU8WnHkI4W8=
