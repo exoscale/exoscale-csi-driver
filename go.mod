@@ -8,7 +8,7 @@ require (
 	github.com/golang/protobuf v1.5.4
 	github.com/kubernetes-sigs/aws-ebs-csi-driver v1.53.0
 	github.com/stretchr/testify v1.11.1
-	golang.org/x/sys v0.39.0
+	golang.org/x/sys v0.41.0
 	google.golang.org/grpc v1.77.0
 	google.golang.org/protobuf v1.36.11
 	k8s.io/client-go v0.34.3
