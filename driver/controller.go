@@ -425,10 +425,6 @@ func (d *controllerService) ListVolumes(ctx context.Context, req *csi.ListVolume
 
 		volumesResp, err := client.ListBlockStorageVolumes(ctx)
 		if err != nil {
-			// TODO: remove it when Block Storage is available in all zone.
-			if strings.Contains(err.Error(), "Availability of the block storage volumes") {
-				continue
-			}
 			klog.Errorf("list block storage volumes: %v", err)
 			return nil, err
 		}
@@ -633,10 +629,6 @@ func (d *controllerService) ListSnapshots(ctx context.Context, req *csi.ListSnap
 
 		snapResp, err := client.ListBlockStorageSnapshots(ctx)
 		if err != nil {
-			// TODO: remove it when Block Storage is available in all zone.
-			if strings.Contains(err.Error(), "Availability of the block storage volumes") {
-				continue
-			}
 			klog.Errorf("list block storage snapshot: %v", err)
 			return nil, err
 		}
