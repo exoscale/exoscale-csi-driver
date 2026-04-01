@@ -201,8 +201,7 @@ type nodeMetadata struct {
 }
 
 func getExoscaleNodeMetadataFromCCM() (*nodeMetadata, error) {
-	podName := os.Getenv("POD_NAME")
-	namespace := os.Getenv("POD_NAMESPACE")
+	nodeName := os.Getenv("CSI_NODE_NAME")
 	restConfig, err := rest.InClusterConfig()
 	if err != nil {
 		return nil, err
@@ -211,12 +210,6 @@ func getExoscaleNodeMetadataFromCCM() (*nodeMetadata, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	pod, err := clientset.CoreV1().Pods(namespace).Get(context.Background(), podName, metav1.GetOptions{})
-	if err != nil {
-		return nil, fmt.Errorf("failed to get pods: %w", err)
-	}
-	nodeName := pod.Spec.NodeName
 
 	node, err := clientset.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
 	if err != nil {
