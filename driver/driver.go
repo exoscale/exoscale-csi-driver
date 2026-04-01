@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"path"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -19,6 +20,8 @@ import (
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"google.golang.org/grpc"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 )
@@ -49,6 +52,7 @@ type DriverConfig struct {
 	Credentials  *credentials.Credentials
 	RestConfig   *rest.Config
 	ZoneEndpoint v3.Endpoint
+	ZoneScope    []v3.ZoneName
 }
 
 // Driver implements the interfaces csi.IdentityServer, csi.ControllerServer and csi.NodeServer
@@ -64,14 +68,19 @@ type Driver struct {
 // NewDriver returns a CSI plugin
 func NewDriver(config *DriverConfig) (*Driver, error) {
 	klog.Infof("driver: %s version: %s", DriverName, buildinfo.Version)
-	nodeMeta, err := getExoscaleNodeMetadataFromCdRom()
+	nodeMeta, err := getExoscaleNodeMetadataFromCCM()
 	if err != nil {
-		klog.Warningf("error to get exoscale node metadata from CD-ROM: %v", err)
-		klog.Info("fallback on server metadata")
-		nodeMeta, err = getExoscaleNodeMetadataFromServer()
+		klog.Warningf("error to get exoscale node metadata from K8S Node: %v", err)
+		klog.Info("fallback on CD-ROM")
+		nodeMeta, err = getExoscaleNodeMetadataFromCdRom()
 		if err != nil {
-			klog.Errorf("error to get exoscale node metadata from server: %v", err)
-			return nil, fmt.Errorf("new driver get metadata: %w", err)
+			klog.Warningf("error to get exoscale node metadata from CD-ROM: %v", err)
+			klog.Info("fallback on server metadata")
+			nodeMeta, err = getExoscaleNodeMetadataFromServer()
+			if err != nil {
+				klog.Errorf("error to get exoscale node metadata from server: %v", err)
+				return nil, fmt.Errorf("new driver get metadata: %w", err)
+			}
 		}
 	}
 
@@ -98,11 +107,11 @@ func NewDriver(config *DriverConfig) (*Driver, error) {
 
 	switch config.Mode {
 	case ControllerMode:
-		driver.controllerService = newControllerService(client, nodeMeta)
+		driver.controllerService = newControllerService(client, nodeMeta, config.ZoneScope)
 	case NodeMode:
 		driver.nodeService = newNodeService(client, nodeMeta)
 	case AllMode:
-		driver.controllerService = newControllerService(client, nodeMeta)
+		driver.controllerService = newControllerService(client, nodeMeta, config.ZoneScope)
 		driver.nodeService = newNodeService(client, nodeMeta)
 	default:
 		return nil, fmt.Errorf("unknown mode for driver: %s", config.Mode)
@@ -189,6 +198,49 @@ func (d *Driver) Run() error {
 type nodeMetadata struct {
 	zoneName   v3.ZoneName
 	InstanceID v3.UUID
+}
+
+func getExoscaleNodeMetadataFromCCM() (*nodeMetadata, error) {
+	podName := os.Getenv("POD_NAME")
+	namespace := os.Getenv("POD_NAMESPACE")
+	restConfig, err := rest.InClusterConfig()
+	if err != nil {
+		return nil, err
+	}
+	clientset, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	pod, err := clientset.CoreV1().Pods(namespace).Get(context.Background(), podName, metav1.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get pods: %w", err)
+	}
+	nodeName := pod.Spec.NodeName
+
+	node, err := clientset.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get nodes: %w", err)
+	}
+
+	region, ok := node.Labels["topology.kubernetes.io/region"]
+	if !ok {
+		return nil, fmt.Errorf("no zone found on node, missing Exoscale CCM")
+	}
+
+	if !strings.HasPrefix(node.Spec.ProviderID, "exoscale://") {
+		return nil, fmt.Errorf("no Instance ID found on node, missing Exoscale CCM")
+	}
+
+	instanceID, err := v3.ParseUUID(node.Spec.ProviderID[len("exoscale://"):])
+	if err != nil {
+		return nil, fmt.Errorf("node meta data Instance ID %s: %w", node.Spec.ProviderID, err)
+	}
+
+	return &nodeMetadata{
+		zoneName:   v3.ZoneName(region),
+		InstanceID: instanceID,
+	}, nil
 }
 
 func getExoscaleNodeMetadataFromServer() (*nodeMetadata, error) {
