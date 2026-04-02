@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -79,16 +80,18 @@ const (
 )
 
 type controllerService struct {
-	client   *v3.Client
-	zoneName v3.ZoneName
+	client    *v3.Client
+	zoneName  v3.ZoneName
+	zoneScope []v3.ZoneName // limit the scope of zones when listing volumes / snapshots
 
 	csi.UnimplementedControllerServer
 }
 
-func newControllerService(client *v3.Client, nodeMeta *nodeMetadata) controllerService {
+func newControllerService(client *v3.Client, nodeMeta *nodeMetadata, zoneScope []v3.ZoneName) controllerService {
 	return controllerService{
-		client:   client,
-		zoneName: nodeMeta.zoneName,
+		client:    client,
+		zoneName:  nodeMeta.zoneName,
+		zoneScope: zoneScope,
 	}
 }
 
@@ -421,6 +424,11 @@ func (d *controllerService) ListVolumes(ctx context.Context, req *csi.ListVolume
 
 	volumesEntries := []*csi.ListVolumesResponse_Entry{}
 	for _, zone := range zones.Zones {
+		if len(d.zoneScope) > 0 && slices.Index(d.zoneScope, zone.Name) < 0 {
+			klog.V(4).Infof("Skipping volumes in excluded zone %q", zone.Name)
+			continue
+		}
+
 		client := d.client.WithEndpoint(zone.APIEndpoint)
 
 		volumesResp, err := client.ListBlockStorageVolumes(ctx)
@@ -625,6 +633,11 @@ func (d *controllerService) ListSnapshots(ctx context.Context, req *csi.ListSnap
 
 	snapshotsEntries := []*csi.ListSnapshotsResponse_Entry{}
 	for _, zone := range zones.Zones {
+		if len(d.zoneScope) > 0 && slices.Index(d.zoneScope, zone.Name) < 0 {
+			klog.V(4).Infof("Skipping volume snapshots in excluded zone %q", zone.Name)
+			continue
+		}
+
 		client := d.client.WithEndpoint(zone.APIEndpoint)
 
 		snapResp, err := client.ListBlockStorageSnapshots(ctx)

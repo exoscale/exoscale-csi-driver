@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
 	v3 "github.com/exoscale/egoscale/v3"
 	"github.com/exoscale/egoscale/v3/credentials"
@@ -22,6 +23,7 @@ var (
 	prefix      = flag.String("prefix", "", "Prefix to add in block volume name")
 	versionFlag = flag.Bool("version", false, "Print the version and exit")
 	mode        = flag.String("mode", string(driver.AllMode), "The mode in which the CSI driver will be run (all, node, controller)")
+	zones       = flag.String("zones", "", "Subset of zones to watch (comma separated, by default CSI looks for volumes in all zones)")
 
 	// These are set during build time via -ldflags
 	version   string = "dirty"
@@ -63,12 +65,21 @@ func main() {
 	// Mostly for internal use.
 	apiEndpoint := os.Getenv("EXOSCALE_API_ENDPOINT")
 
+	var zoneScope []v3.ZoneName
+	if zones != nil && len(*zones) > 0 {
+		zonesSlice := strings.Split(*zones, ",")
+		for _, zoneName := range zonesSlice {
+			zoneScope = append(zoneScope, v3.ZoneName(zoneName))
+		}
+	}
+
 	exoDriver, err := driver.NewDriver(&driver.DriverConfig{
 		Endpoint:     *endpoint,
 		Mode:         driver.Mode(*mode),
 		Prefix:       *prefix,
 		Credentials:  credentials.NewEnvCredentials(),
 		ZoneEndpoint: v3.Endpoint(apiEndpoint),
+		ZoneScope:    zoneScope,
 	})
 	if err != nil {
 		klog.Error(err)
