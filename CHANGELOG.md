@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.33.2
 * feat: --zones scope and use CCM node metadata by default #143
 
 ## v0.33.1
