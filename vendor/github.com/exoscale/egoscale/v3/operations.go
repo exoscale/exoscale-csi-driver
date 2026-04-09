@@ -31,7 +31,7 @@ func (l ListDeploymentsResponse) FindListDeploymentsResponseEntry(nameOrID strin
 	return ListDeploymentsResponseEntry{}, fmt.Errorf("%q not found in ListDeploymentsResponse: %w", nameOrID, ErrNotFound)
 }
 
-// [BETA] List Deployments
+// List Deployments
 func (c Client) ListDeployments(ctx context.Context) (*ListDeploymentsResponse, error) {
 	path := "/ai/deployment"
 
@@ -126,7 +126,7 @@ func (c Client) CreateDeployment(ctx context.Context, req CreateDeploymentReques
 	return bodyresp, nil
 }
 
-// [BETA] Delete Deployment
+// Delete Deployment
 func (c Client) DeleteDeployment(ctx context.Context, id UUID) (*Operation, error) {
 	path := fmt.Sprintf("/ai/deployment/%v", id)
 
@@ -170,7 +170,7 @@ func (c Client) DeleteDeployment(ctx context.Context, id UUID) (*Operation, erro
 	return bodyresp, nil
 }
 
-// [BETA] Get Deployment
+// Get Deployment details
 func (c Client) GetDeployment(ctx context.Context, id UUID) (*GetDeploymentResponse, error) {
 	path := fmt.Sprintf("/ai/deployment/%v", id)
 
@@ -214,7 +214,58 @@ func (c Client) GetDeployment(ctx context.Context, id UUID) (*GetDeploymentRespo
 	return bodyresp, nil
 }
 
-// [BETA] Reveal Deployment API Key
+// Update AI deployment
+func (c Client) UpdateDeployment(ctx context.Context, id UUID, req UpdateDeploymentRequest) (*Operation, error) {
+	path := fmt.Sprintf("/ai/deployment/%v", id)
+
+	body, err := prepareJSONBody(req)
+	if err != nil {
+		return nil, fmt.Errorf("UpdateDeployment: prepare Json body: %w", err)
+	}
+
+	request, err := http.NewRequestWithContext(ctx, "PATCH", c.serverEndpoint+path, body)
+	if err != nil {
+		return nil, fmt.Errorf("UpdateDeployment: new request: %w", err)
+	}
+
+	request.Header.Add("User-Agent", c.getUserAgent())
+
+	request.Header.Add("Content-Type", "application/json")
+
+	if err := c.executeRequestInterceptors(ctx, request); err != nil {
+		return nil, fmt.Errorf("UpdateDeployment: execute request editors: %w", err)
+	}
+
+	if err := c.signRequest(request); err != nil {
+		return nil, fmt.Errorf("UpdateDeployment: sign request: %w", err)
+	}
+
+	if c.trace {
+		dumpRequest(request, "update-deployment")
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("UpdateDeployment: http client do: %w", err)
+	}
+
+	if c.trace {
+		dumpResponse(response)
+	}
+
+	if err := handleHTTPErrorResp(response); err != nil {
+		return nil, fmt.Errorf("UpdateDeployment: http response: %w", err)
+	}
+
+	bodyresp := new(Operation)
+	if err := prepareJSONResponse(response, bodyresp); err != nil {
+		return nil, fmt.Errorf("UpdateDeployment: prepare Json response: %w", err)
+	}
+
+	return bodyresp, nil
+}
+
+// Get Deployment API Key
 func (c Client) RevealDeploymentAPIKey(ctx context.Context, id UUID) (*RevealDeploymentAPIKeyResponse, error) {
 	path := fmt.Sprintf("/ai/deployment/%v/api-key", id)
 
@@ -258,8 +309,22 @@ func (c Client) RevealDeploymentAPIKey(ctx context.Context, id UUID) (*RevealDep
 	return bodyresp, nil
 }
 
+type GetDeploymentLogsOpt func(url.Values)
+
+func GetDeploymentLogsWithStream(stream bool) GetDeploymentLogsOpt {
+	return func(q url.Values) {
+		q.Add("stream", fmt.Sprint(stream))
+	}
+}
+
+func GetDeploymentLogsWithTail(tail int64) GetDeploymentLogsOpt {
+	return func(q url.Values) {
+		q.Add("tail", fmt.Sprint(tail))
+	}
+}
+
 // Return logs for the vLLM deployment (deploy/<release-name>--deployment-vllm). Optional ?stream=true to request streaming (may not be supported).
-func (c Client) GetDeploymentLogs(ctx context.Context, id UUID) (*GetDeploymentLogsResponse, error) {
+func (c Client) GetDeploymentLogs(ctx context.Context, id UUID, opts ...GetDeploymentLogsOpt) (*GetDeploymentLogsResponse, error) {
 	path := fmt.Sprintf("/ai/deployment/%v/logs", id)
 
 	request, err := http.NewRequestWithContext(ctx, "GET", c.serverEndpoint+path, nil)
@@ -268,6 +333,14 @@ func (c Client) GetDeploymentLogs(ctx context.Context, id UUID) (*GetDeploymentL
 	}
 
 	request.Header.Add("User-Agent", c.getUserAgent())
+
+	if len(opts) > 0 {
+		q := request.URL.Query()
+		for _, opt := range opts {
+			opt(q)
+		}
+		request.URL.RawQuery = q.Encode()
+	}
 
 	if err := c.executeRequestInterceptors(ctx, request); err != nil {
 		return nil, fmt.Errorf("GetDeploymentLogs: execute request editors: %w", err)
@@ -302,7 +375,7 @@ func (c Client) GetDeploymentLogs(ctx context.Context, id UUID) (*GetDeploymentL
 	return bodyresp, nil
 }
 
-// [BETA] Scale Deployment
+// Scale Deployment
 func (c Client) ScaleDeployment(ctx context.Context, id UUID, req ScaleDeploymentRequest) (*Operation, error) {
 	path := fmt.Sprintf("/ai/deployment/%v/scale", id)
 
@@ -353,8 +426,16 @@ func (c Client) ScaleDeployment(ctx context.Context, id UUID, req ScaleDeploymen
 	return bodyresp, nil
 }
 
-// Get list of allowed inference engine parameters with their descriptions, types, allowed values, and defaults
-func (c Client) GetInferenceEngineHelp(ctx context.Context) (*GetInferenceEngineHelpResponse, error) {
+type GetInferenceEngineHelpOpt func(url.Values)
+
+func GetInferenceEngineHelpWithVersion(version string) GetInferenceEngineHelpOpt {
+	return func(q url.Values) {
+		q.Add("version", fmt.Sprint(version))
+	}
+}
+
+// Get list of allowed inference engine parameters with their descriptions and allowed values
+func (c Client) GetInferenceEngineHelp(ctx context.Context, opts ...GetInferenceEngineHelpOpt) (*GetInferenceEngineHelpResponse, error) {
 	path := "/ai/help/inference-engine-parameters"
 
 	request, err := http.NewRequestWithContext(ctx, "GET", c.serverEndpoint+path, nil)
@@ -363,6 +444,14 @@ func (c Client) GetInferenceEngineHelp(ctx context.Context) (*GetInferenceEngine
 	}
 
 	request.Header.Add("User-Agent", c.getUserAgent())
+
+	if len(opts) > 0 {
+		q := request.URL.Query()
+		for _, opt := range opts {
+			opt(q)
+		}
+		request.URL.RawQuery = q.Encode()
+	}
 
 	if err := c.executeRequestInterceptors(ctx, request); err != nil {
 		return nil, fmt.Errorf("GetInferenceEngineHelp: execute request editors: %w", err)
@@ -397,6 +486,50 @@ func (c Client) GetInferenceEngineHelp(ctx context.Context) (*GetInferenceEngine
 	return bodyresp, nil
 }
 
+// List available instance types with authorization status based on GPU availability
+func (c Client) ListAIInstanceTypes(ctx context.Context) (*ListAIInstanceTypesResponse, error) {
+	path := "/ai/instance-type"
+
+	request, err := http.NewRequestWithContext(ctx, "GET", c.serverEndpoint+path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("ListAIInstanceTypes: new request: %w", err)
+	}
+
+	request.Header.Add("User-Agent", c.getUserAgent())
+
+	if err := c.executeRequestInterceptors(ctx, request); err != nil {
+		return nil, fmt.Errorf("ListAIInstanceTypes: execute request editors: %w", err)
+	}
+
+	if err := c.signRequest(request); err != nil {
+		return nil, fmt.Errorf("ListAIInstanceTypes: sign request: %w", err)
+	}
+
+	if c.trace {
+		dumpRequest(request, "list-ai-instance-types")
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("ListAIInstanceTypes: http client do: %w", err)
+	}
+
+	if c.trace {
+		dumpResponse(response)
+	}
+
+	if err := handleHTTPErrorResp(response); err != nil {
+		return nil, fmt.Errorf("ListAIInstanceTypes: http response: %w", err)
+	}
+
+	bodyresp := new(ListAIInstanceTypesResponse)
+	if err := prepareJSONResponse(response, bodyresp); err != nil {
+		return nil, fmt.Errorf("ListAIInstanceTypes: prepare Json response: %w", err)
+	}
+
+	return bodyresp, nil
+}
+
 // FindListModelsResponseEntry attempts to find an ListModelsResponseEntry by nameOrID.
 func (l ListModelsResponse) FindListModelsResponseEntry(nameOrID string) (ListModelsResponseEntry, error) {
 	var result []ListModelsResponseEntry
@@ -416,7 +549,7 @@ func (l ListModelsResponse) FindListModelsResponseEntry(nameOrID string) (ListMo
 	return ListModelsResponseEntry{}, fmt.Errorf("%q not found in ListModelsResponse: %w", nameOrID, ErrNotFound)
 }
 
-// [BETA] List Models
+// List Models
 func (c Client) ListModels(ctx context.Context) (*ListModelsResponse, error) {
 	path := "/ai/model"
 
@@ -513,7 +646,7 @@ func (c Client) CreateModel(ctx context.Context, req CreateModelRequest) (*Opera
 	return bodyresp, nil
 }
 
-// [BETA] Delete Model
+// Delete Model
 func (c Client) DeleteModel(ctx context.Context, id UUID) (*Operation, error) {
 	path := fmt.Sprintf("/ai/model/%v", id)
 
@@ -557,7 +690,7 @@ func (c Client) DeleteModel(ctx context.Context, id UUID) (*Operation, error) {
 	return bodyresp, nil
 }
 
-// [BETA] Get Model
+// Get Model details
 func (c Client) GetModel(ctx context.Context, id UUID) (*GetModelResponse, error) {
 	path := fmt.Sprintf("/ai/model/%v", id)
 
@@ -4928,7 +5061,6 @@ type CreateDBAASServiceMysqlRequestMigration struct {
 }
 
 type CreateDBAASServiceMysqlRequest struct {
-	// Custom password for admin user. Defaults to random string. This must be set only when a new service is being created.
 	AdminPassword string `json:"admin-password,omitempty" validate:"omitempty,gte=8,lte=256"`
 	// Custom username for admin user. This must be set only when a new service is being created.
 	AdminUsername  string                                        `json:"admin-username,omitempty" validate:"omitempty,gte=1,lte=64"`
@@ -10552,11 +10684,15 @@ func (c Client) ListIAMRoles(ctx context.Context) (*ListIAMRolesResponse, error)
 }
 
 type CreateIAMRoleRequest struct {
+	// Policy
+	AssumeRolePolicy *IAMPolicy `json:"assume-role-policy,omitempty"`
 	// IAM Role description
 	Description string `json:"description,omitempty" validate:"omitempty,gte=1,lte=255"`
 	// Sets if the IAM Role Policy is editable or not (default: true). This setting cannot be changed after creation
 	Editable *bool  `json:"editable,omitempty"`
 	Labels   Labels `json:"labels,omitempty"`
+	// Maximum TTL requester is allowed to ask for when assuming a role
+	MaxSessionTtl int64 `json:"max-session-ttl,omitempty" validate:"omitempty,gt=0"`
 	// IAM Role name
 	Name string `json:"name" validate:"required,gte=1,lte=191"`
 	// IAM Role permissions
@@ -10708,6 +10844,8 @@ type UpdateIAMRoleRequest struct {
 	// IAM Role description
 	Description string `json:"description,omitempty" validate:"omitempty,gte=1,lte=255"`
 	Labels      Labels `json:"labels,omitempty"`
+	// Maximum TTL requester is allowed to ask for when assuming a role
+	MaxSessionTtl int64 `json:"max-session-ttl,omitempty" validate:"omitempty,gt=0"`
 	// IAM Role permissions
 	Permissions []string `json:"permissions,omitempty"`
 }
@@ -10758,6 +10896,57 @@ func (c Client) UpdateIAMRole(ctx context.Context, id UUID, req UpdateIAMRoleReq
 	bodyresp := new(Operation)
 	if err := prepareJSONResponse(response, bodyresp); err != nil {
 		return nil, fmt.Errorf("UpdateIAMRole: prepare Json response: %w", err)
+	}
+
+	return bodyresp, nil
+}
+
+// Update IAM Assume role Policy
+func (c Client) UpdateIAMAssumeRolePolicy(ctx context.Context, id UUID, req IAMPolicy) (*Operation, error) {
+	path := fmt.Sprintf("/iam-role/%v:assume-role-policy", id)
+
+	body, err := prepareJSONBody(req)
+	if err != nil {
+		return nil, fmt.Errorf("UpdateIAMAssumeRolePolicy: prepare Json body: %w", err)
+	}
+
+	request, err := http.NewRequestWithContext(ctx, "PUT", c.serverEndpoint+path, body)
+	if err != nil {
+		return nil, fmt.Errorf("UpdateIAMAssumeRolePolicy: new request: %w", err)
+	}
+
+	request.Header.Add("User-Agent", c.getUserAgent())
+
+	request.Header.Add("Content-Type", "application/json")
+
+	if err := c.executeRequestInterceptors(ctx, request); err != nil {
+		return nil, fmt.Errorf("UpdateIAMAssumeRolePolicy: execute request editors: %w", err)
+	}
+
+	if err := c.signRequest(request); err != nil {
+		return nil, fmt.Errorf("UpdateIAMAssumeRolePolicy: sign request: %w", err)
+	}
+
+	if c.trace {
+		dumpRequest(request, "update-iam-assume-role-policy")
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("UpdateIAMAssumeRolePolicy: http client do: %w", err)
+	}
+
+	if c.trace {
+		dumpResponse(response)
+	}
+
+	if err := handleHTTPErrorResp(response); err != nil {
+		return nil, fmt.Errorf("UpdateIAMAssumeRolePolicy: http response: %w", err)
+	}
+
+	bodyresp := new(Operation)
+	if err := prepareJSONResponse(response, bodyresp); err != nil {
+		return nil, fmt.Errorf("UpdateIAMAssumeRolePolicy: prepare Json response: %w", err)
 	}
 
 	return bodyresp, nil
@@ -10963,11 +11152,11 @@ type CreateInstanceRequest struct {
 	ApplicationConsistentSnapshotEnabled *bool `json:"application-consistent-snapshot-enabled,omitempty"`
 	// Start Instance on creation (default: true)
 	AutoStart *bool `json:"auto-start,omitempty"`
-	// Deploy target
+	// Deploy target reference
 	DeployTarget *DeployTarget `json:"deploy-target,omitempty"`
 	// Instance disk size in GiB
 	DiskSize int64 `json:"disk-size" validate:"required,gte=10,lte=51200"`
-	// Compute instance type
+	// Instance type reference
 	InstanceType *InstanceType `json:"instance-type" validate:"required"`
 	// Enable IPv6. DEPRECATED: use `public-ip-assignments`.
 	Ipv6Enabled *bool  `json:"ipv6-enabled,omitempty"`
@@ -10979,11 +11168,11 @@ type CreateInstanceRequest struct {
 	SecurebootEnabled *bool `json:"secureboot-enabled,omitempty"`
 	// Instance Security Groups
 	SecurityGroups []SecurityGroup `json:"security-groups,omitempty"`
-	// SSH key
+	// SSH key reference
 	SSHKey *SSHKey `json:"ssh-key,omitempty"`
 	// Instance SSH Keys
 	SSHKeys []SSHKey `json:"ssh-keys,omitempty"`
-	// Instance template
+	// Template reference
 	Template *Template `json:"template" validate:"required"`
 	// Enable Trusted Platform Module (TPM)
 	TpmEnabled *bool `json:"tpm-enabled,omitempty"`
@@ -11122,7 +11311,7 @@ type CreateInstancePoolRequest struct {
 	AntiAffinityGroups []AntiAffinityGroup `json:"anti-affinity-groups,omitempty"`
 	// Enable application consistent snapshots
 	ApplicationConsistentSnapshotEnabled *bool `json:"application-consistent-snapshot-enabled,omitempty"`
-	// Deploy target
+	// Deploy target reference
 	DeployTarget *DeployTarget `json:"deploy-target,omitempty"`
 	// Instance Pool description
 	Description string `json:"description,omitempty" validate:"omitempty,lte=255"`
@@ -11132,7 +11321,7 @@ type CreateInstancePoolRequest struct {
 	ElasticIPS []ElasticIP `json:"elastic-ips,omitempty"`
 	// Prefix to apply to Instances names (default: pool)
 	InstancePrefix string `json:"instance-prefix,omitempty" validate:"omitempty,gte=1,lte=30"`
-	// Compute instance type
+	// Instance type reference
 	InstanceType *InstanceType `json:"instance-type" validate:"required"`
 	// Enable IPv6. DEPRECATED: use `public-ip-assignments`.
 	Ipv6Enabled *bool  `json:"ipv6-enabled,omitempty"`
@@ -11149,11 +11338,11 @@ type CreateInstancePoolRequest struct {
 	SecurityGroups []SecurityGroup `json:"security-groups,omitempty"`
 	// Number of Instances
 	Size int64 `json:"size" validate:"required,gt=0"`
-	// SSH key
+	// SSH key reference
 	SSHKey *SSHKey `json:"ssh-key,omitempty"`
 	// Instances SSH Keys
 	SSHKeys []SSHKey `json:"ssh-keys,omitempty"`
-	// Instance template
+	// Template reference
 	Template *Template `json:"template" validate:"required"`
 	// Instances Cloud-init user-data
 	UserData string `json:"user-data,omitempty" validate:"omitempty,gte=1,lte=32768"`
@@ -11310,7 +11499,7 @@ type UpdateInstancePoolRequest struct {
 	AntiAffinityGroups []AntiAffinityGroup `json:"anti-affinity-groups"`
 	// Enable application consistent snapshots
 	ApplicationConsistentSnapshotEnabled *bool `json:"application-consistent-snapshot-enabled,omitempty"`
-	// Deploy target
+	// Deploy target reference
 	DeployTarget *DeployTarget `json:"deploy-target"`
 	// Instance Pool description
 	Description string `json:"description,omitempty" validate:"omitempty,lte=255"`
@@ -11320,7 +11509,7 @@ type UpdateInstancePoolRequest struct {
 	ElasticIPS []ElasticIP `json:"elastic-ips"`
 	// Prefix to apply to Instances names (default: pool)
 	InstancePrefix *string `json:"instance-prefix,omitempty"`
-	// Compute instance type
+	// Instance type reference
 	InstanceType *InstanceType `json:"instance-type,omitempty"`
 	// Enable IPv6. DEPRECATED: use `public-ip-assignments`.
 	Ipv6Enabled *bool  `json:"ipv6-enabled,omitempty"`
@@ -11335,11 +11524,11 @@ type UpdateInstancePoolRequest struct {
 	PublicIPAssignment UpdateInstancePoolRequestPublicIPAssignment `json:"public-ip-assignment,omitempty"`
 	// Instance Pool Security Groups
 	SecurityGroups []SecurityGroup `json:"security-groups"`
-	// SSH key
+	// SSH key reference
 	SSHKey *SSHKey `json:"ssh-key"`
 	// Instances SSH keys
 	SSHKeys []SSHKey `json:"ssh-keys"`
-	// Instance template
+	// Template reference
 	Template *Template `json:"template,omitempty"`
 	// Instances Cloud-init user-data
 	UserData *string `json:"user-data,omitempty" validate:"omitempty,gte=1"`
@@ -11512,7 +11701,7 @@ func (c Client) EvictInstancePoolMembers(ctx context.Context, id UUID, req Evict
 
 type ScaleInstancePoolRequest struct {
 	// Number of managed Instances
-	Size int64 `json:"size" validate:"required,gt=0"`
+	Size int64 `json:"size" validate:"required,gte=0"`
 }
 
 // Scale an Instance Pool
@@ -12148,7 +12337,7 @@ func (c Client) RemoveInstanceProtection(ctx context.Context, id UUID) (*Operati
 type ResetInstanceRequest struct {
 	// Instance disk size in GiB
 	DiskSize int64 `json:"disk-size,omitempty" validate:"omitempty,gte=10,lte=51200"`
-	// Instance template
+	// Template reference
 	Template *Template `json:"template,omitempty"`
 }
 
@@ -12304,7 +12493,7 @@ func (c Client) ResizeInstanceDisk(ctx context.Context, id UUID, req ResizeInsta
 }
 
 type ScaleInstanceRequest struct {
-	// Compute instance type
+	// Instance type reference
 	InstanceType *InstanceType `json:"instance-type" validate:"required"`
 }
 
@@ -15341,7 +15530,7 @@ type CreateSKSNodepoolRequest struct {
 	Addons []string `json:"addons,omitempty"`
 	// Nodepool Anti-affinity Groups
 	AntiAffinityGroups []AntiAffinityGroup `json:"anti-affinity-groups,omitempty"`
-	// Deploy target
+	// Deploy target reference
 	DeployTarget *DeployTarget `json:"deploy-target,omitempty"`
 	// Nodepool description
 	Description string `json:"description,omitempty" validate:"omitempty,lte=255"`
@@ -15349,7 +15538,7 @@ type CreateSKSNodepoolRequest struct {
 	DiskSize int64 `json:"disk-size" validate:"required,gte=20,lte=51200"`
 	// Prefix to apply to instances names (default: pool), lowercase only
 	InstancePrefix string `json:"instance-prefix,omitempty" validate:"omitempty,gte=1,lte=30"`
-	// Compute instance type
+	// Instance type reference
 	InstanceType *InstanceType `json:"instance-type" validate:"required"`
 	// Kubelet image GC options
 	KubeletImageGC *KubeletImageGC   `json:"kubelet-image-gc,omitempty"`
@@ -15518,7 +15707,7 @@ const (
 type UpdateSKSNodepoolRequest struct {
 	// Nodepool Anti-affinity Groups
 	AntiAffinityGroups []AntiAffinityGroup `json:"anti-affinity-groups,omitempty"`
-	// Deploy target
+	// Deploy target reference
 	DeployTarget *DeployTarget `json:"deploy-target"`
 	// Nodepool description
 	Description string `json:"description,omitempty" validate:"omitempty,lte=255"`
@@ -15526,7 +15715,7 @@ type UpdateSKSNodepoolRequest struct {
 	DiskSize int64 `json:"disk-size,omitempty" validate:"omitempty,gte=20,lte=51200"`
 	// Prefix to apply to managed instances names (default: pool), lowercase only
 	InstancePrefix string `json:"instance-prefix,omitempty" validate:"omitempty,gte=1,lte=30"`
-	// Compute instance type
+	// Instance type reference
 	InstanceType *InstanceType     `json:"instance-type,omitempty"`
 	Labels       SKSNodepoolLabels `json:"labels,omitempty"`
 	// Nodepool name, lowercase only
