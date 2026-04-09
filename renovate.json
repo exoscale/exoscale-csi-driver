@@ -16,10 +16,26 @@
       "matchPackageNames": [
         "k8s.io/{/,}**"
       ]
+    },
+    {
+      "description": "Group CSI manifests updates together",
+      "groupName": "CSI manifests",
+      "matchManagers": [
+        "kubernetes"
+      ],
+      "matchFileNames": [
+        "deployment/**"
+      ]
     }
   ],
   "gomod": {
     "enabled": true
+  },
+  "kubernetes": {
+    "enabled": true,
+    "fileMatch": [
+      "(^|/)deployment/latest/.+\\.ya?ml$"
+    ]
   },
   "postUpdateOptions": [
     "gomodTidy",
