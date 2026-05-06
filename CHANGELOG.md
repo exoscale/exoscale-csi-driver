@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.34.0
 * fix(manifests): update safe dependencies in latest manifests and enable renovate #146
 
 ## v0.33.2
