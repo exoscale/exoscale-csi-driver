@@ -1,5 +1,8 @@
 # Changelog
 
+## Unreleased
+* fix(manifests): update safe dependencies in latest manifests and enable renovate #146
+
 ## v0.33.2
 * feat: --zones scope and use CCM node metadata by default #143
 
