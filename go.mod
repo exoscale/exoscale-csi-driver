@@ -1,10 +1,10 @@
 module github.com/exoscale/exoscale-csi-driver
 
-go 1.25.4
+go 1.26
 
 require (
 	github.com/container-storage-interface/spec v1.12.0
-	github.com/exoscale/egoscale/v3 v3.1.33
+	github.com/exoscale/egoscale/v3 v3.1.35
 	github.com/golang/protobuf v1.5.4
 	github.com/kubernetes-sigs/aws-ebs-csi-driver v1.53.0
 	github.com/stretchr/testify v1.11.1
