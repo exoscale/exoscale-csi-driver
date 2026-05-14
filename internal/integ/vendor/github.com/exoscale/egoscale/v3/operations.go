@@ -12,6 +12,307 @@ import (
 	"time"
 )
 
+// FindAIAPIKey attempts to find an AIAPIKey by nameOrID.
+func (l ListAIAPIKeysResponse) FindAIAPIKey(nameOrID string) (AIAPIKey, error) {
+	var result []AIAPIKey
+	for i, elem := range l.AIAPIKeys {
+		if string(elem.Name) == nameOrID || string(elem.ID) == nameOrID {
+			result = append(result, l.AIAPIKeys[i])
+		}
+	}
+	if len(result) == 1 {
+		return result[0], nil
+	}
+
+	if len(result) > 1 {
+		return AIAPIKey{}, fmt.Errorf("%q too many found in ListAIAPIKeysResponse: %w", nameOrID, ErrConflict)
+	}
+
+	return AIAPIKey{}, fmt.Errorf("%q not found in ListAIAPIKeysResponse: %w", nameOrID, ErrNotFound)
+}
+
+// List AI API keys for an organization
+func (c Client) ListAIAPIKeys(ctx context.Context) (*ListAIAPIKeysResponse, error) {
+	path := "/ai/ai-api-key"
+
+	request, err := http.NewRequestWithContext(ctx, "GET", c.serverEndpoint+path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("ListAIAPIKeys: new request: %w", err)
+	}
+
+	request.Header.Add("User-Agent", c.getUserAgent())
+
+	if err := c.executeRequestInterceptors(ctx, request); err != nil {
+		return nil, fmt.Errorf("ListAIAPIKeys: execute request editors: %w", err)
+	}
+
+	if err := c.signRequest(request); err != nil {
+		return nil, fmt.Errorf("ListAIAPIKeys: sign request: %w", err)
+	}
+
+	if c.trace {
+		dumpRequest(request, "list-ai-api-keys")
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("ListAIAPIKeys: http client do: %w", err)
+	}
+
+	if c.trace {
+		dumpResponse(response)
+	}
+
+	if err := handleHTTPErrorResp(response); err != nil {
+		return nil, fmt.Errorf("ListAIAPIKeys: http response: %w", err)
+	}
+
+	bodyresp := new(ListAIAPIKeysResponse)
+	if err := prepareJSONResponse(response, bodyresp); err != nil {
+		return nil, fmt.Errorf("ListAIAPIKeys: prepare Json response: %w", err)
+	}
+
+	return bodyresp, nil
+}
+
+// Create a new AI API key
+func (c Client) CreateAIAPIKey(ctx context.Context, req CreateAIAPIKeyRequest) (*AIAPIKeyWithValue, error) {
+	path := "/ai/ai-api-key"
+
+	body, err := prepareJSONBody(req)
+	if err != nil {
+		return nil, fmt.Errorf("CreateAIAPIKey: prepare Json body: %w", err)
+	}
+
+	request, err := http.NewRequestWithContext(ctx, "POST", c.serverEndpoint+path, body)
+	if err != nil {
+		return nil, fmt.Errorf("CreateAIAPIKey: new request: %w", err)
+	}
+
+	request.Header.Add("User-Agent", c.getUserAgent())
+
+	request.Header.Add("Content-Type", "application/json")
+
+	if err := c.executeRequestInterceptors(ctx, request); err != nil {
+		return nil, fmt.Errorf("CreateAIAPIKey: execute request editors: %w", err)
+	}
+
+	if err := c.signRequest(request); err != nil {
+		return nil, fmt.Errorf("CreateAIAPIKey: sign request: %w", err)
+	}
+
+	if c.trace {
+		dumpRequest(request, "create-ai-api-key")
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("CreateAIAPIKey: http client do: %w", err)
+	}
+
+	if c.trace {
+		dumpResponse(response)
+	}
+
+	if err := handleHTTPErrorResp(response); err != nil {
+		return nil, fmt.Errorf("CreateAIAPIKey: http response: %w", err)
+	}
+
+	bodyresp := new(AIAPIKeyWithValue)
+	if err := prepareJSONResponse(response, bodyresp); err != nil {
+		return nil, fmt.Errorf("CreateAIAPIKey: prepare Json response: %w", err)
+	}
+
+	return bodyresp, nil
+}
+
+type DeleteAIAPIKeyResponse struct {
+	Deleted *bool `json:"deleted" validate:"required"`
+}
+
+// Delete AI API key
+func (c Client) DeleteAIAPIKey(ctx context.Context, id UUID) (*DeleteAIAPIKeyResponse, error) {
+	path := fmt.Sprintf("/ai/ai-api-key/%v", id)
+
+	request, err := http.NewRequestWithContext(ctx, "DELETE", c.serverEndpoint+path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("DeleteAIAPIKey: new request: %w", err)
+	}
+
+	request.Header.Add("User-Agent", c.getUserAgent())
+
+	if err := c.executeRequestInterceptors(ctx, request); err != nil {
+		return nil, fmt.Errorf("DeleteAIAPIKey: execute request editors: %w", err)
+	}
+
+	if err := c.signRequest(request); err != nil {
+		return nil, fmt.Errorf("DeleteAIAPIKey: sign request: %w", err)
+	}
+
+	if c.trace {
+		dumpRequest(request, "delete-ai-api-key")
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("DeleteAIAPIKey: http client do: %w", err)
+	}
+
+	if c.trace {
+		dumpResponse(response)
+	}
+
+	if err := handleHTTPErrorResp(response); err != nil {
+		return nil, fmt.Errorf("DeleteAIAPIKey: http response: %w", err)
+	}
+
+	bodyresp := new(DeleteAIAPIKeyResponse)
+	if err := prepareJSONResponse(response, bodyresp); err != nil {
+		return nil, fmt.Errorf("DeleteAIAPIKey: prepare Json response: %w", err)
+	}
+
+	return bodyresp, nil
+}
+
+// Get AI API key metadata
+func (c Client) GetAIAPIKey(ctx context.Context, id UUID) (*AIAPIKey, error) {
+	path := fmt.Sprintf("/ai/ai-api-key/%v", id)
+
+	request, err := http.NewRequestWithContext(ctx, "GET", c.serverEndpoint+path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("GetAIAPIKey: new request: %w", err)
+	}
+
+	request.Header.Add("User-Agent", c.getUserAgent())
+
+	if err := c.executeRequestInterceptors(ctx, request); err != nil {
+		return nil, fmt.Errorf("GetAIAPIKey: execute request editors: %w", err)
+	}
+
+	if err := c.signRequest(request); err != nil {
+		return nil, fmt.Errorf("GetAIAPIKey: sign request: %w", err)
+	}
+
+	if c.trace {
+		dumpRequest(request, "get-ai-api-key")
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("GetAIAPIKey: http client do: %w", err)
+	}
+
+	if c.trace {
+		dumpResponse(response)
+	}
+
+	if err := handleHTTPErrorResp(response); err != nil {
+		return nil, fmt.Errorf("GetAIAPIKey: http response: %w", err)
+	}
+
+	bodyresp := new(AIAPIKey)
+	if err := prepareJSONResponse(response, bodyresp); err != nil {
+		return nil, fmt.Errorf("GetAIAPIKey: prepare Json response: %w", err)
+	}
+
+	return bodyresp, nil
+}
+
+// Update AI API key name and/or scope
+func (c Client) UpdateAIAPIKey(ctx context.Context, id UUID, req UpdateAIAPIKeyRequest) (*AIAPIKey, error) {
+	path := fmt.Sprintf("/ai/ai-api-key/%v", id)
+
+	body, err := prepareJSONBody(req)
+	if err != nil {
+		return nil, fmt.Errorf("UpdateAIAPIKey: prepare Json body: %w", err)
+	}
+
+	request, err := http.NewRequestWithContext(ctx, "PATCH", c.serverEndpoint+path, body)
+	if err != nil {
+		return nil, fmt.Errorf("UpdateAIAPIKey: new request: %w", err)
+	}
+
+	request.Header.Add("User-Agent", c.getUserAgent())
+
+	request.Header.Add("Content-Type", "application/json")
+
+	if err := c.executeRequestInterceptors(ctx, request); err != nil {
+		return nil, fmt.Errorf("UpdateAIAPIKey: execute request editors: %w", err)
+	}
+
+	if err := c.signRequest(request); err != nil {
+		return nil, fmt.Errorf("UpdateAIAPIKey: sign request: %w", err)
+	}
+
+	if c.trace {
+		dumpRequest(request, "update-ai-api-key")
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("UpdateAIAPIKey: http client do: %w", err)
+	}
+
+	if c.trace {
+		dumpResponse(response)
+	}
+
+	if err := handleHTTPErrorResp(response); err != nil {
+		return nil, fmt.Errorf("UpdateAIAPIKey: http response: %w", err)
+	}
+
+	bodyresp := new(AIAPIKey)
+	if err := prepareJSONResponse(response, bodyresp); err != nil {
+		return nil, fmt.Errorf("UpdateAIAPIKey: prepare Json response: %w", err)
+	}
+
+	return bodyresp, nil
+}
+
+// Rotate AI API key value
+func (c Client) RotateAIAPIKey(ctx context.Context, id UUID) (*AIAPIKeyWithValue, error) {
+	path := fmt.Sprintf("/ai/ai-api-key/%v/rotate", id)
+
+	request, err := http.NewRequestWithContext(ctx, "POST", c.serverEndpoint+path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("RotateAIAPIKey: new request: %w", err)
+	}
+
+	request.Header.Add("User-Agent", c.getUserAgent())
+
+	if err := c.executeRequestInterceptors(ctx, request); err != nil {
+		return nil, fmt.Errorf("RotateAIAPIKey: execute request editors: %w", err)
+	}
+
+	if err := c.signRequest(request); err != nil {
+		return nil, fmt.Errorf("RotateAIAPIKey: sign request: %w", err)
+	}
+
+	if c.trace {
+		dumpRequest(request, "rotate-ai-api-key")
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("RotateAIAPIKey: http client do: %w", err)
+	}
+
+	if c.trace {
+		dumpResponse(response)
+	}
+
+	if err := handleHTTPErrorResp(response); err != nil {
+		return nil, fmt.Errorf("RotateAIAPIKey: http response: %w", err)
+	}
+
+	bodyresp := new(AIAPIKeyWithValue)
+	if err := prepareJSONResponse(response, bodyresp); err != nil {
+		return nil, fmt.Errorf("RotateAIAPIKey: prepare Json response: %w", err)
+	}
+
+	return bodyresp, nil
+}
+
 // FindListDeploymentsResponseEntry attempts to find an ListDeploymentsResponseEntry by nameOrID.
 func (l ListDeploymentsResponse) FindListDeploymentsResponseEntry(nameOrID string) (ListDeploymentsResponseEntry, error) {
 	var result []ListDeploymentsResponseEntry
@@ -31,8 +332,16 @@ func (l ListDeploymentsResponse) FindListDeploymentsResponseEntry(nameOrID strin
 	return ListDeploymentsResponseEntry{}, fmt.Errorf("%q not found in ListDeploymentsResponse: %w", nameOrID, ErrNotFound)
 }
 
-// [BETA] List Deployments
-func (c Client) ListDeployments(ctx context.Context) (*ListDeploymentsResponse, error) {
+type ListDeploymentsOpt func(url.Values)
+
+func ListDeploymentsWithVisibility(visibility string) ListDeploymentsOpt {
+	return func(q url.Values) {
+		q.Add("visibility", fmt.Sprint(visibility))
+	}
+}
+
+// List Deployments
+func (c Client) ListDeployments(ctx context.Context, opts ...ListDeploymentsOpt) (*ListDeploymentsResponse, error) {
 	path := "/ai/deployment"
 
 	request, err := http.NewRequestWithContext(ctx, "GET", c.serverEndpoint+path, nil)
@@ -41,6 +350,14 @@ func (c Client) ListDeployments(ctx context.Context) (*ListDeploymentsResponse, 
 	}
 
 	request.Header.Add("User-Agent", c.getUserAgent())
+
+	if len(opts) > 0 {
+		q := request.URL.Query()
+		for _, opt := range opts {
+			opt(q)
+		}
+		request.URL.RawQuery = q.Encode()
+	}
 
 	if err := c.executeRequestInterceptors(ctx, request); err != nil {
 		return nil, fmt.Errorf("ListDeployments: execute request editors: %w", err)
@@ -126,7 +443,7 @@ func (c Client) CreateDeployment(ctx context.Context, req CreateDeploymentReques
 	return bodyresp, nil
 }
 
-// [BETA] Delete Deployment
+// Delete Deployment
 func (c Client) DeleteDeployment(ctx context.Context, id UUID) (*Operation, error) {
 	path := fmt.Sprintf("/ai/deployment/%v", id)
 
@@ -170,7 +487,7 @@ func (c Client) DeleteDeployment(ctx context.Context, id UUID) (*Operation, erro
 	return bodyresp, nil
 }
 
-// [BETA] Get Deployment
+// Get Deployment details
 func (c Client) GetDeployment(ctx context.Context, id UUID) (*GetDeploymentResponse, error) {
 	path := fmt.Sprintf("/ai/deployment/%v", id)
 
@@ -214,7 +531,58 @@ func (c Client) GetDeployment(ctx context.Context, id UUID) (*GetDeploymentRespo
 	return bodyresp, nil
 }
 
-// [BETA] Reveal Deployment API Key
+// Update AI deployment
+func (c Client) UpdateDeployment(ctx context.Context, id UUID, req UpdateDeploymentRequest) (*Operation, error) {
+	path := fmt.Sprintf("/ai/deployment/%v", id)
+
+	body, err := prepareJSONBody(req)
+	if err != nil {
+		return nil, fmt.Errorf("UpdateDeployment: prepare Json body: %w", err)
+	}
+
+	request, err := http.NewRequestWithContext(ctx, "PATCH", c.serverEndpoint+path, body)
+	if err != nil {
+		return nil, fmt.Errorf("UpdateDeployment: new request: %w", err)
+	}
+
+	request.Header.Add("User-Agent", c.getUserAgent())
+
+	request.Header.Add("Content-Type", "application/json")
+
+	if err := c.executeRequestInterceptors(ctx, request); err != nil {
+		return nil, fmt.Errorf("UpdateDeployment: execute request editors: %w", err)
+	}
+
+	if err := c.signRequest(request); err != nil {
+		return nil, fmt.Errorf("UpdateDeployment: sign request: %w", err)
+	}
+
+	if c.trace {
+		dumpRequest(request, "update-deployment")
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("UpdateDeployment: http client do: %w", err)
+	}
+
+	if c.trace {
+		dumpResponse(response)
+	}
+
+	if err := handleHTTPErrorResp(response); err != nil {
+		return nil, fmt.Errorf("UpdateDeployment: http response: %w", err)
+	}
+
+	bodyresp := new(Operation)
+	if err := prepareJSONResponse(response, bodyresp); err != nil {
+		return nil, fmt.Errorf("UpdateDeployment: prepare Json response: %w", err)
+	}
+
+	return bodyresp, nil
+}
+
+// Get Deployment API Key
 func (c Client) RevealDeploymentAPIKey(ctx context.Context, id UUID) (*RevealDeploymentAPIKeyResponse, error) {
 	path := fmt.Sprintf("/ai/deployment/%v/api-key", id)
 
@@ -258,8 +626,22 @@ func (c Client) RevealDeploymentAPIKey(ctx context.Context, id UUID) (*RevealDep
 	return bodyresp, nil
 }
 
+type GetDeploymentLogsOpt func(url.Values)
+
+func GetDeploymentLogsWithStream(stream bool) GetDeploymentLogsOpt {
+	return func(q url.Values) {
+		q.Add("stream", fmt.Sprint(stream))
+	}
+}
+
+func GetDeploymentLogsWithTail(tail int64) GetDeploymentLogsOpt {
+	return func(q url.Values) {
+		q.Add("tail", fmt.Sprint(tail))
+	}
+}
+
 // Return logs for the vLLM deployment (deploy/<release-name>--deployment-vllm). Optional ?stream=true to request streaming (may not be supported).
-func (c Client) GetDeploymentLogs(ctx context.Context, id UUID) (*GetDeploymentLogsResponse, error) {
+func (c Client) GetDeploymentLogs(ctx context.Context, id UUID, opts ...GetDeploymentLogsOpt) (*GetDeploymentLogsResponse, error) {
 	path := fmt.Sprintf("/ai/deployment/%v/logs", id)
 
 	request, err := http.NewRequestWithContext(ctx, "GET", c.serverEndpoint+path, nil)
@@ -268,6 +650,14 @@ func (c Client) GetDeploymentLogs(ctx context.Context, id UUID) (*GetDeploymentL
 	}
 
 	request.Header.Add("User-Agent", c.getUserAgent())
+
+	if len(opts) > 0 {
+		q := request.URL.Query()
+		for _, opt := range opts {
+			opt(q)
+		}
+		request.URL.RawQuery = q.Encode()
+	}
 
 	if err := c.executeRequestInterceptors(ctx, request); err != nil {
 		return nil, fmt.Errorf("GetDeploymentLogs: execute request editors: %w", err)
@@ -302,7 +692,7 @@ func (c Client) GetDeploymentLogs(ctx context.Context, id UUID) (*GetDeploymentL
 	return bodyresp, nil
 }
 
-// [BETA] Scale Deployment
+// Scale Deployment
 func (c Client) ScaleDeployment(ctx context.Context, id UUID, req ScaleDeploymentRequest) (*Operation, error) {
 	path := fmt.Sprintf("/ai/deployment/%v/scale", id)
 
@@ -353,8 +743,16 @@ func (c Client) ScaleDeployment(ctx context.Context, id UUID, req ScaleDeploymen
 	return bodyresp, nil
 }
 
-// Get list of allowed inference engine parameters with their descriptions, types, allowed values, and defaults
-func (c Client) GetInferenceEngineHelp(ctx context.Context) (*GetInferenceEngineHelpResponse, error) {
+type GetInferenceEngineHelpOpt func(url.Values)
+
+func GetInferenceEngineHelpWithVersion(version string) GetInferenceEngineHelpOpt {
+	return func(q url.Values) {
+		q.Add("version", fmt.Sprint(version))
+	}
+}
+
+// Get list of allowed inference engine parameters with their descriptions and allowed values
+func (c Client) GetInferenceEngineHelp(ctx context.Context, opts ...GetInferenceEngineHelpOpt) (*GetInferenceEngineHelpResponse, error) {
 	path := "/ai/help/inference-engine-parameters"
 
 	request, err := http.NewRequestWithContext(ctx, "GET", c.serverEndpoint+path, nil)
@@ -363,6 +761,14 @@ func (c Client) GetInferenceEngineHelp(ctx context.Context) (*GetInferenceEngine
 	}
 
 	request.Header.Add("User-Agent", c.getUserAgent())
+
+	if len(opts) > 0 {
+		q := request.URL.Query()
+		for _, opt := range opts {
+			opt(q)
+		}
+		request.URL.RawQuery = q.Encode()
+	}
 
 	if err := c.executeRequestInterceptors(ctx, request); err != nil {
 		return nil, fmt.Errorf("GetInferenceEngineHelp: execute request editors: %w", err)
@@ -397,6 +803,50 @@ func (c Client) GetInferenceEngineHelp(ctx context.Context) (*GetInferenceEngine
 	return bodyresp, nil
 }
 
+// List available instance types with authorization status based on GPU availability
+func (c Client) ListAIInstanceTypes(ctx context.Context) (*ListAIInstanceTypesResponse, error) {
+	path := "/ai/instance-type"
+
+	request, err := http.NewRequestWithContext(ctx, "GET", c.serverEndpoint+path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("ListAIInstanceTypes: new request: %w", err)
+	}
+
+	request.Header.Add("User-Agent", c.getUserAgent())
+
+	if err := c.executeRequestInterceptors(ctx, request); err != nil {
+		return nil, fmt.Errorf("ListAIInstanceTypes: execute request editors: %w", err)
+	}
+
+	if err := c.signRequest(request); err != nil {
+		return nil, fmt.Errorf("ListAIInstanceTypes: sign request: %w", err)
+	}
+
+	if c.trace {
+		dumpRequest(request, "list-ai-instance-types")
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("ListAIInstanceTypes: http client do: %w", err)
+	}
+
+	if c.trace {
+		dumpResponse(response)
+	}
+
+	if err := handleHTTPErrorResp(response); err != nil {
+		return nil, fmt.Errorf("ListAIInstanceTypes: http response: %w", err)
+	}
+
+	bodyresp := new(ListAIInstanceTypesResponse)
+	if err := prepareJSONResponse(response, bodyresp); err != nil {
+		return nil, fmt.Errorf("ListAIInstanceTypes: prepare Json response: %w", err)
+	}
+
+	return bodyresp, nil
+}
+
 // FindListModelsResponseEntry attempts to find an ListModelsResponseEntry by nameOrID.
 func (l ListModelsResponse) FindListModelsResponseEntry(nameOrID string) (ListModelsResponseEntry, error) {
 	var result []ListModelsResponseEntry
@@ -416,8 +866,16 @@ func (l ListModelsResponse) FindListModelsResponseEntry(nameOrID string) (ListMo
 	return ListModelsResponseEntry{}, fmt.Errorf("%q not found in ListModelsResponse: %w", nameOrID, ErrNotFound)
 }
 
-// [BETA] List Models
-func (c Client) ListModels(ctx context.Context) (*ListModelsResponse, error) {
+type ListModelsOpt func(url.Values)
+
+func ListModelsWithVisibility(visibility string) ListModelsOpt {
+	return func(q url.Values) {
+		q.Add("visibility", fmt.Sprint(visibility))
+	}
+}
+
+// List Models
+func (c Client) ListModels(ctx context.Context, opts ...ListModelsOpt) (*ListModelsResponse, error) {
 	path := "/ai/model"
 
 	request, err := http.NewRequestWithContext(ctx, "GET", c.serverEndpoint+path, nil)
@@ -426,6 +884,14 @@ func (c Client) ListModels(ctx context.Context) (*ListModelsResponse, error) {
 	}
 
 	request.Header.Add("User-Agent", c.getUserAgent())
+
+	if len(opts) > 0 {
+		q := request.URL.Query()
+		for _, opt := range opts {
+			opt(q)
+		}
+		request.URL.RawQuery = q.Encode()
+	}
 
 	if err := c.executeRequestInterceptors(ctx, request); err != nil {
 		return nil, fmt.Errorf("ListModels: execute request editors: %w", err)
@@ -513,7 +979,7 @@ func (c Client) CreateModel(ctx context.Context, req CreateModelRequest) (*Opera
 	return bodyresp, nil
 }
 
-// [BETA] Delete Model
+// Delete Model
 func (c Client) DeleteModel(ctx context.Context, id UUID) (*Operation, error) {
 	path := fmt.Sprintf("/ai/model/%v", id)
 
@@ -557,7 +1023,7 @@ func (c Client) DeleteModel(ctx context.Context, id UUID) (*Operation, error) {
 	return bodyresp, nil
 }
 
-// [BETA] Get Model
+// Get Model details
 func (c Client) GetModel(ctx context.Context, id UUID) (*GetModelResponse, error) {
 	path := fmt.Sprintf("/ai/model/%v", id)
 
@@ -4928,7 +5394,6 @@ type CreateDBAASServiceMysqlRequestMigration struct {
 }
 
 type CreateDBAASServiceMysqlRequest struct {
-	// Custom password for admin user. Defaults to random string. This must be set only when a new service is being created.
 	AdminPassword string `json:"admin-password,omitempty" validate:"omitempty,gte=8,lte=256"`
 	// Custom username for admin user. This must be set only when a new service is being created.
 	AdminUsername  string                                        `json:"admin-username,omitempty" validate:"omitempty,gte=1,lte=64"`
@@ -8923,8 +9388,52 @@ func (c Client) StopDBAASValkeyMigration(ctx context.Context, name string) (*Ope
 	return bodyresp, nil
 }
 
+func (c Client) ListDBAASValkeyUsers(ctx context.Context, serviceName string) (*DBAASValkeyUsers, error) {
+	path := fmt.Sprintf("/dbaas-valkey/%v/user", serviceName)
+
+	request, err := http.NewRequestWithContext(ctx, "GET", c.serverEndpoint+path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("ListDBAASValkeyUsers: new request: %w", err)
+	}
+
+	request.Header.Add("User-Agent", c.getUserAgent())
+
+	if err := c.executeRequestInterceptors(ctx, request); err != nil {
+		return nil, fmt.Errorf("ListDBAASValkeyUsers: execute request editors: %w", err)
+	}
+
+	if err := c.signRequest(request); err != nil {
+		return nil, fmt.Errorf("ListDBAASValkeyUsers: sign request: %w", err)
+	}
+
+	if c.trace {
+		dumpRequest(request, "list-dbaas-valkey-users")
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("ListDBAASValkeyUsers: http client do: %w", err)
+	}
+
+	if c.trace {
+		dumpResponse(response)
+	}
+
+	if err := handleHTTPErrorResp(response); err != nil {
+		return nil, fmt.Errorf("ListDBAASValkeyUsers: http response: %w", err)
+	}
+
+	bodyresp := new(DBAASValkeyUsers)
+	if err := prepareJSONResponse(response, bodyresp); err != nil {
+		return nil, fmt.Errorf("ListDBAASValkeyUsers: prepare Json response: %w", err)
+	}
+
+	return bodyresp, nil
+}
+
 type CreateDBAASValkeyUserRequest struct {
-	Username DBAASUserUsername `json:"username" validate:"required,gte=1,lte=64"`
+	AccessControl *DBAASValkeyUserAccessControl `json:"access-control,omitempty"`
+	Username      DBAASUserUsername             `json:"username" validate:"required,gte=1,lte=64"`
 }
 
 func (c Client) CreateDBAASValkeyUser(ctx context.Context, serviceName string, req CreateDBAASValkeyUserRequest) (*Operation, error) {
@@ -9015,6 +9524,60 @@ func (c Client) DeleteDBAASValkeyUser(ctx context.Context, serviceName string, u
 	bodyresp := new(Operation)
 	if err := prepareJSONResponse(response, bodyresp); err != nil {
 		return nil, fmt.Errorf("DeleteDBAASValkeyUser: prepare Json response: %w", err)
+	}
+
+	return bodyresp, nil
+}
+
+type UpdateDBAASValkeyUserAccessControlRequest struct {
+	AccessControl *DBAASValkeyUserAccessControl `json:"access-control,omitempty"`
+}
+
+func (c Client) UpdateDBAASValkeyUserAccessControl(ctx context.Context, serviceName string, username string, req UpdateDBAASValkeyUserAccessControlRequest) (*Operation, error) {
+	path := fmt.Sprintf("/dbaas-valkey/%v/user/%v", serviceName, username)
+
+	body, err := prepareJSONBody(req)
+	if err != nil {
+		return nil, fmt.Errorf("UpdateDBAASValkeyUserAccessControl: prepare Json body: %w", err)
+	}
+
+	request, err := http.NewRequestWithContext(ctx, "PUT", c.serverEndpoint+path, body)
+	if err != nil {
+		return nil, fmt.Errorf("UpdateDBAASValkeyUserAccessControl: new request: %w", err)
+	}
+
+	request.Header.Add("User-Agent", c.getUserAgent())
+
+	request.Header.Add("Content-Type", "application/json")
+
+	if err := c.executeRequestInterceptors(ctx, request); err != nil {
+		return nil, fmt.Errorf("UpdateDBAASValkeyUserAccessControl: execute request editors: %w", err)
+	}
+
+	if err := c.signRequest(request); err != nil {
+		return nil, fmt.Errorf("UpdateDBAASValkeyUserAccessControl: sign request: %w", err)
+	}
+
+	if c.trace {
+		dumpRequest(request, "update-dbaas-valkey-user-access-control")
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("UpdateDBAASValkeyUserAccessControl: http client do: %w", err)
+	}
+
+	if c.trace {
+		dumpResponse(response)
+	}
+
+	if err := handleHTTPErrorResp(response); err != nil {
+		return nil, fmt.Errorf("UpdateDBAASValkeyUserAccessControl: http response: %w", err)
+	}
+
+	bodyresp := new(Operation)
+	if err := prepareJSONResponse(response, bodyresp); err != nil {
+		return nil, fmt.Errorf("UpdateDBAASValkeyUserAccessControl: prepare Json response: %w", err)
 	}
 
 	return bodyresp, nil
@@ -10552,11 +11115,15 @@ func (c Client) ListIAMRoles(ctx context.Context) (*ListIAMRolesResponse, error)
 }
 
 type CreateIAMRoleRequest struct {
+	// Policy
+	AssumeRolePolicy *IAMPolicy `json:"assume-role-policy,omitempty"`
 	// IAM Role description
 	Description string `json:"description,omitempty" validate:"omitempty,gte=1,lte=255"`
 	// Sets if the IAM Role Policy is editable or not (default: true). This setting cannot be changed after creation
 	Editable *bool  `json:"editable,omitempty"`
 	Labels   Labels `json:"labels,omitempty"`
+	// Maximum TTL requester is allowed to ask for when assuming a role
+	MaxSessionTtl int64 `json:"max-session-ttl,omitempty" validate:"omitempty,gt=0"`
 	// IAM Role name
 	Name string `json:"name" validate:"required,gte=1,lte=191"`
 	// IAM Role permissions
@@ -10708,6 +11275,8 @@ type UpdateIAMRoleRequest struct {
 	// IAM Role description
 	Description string `json:"description,omitempty" validate:"omitempty,gte=1,lte=255"`
 	Labels      Labels `json:"labels,omitempty"`
+	// Maximum TTL requester is allowed to ask for when assuming a role
+	MaxSessionTtl int64 `json:"max-session-ttl,omitempty" validate:"omitempty,gt=0"`
 	// IAM Role permissions
 	Permissions []string `json:"permissions,omitempty"`
 }
@@ -10763,6 +11332,57 @@ func (c Client) UpdateIAMRole(ctx context.Context, id UUID, req UpdateIAMRoleReq
 	return bodyresp, nil
 }
 
+// Update IAM Assume role Policy
+func (c Client) UpdateIAMRoleAssumePolicy(ctx context.Context, id UUID, req IAMPolicy) (*Operation, error) {
+	path := fmt.Sprintf("/iam-role/%v:assume-role-policy", id)
+
+	body, err := prepareJSONBody(req)
+	if err != nil {
+		return nil, fmt.Errorf("UpdateIAMRoleAssumePolicy: prepare Json body: %w", err)
+	}
+
+	request, err := http.NewRequestWithContext(ctx, "PUT", c.serverEndpoint+path, body)
+	if err != nil {
+		return nil, fmt.Errorf("UpdateIAMRoleAssumePolicy: new request: %w", err)
+	}
+
+	request.Header.Add("User-Agent", c.getUserAgent())
+
+	request.Header.Add("Content-Type", "application/json")
+
+	if err := c.executeRequestInterceptors(ctx, request); err != nil {
+		return nil, fmt.Errorf("UpdateIAMRoleAssumePolicy: execute request editors: %w", err)
+	}
+
+	if err := c.signRequest(request); err != nil {
+		return nil, fmt.Errorf("UpdateIAMRoleAssumePolicy: sign request: %w", err)
+	}
+
+	if c.trace {
+		dumpRequest(request, "update-iam-role-assume-policy")
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("UpdateIAMRoleAssumePolicy: http client do: %w", err)
+	}
+
+	if c.trace {
+		dumpResponse(response)
+	}
+
+	if err := handleHTTPErrorResp(response); err != nil {
+		return nil, fmt.Errorf("UpdateIAMRoleAssumePolicy: http response: %w", err)
+	}
+
+	bodyresp := new(Operation)
+	if err := prepareJSONResponse(response, bodyresp); err != nil {
+		return nil, fmt.Errorf("UpdateIAMRoleAssumePolicy: prepare Json response: %w", err)
+	}
+
+	return bodyresp, nil
+}
+
 // Update IAM Role Policy
 func (c Client) UpdateIAMRolePolicy(ctx context.Context, id UUID, req IAMPolicy) (*Operation, error) {
 	path := fmt.Sprintf("/iam-role/%v:policy", id)
@@ -10809,6 +11429,70 @@ func (c Client) UpdateIAMRolePolicy(ctx context.Context, id UUID, req IAMPolicy)
 	bodyresp := new(Operation)
 	if err := prepareJSONResponse(response, bodyresp); err != nil {
 		return nil, fmt.Errorf("UpdateIAMRolePolicy: prepare Json response: %w", err)
+	}
+
+	return bodyresp, nil
+}
+
+type AssumeIAMRoleResponse struct {
+	Key    string `json:"key,omitempty"`
+	Name   string `json:"name,omitempty"`
+	OrgID  string `json:"org-id,omitempty"`
+	RoleID string `json:"role-id,omitempty"`
+	Secret string `json:"secret,omitempty"`
+}
+
+type AssumeIAMRoleRequest struct {
+	// TTL in seconds for the generated access key (cannot exceed the max TTL defined in the targeted assume role)
+	Ttl int64 `json:"ttl,omitempty" validate:"omitempty,gt=0"`
+}
+
+// [BETA] Request generation of key/secret that allow caller to assume target role
+func (c Client) AssumeIAMRole(ctx context.Context, targetRoleID UUID, req AssumeIAMRoleRequest) (*AssumeIAMRoleResponse, error) {
+	path := fmt.Sprintf("/iam-role/%v/assume", targetRoleID)
+
+	body, err := prepareJSONBody(req)
+	if err != nil {
+		return nil, fmt.Errorf("AssumeIAMRole: prepare Json body: %w", err)
+	}
+
+	request, err := http.NewRequestWithContext(ctx, "POST", c.serverEndpoint+path, body)
+	if err != nil {
+		return nil, fmt.Errorf("AssumeIAMRole: new request: %w", err)
+	}
+
+	request.Header.Add("User-Agent", c.getUserAgent())
+
+	request.Header.Add("Content-Type", "application/json")
+
+	if err := c.executeRequestInterceptors(ctx, request); err != nil {
+		return nil, fmt.Errorf("AssumeIAMRole: execute request editors: %w", err)
+	}
+
+	if err := c.signRequest(request); err != nil {
+		return nil, fmt.Errorf("AssumeIAMRole: sign request: %w", err)
+	}
+
+	if c.trace {
+		dumpRequest(request, "assume-iam-role")
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("AssumeIAMRole: http client do: %w", err)
+	}
+
+	if c.trace {
+		dumpResponse(response)
+	}
+
+	if err := handleHTTPErrorResp(response); err != nil {
+		return nil, fmt.Errorf("AssumeIAMRole: http response: %w", err)
+	}
+
+	bodyresp := new(AssumeIAMRoleResponse)
+	if err := prepareJSONResponse(response, bodyresp); err != nil {
+		return nil, fmt.Errorf("AssumeIAMRole: prepare Json response: %w", err)
 	}
 
 	return bodyresp, nil
@@ -10904,6 +11588,12 @@ func ListInstancesWithIPAddress(ipAddress string) ListInstancesOpt {
 	}
 }
 
+func ListInstancesWithLabels(labels string) ListInstancesOpt {
+	return func(q url.Values) {
+		q.Add("labels", fmt.Sprint(labels))
+	}
+}
+
 // List Compute instances
 func (c Client) ListInstances(ctx context.Context, opts ...ListInstancesOpt) (*ListInstancesResponse, error) {
 	path := "/instance"
@@ -10963,11 +11653,11 @@ type CreateInstanceRequest struct {
 	ApplicationConsistentSnapshotEnabled *bool `json:"application-consistent-snapshot-enabled,omitempty"`
 	// Start Instance on creation (default: true)
 	AutoStart *bool `json:"auto-start,omitempty"`
-	// Deploy target
+	// Deploy target reference
 	DeployTarget *DeployTarget `json:"deploy-target,omitempty"`
 	// Instance disk size in GiB
 	DiskSize int64 `json:"disk-size" validate:"required,gte=10,lte=51200"`
-	// Compute instance type
+	// Instance type reference
 	InstanceType *InstanceType `json:"instance-type" validate:"required"`
 	// Enable IPv6. DEPRECATED: use `public-ip-assignments`.
 	Ipv6Enabled *bool  `json:"ipv6-enabled,omitempty"`
@@ -10979,11 +11669,11 @@ type CreateInstanceRequest struct {
 	SecurebootEnabled *bool `json:"secureboot-enabled,omitempty"`
 	// Instance Security Groups
 	SecurityGroups []SecurityGroup `json:"security-groups,omitempty"`
-	// SSH key
+	// SSH key reference
 	SSHKey *SSHKey `json:"ssh-key,omitempty"`
 	// Instance SSH Keys
 	SSHKeys []SSHKey `json:"ssh-keys,omitempty"`
-	// Instance template
+	// Template reference
 	Template *Template `json:"template" validate:"required"`
 	// Enable Trusted Platform Module (TPM)
 	TpmEnabled *bool `json:"tpm-enabled,omitempty"`
@@ -11122,7 +11812,7 @@ type CreateInstancePoolRequest struct {
 	AntiAffinityGroups []AntiAffinityGroup `json:"anti-affinity-groups,omitempty"`
 	// Enable application consistent snapshots
 	ApplicationConsistentSnapshotEnabled *bool `json:"application-consistent-snapshot-enabled,omitempty"`
-	// Deploy target
+	// Deploy target reference
 	DeployTarget *DeployTarget `json:"deploy-target,omitempty"`
 	// Instance Pool description
 	Description string `json:"description,omitempty" validate:"omitempty,lte=255"`
@@ -11132,7 +11822,7 @@ type CreateInstancePoolRequest struct {
 	ElasticIPS []ElasticIP `json:"elastic-ips,omitempty"`
 	// Prefix to apply to Instances names (default: pool)
 	InstancePrefix string `json:"instance-prefix,omitempty" validate:"omitempty,gte=1,lte=30"`
-	// Compute instance type
+	// Instance type reference
 	InstanceType *InstanceType `json:"instance-type" validate:"required"`
 	// Enable IPv6. DEPRECATED: use `public-ip-assignments`.
 	Ipv6Enabled *bool  `json:"ipv6-enabled,omitempty"`
@@ -11149,11 +11839,11 @@ type CreateInstancePoolRequest struct {
 	SecurityGroups []SecurityGroup `json:"security-groups,omitempty"`
 	// Number of Instances
 	Size int64 `json:"size" validate:"required,gt=0"`
-	// SSH key
+	// SSH key reference
 	SSHKey *SSHKey `json:"ssh-key,omitempty"`
 	// Instances SSH Keys
 	SSHKeys []SSHKey `json:"ssh-keys,omitempty"`
-	// Instance template
+	// Template reference
 	Template *Template `json:"template" validate:"required"`
 	// Instances Cloud-init user-data
 	UserData string `json:"user-data,omitempty" validate:"omitempty,gte=1,lte=32768"`
@@ -11310,7 +12000,7 @@ type UpdateInstancePoolRequest struct {
 	AntiAffinityGroups []AntiAffinityGroup `json:"anti-affinity-groups"`
 	// Enable application consistent snapshots
 	ApplicationConsistentSnapshotEnabled *bool `json:"application-consistent-snapshot-enabled,omitempty"`
-	// Deploy target
+	// Deploy target reference
 	DeployTarget *DeployTarget `json:"deploy-target"`
 	// Instance Pool description
 	Description string `json:"description,omitempty" validate:"omitempty,lte=255"`
@@ -11320,7 +12010,7 @@ type UpdateInstancePoolRequest struct {
 	ElasticIPS []ElasticIP `json:"elastic-ips"`
 	// Prefix to apply to Instances names (default: pool)
 	InstancePrefix *string `json:"instance-prefix,omitempty"`
-	// Compute instance type
+	// Instance type reference
 	InstanceType *InstanceType `json:"instance-type,omitempty"`
 	// Enable IPv6. DEPRECATED: use `public-ip-assignments`.
 	Ipv6Enabled *bool  `json:"ipv6-enabled,omitempty"`
@@ -11335,11 +12025,11 @@ type UpdateInstancePoolRequest struct {
 	PublicIPAssignment UpdateInstancePoolRequestPublicIPAssignment `json:"public-ip-assignment,omitempty"`
 	// Instance Pool Security Groups
 	SecurityGroups []SecurityGroup `json:"security-groups"`
-	// SSH key
+	// SSH key reference
 	SSHKey *SSHKey `json:"ssh-key"`
 	// Instances SSH keys
 	SSHKeys []SSHKey `json:"ssh-keys"`
-	// Instance template
+	// Template reference
 	Template *Template `json:"template,omitempty"`
 	// Instances Cloud-init user-data
 	UserData *string `json:"user-data,omitempty" validate:"omitempty,gte=1"`
@@ -11512,7 +12202,7 @@ func (c Client) EvictInstancePoolMembers(ctx context.Context, id UUID, req Evict
 
 type ScaleInstancePoolRequest struct {
 	// Number of managed Instances
-	Size int64 `json:"size" validate:"required,gt=0"`
+	Size int64 `json:"size" validate:"required,gte=0"`
 }
 
 // Scale an Instance Pool
@@ -12148,7 +12838,7 @@ func (c Client) RemoveInstanceProtection(ctx context.Context, id UUID) (*Operati
 type ResetInstanceRequest struct {
 	// Instance disk size in GiB
 	DiskSize int64 `json:"disk-size,omitempty" validate:"omitempty,gte=10,lte=51200"`
-	// Instance template
+	// Template reference
 	Template *Template `json:"template,omitempty"`
 }
 
@@ -12304,7 +12994,7 @@ func (c Client) ResizeInstanceDisk(ctx context.Context, id UUID, req ResizeInsta
 }
 
 type ScaleInstanceRequest struct {
-	// Compute instance type
+	// Instance type reference
 	InstanceType *InstanceType `json:"instance-type" validate:"required"`
 }
 
@@ -12518,6 +13208,785 @@ func (c Client) RevertInstanceToSnapshot(ctx context.Context, instanceID UUID, r
 	bodyresp := new(Operation)
 	if err := prepareJSONResponse(response, bodyresp); err != nil {
 		return nil, fmt.Errorf("RevertInstanceToSnapshot: prepare Json response: %w", err)
+	}
+
+	return bodyresp, nil
+}
+
+// FindListKmsKeysResponseEntry attempts to find an ListKmsKeysResponseEntry by nameOrID.
+func (l ListKmsKeysResponse) FindListKmsKeysResponseEntry(nameOrID string) (ListKmsKeysResponseEntry, error) {
+	var result []ListKmsKeysResponseEntry
+	for i, elem := range l.KmsKeys {
+		if string(elem.Name) == nameOrID || string(elem.ID) == nameOrID {
+			result = append(result, l.KmsKeys[i])
+		}
+	}
+	if len(result) == 1 {
+		return result[0], nil
+	}
+
+	if len(result) > 1 {
+		return ListKmsKeysResponseEntry{}, fmt.Errorf("%q too many found in ListKmsKeysResponse: %w", nameOrID, ErrConflict)
+	}
+
+	return ListKmsKeysResponseEntry{}, fmt.Errorf("%q not found in ListKmsKeysResponse: %w", nameOrID, ErrNotFound)
+}
+
+// List KMS Keys details for an organization in a given zone.
+func (c Client) ListKmsKeys(ctx context.Context) (*ListKmsKeysResponse, error) {
+	path := "/kms-key"
+
+	request, err := http.NewRequestWithContext(ctx, "GET", c.serverEndpoint+path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("ListKmsKeys: new request: %w", err)
+	}
+
+	request.Header.Add("User-Agent", c.getUserAgent())
+
+	if err := c.executeRequestInterceptors(ctx, request); err != nil {
+		return nil, fmt.Errorf("ListKmsKeys: execute request editors: %w", err)
+	}
+
+	if err := c.signRequest(request); err != nil {
+		return nil, fmt.Errorf("ListKmsKeys: sign request: %w", err)
+	}
+
+	if c.trace {
+		dumpRequest(request, "list-kms-keys")
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("ListKmsKeys: http client do: %w", err)
+	}
+
+	if c.trace {
+		dumpResponse(response)
+	}
+
+	if err := handleHTTPErrorResp(response); err != nil {
+		return nil, fmt.Errorf("ListKmsKeys: http response: %w", err)
+	}
+
+	bodyresp := new(ListKmsKeysResponse)
+	if err := prepareJSONResponse(response, bodyresp); err != nil {
+		return nil, fmt.Errorf("ListKmsKeys: prepare Json response: %w", err)
+	}
+
+	return bodyresp, nil
+}
+
+// Create a KMS Key in a given zone with a given name.
+func (c Client) CreateKmsKey(ctx context.Context, req CreateKmsKeyRequest) (*CreateKmsKeyResponse, error) {
+	path := "/kms-key"
+
+	body, err := prepareJSONBody(req)
+	if err != nil {
+		return nil, fmt.Errorf("CreateKmsKey: prepare Json body: %w", err)
+	}
+
+	request, err := http.NewRequestWithContext(ctx, "POST", c.serverEndpoint+path, body)
+	if err != nil {
+		return nil, fmt.Errorf("CreateKmsKey: new request: %w", err)
+	}
+
+	request.Header.Add("User-Agent", c.getUserAgent())
+
+	request.Header.Add("Content-Type", "application/json")
+
+	if err := c.executeRequestInterceptors(ctx, request); err != nil {
+		return nil, fmt.Errorf("CreateKmsKey: execute request editors: %w", err)
+	}
+
+	if err := c.signRequest(request); err != nil {
+		return nil, fmt.Errorf("CreateKmsKey: sign request: %w", err)
+	}
+
+	if c.trace {
+		dumpRequest(request, "create-kms-key")
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("CreateKmsKey: http client do: %w", err)
+	}
+
+	if c.trace {
+		dumpResponse(response)
+	}
+
+	if err := handleHTTPErrorResp(response); err != nil {
+		return nil, fmt.Errorf("CreateKmsKey: http response: %w", err)
+	}
+
+	bodyresp := new(CreateKmsKeyResponse)
+	if err := prepareJSONResponse(response, bodyresp); err != nil {
+		return nil, fmt.Errorf("CreateKmsKey: prepare Json response: %w", err)
+	}
+
+	return bodyresp, nil
+}
+
+// Retrieve KMS Key details.
+func (c Client) GetKmsKey(ctx context.Context, id UUID) (*GetKmsKeyResponse, error) {
+	path := fmt.Sprintf("/kms-key/%v", id)
+
+	request, err := http.NewRequestWithContext(ctx, "GET", c.serverEndpoint+path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("GetKmsKey: new request: %w", err)
+	}
+
+	request.Header.Add("User-Agent", c.getUserAgent())
+
+	if err := c.executeRequestInterceptors(ctx, request); err != nil {
+		return nil, fmt.Errorf("GetKmsKey: execute request editors: %w", err)
+	}
+
+	if err := c.signRequest(request); err != nil {
+		return nil, fmt.Errorf("GetKmsKey: sign request: %w", err)
+	}
+
+	if c.trace {
+		dumpRequest(request, "get-kms-key")
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("GetKmsKey: http client do: %w", err)
+	}
+
+	if c.trace {
+		dumpResponse(response)
+	}
+
+	if err := handleHTTPErrorResp(response); err != nil {
+		return nil, fmt.Errorf("GetKmsKey: http response: %w", err)
+	}
+
+	bodyresp := new(GetKmsKeyResponse)
+	if err := prepareJSONResponse(response, bodyresp); err != nil {
+		return nil, fmt.Errorf("GetKmsKey: prepare Json response: %w", err)
+	}
+
+	return bodyresp, nil
+}
+
+// Cancel the scheduled deletion of a KMS Key.
+func (c Client) CancelKmsKeyDeletion(ctx context.Context, id UUID) (*SuccessResponse, error) {
+	path := fmt.Sprintf("/kms-key/%v/cancel-deletion", id)
+
+	request, err := http.NewRequestWithContext(ctx, "POST", c.serverEndpoint+path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("CancelKmsKeyDeletion: new request: %w", err)
+	}
+
+	request.Header.Add("User-Agent", c.getUserAgent())
+
+	if err := c.executeRequestInterceptors(ctx, request); err != nil {
+		return nil, fmt.Errorf("CancelKmsKeyDeletion: execute request editors: %w", err)
+	}
+
+	if err := c.signRequest(request); err != nil {
+		return nil, fmt.Errorf("CancelKmsKeyDeletion: sign request: %w", err)
+	}
+
+	if c.trace {
+		dumpRequest(request, "cancel-kms-key-deletion")
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("CancelKmsKeyDeletion: http client do: %w", err)
+	}
+
+	if c.trace {
+		dumpResponse(response)
+	}
+
+	if err := handleHTTPErrorResp(response); err != nil {
+		return nil, fmt.Errorf("CancelKmsKeyDeletion: http response: %w", err)
+	}
+
+	bodyresp := new(SuccessResponse)
+	if err := prepareJSONResponse(response, bodyresp); err != nil {
+		return nil, fmt.Errorf("CancelKmsKeyDeletion: prepare Json response: %w", err)
+	}
+
+	return bodyresp, nil
+}
+
+// Decrypt a ciphertext.
+func (c Client) Decrypt(ctx context.Context, id UUID, req DecryptRequest) (*DecryptResponse, error) {
+	path := fmt.Sprintf("/kms-key/%v/decrypt", id)
+
+	body, err := prepareJSONBody(req)
+	if err != nil {
+		return nil, fmt.Errorf("Decrypt: prepare Json body: %w", err)
+	}
+
+	request, err := http.NewRequestWithContext(ctx, "POST", c.serverEndpoint+path, body)
+	if err != nil {
+		return nil, fmt.Errorf("Decrypt: new request: %w", err)
+	}
+
+	request.Header.Add("User-Agent", c.getUserAgent())
+
+	request.Header.Add("Content-Type", "application/json")
+
+	if err := c.executeRequestInterceptors(ctx, request); err != nil {
+		return nil, fmt.Errorf("Decrypt: execute request editors: %w", err)
+	}
+
+	if err := c.signRequest(request); err != nil {
+		return nil, fmt.Errorf("Decrypt: sign request: %w", err)
+	}
+
+	if c.trace {
+		dumpRequest(request, "decrypt")
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("Decrypt: http client do: %w", err)
+	}
+
+	if c.trace {
+		dumpResponse(response)
+	}
+
+	if err := handleHTTPErrorResp(response); err != nil {
+		return nil, fmt.Errorf("Decrypt: http response: %w", err)
+	}
+
+	bodyresp := new(DecryptResponse)
+	if err := prepareJSONResponse(response, bodyresp); err != nil {
+		return nil, fmt.Errorf("Decrypt: prepare Json response: %w", err)
+	}
+
+	return bodyresp, nil
+}
+
+// Disable a KMS Key
+func (c Client) DisableKmsKey(ctx context.Context, id UUID) (*SuccessResponse, error) {
+	path := fmt.Sprintf("/kms-key/%v/disable", id)
+
+	request, err := http.NewRequestWithContext(ctx, "POST", c.serverEndpoint+path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("DisableKmsKey: new request: %w", err)
+	}
+
+	request.Header.Add("User-Agent", c.getUserAgent())
+
+	if err := c.executeRequestInterceptors(ctx, request); err != nil {
+		return nil, fmt.Errorf("DisableKmsKey: execute request editors: %w", err)
+	}
+
+	if err := c.signRequest(request); err != nil {
+		return nil, fmt.Errorf("DisableKmsKey: sign request: %w", err)
+	}
+
+	if c.trace {
+		dumpRequest(request, "disable-kms-key")
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("DisableKmsKey: http client do: %w", err)
+	}
+
+	if c.trace {
+		dumpResponse(response)
+	}
+
+	if err := handleHTTPErrorResp(response); err != nil {
+		return nil, fmt.Errorf("DisableKmsKey: http response: %w", err)
+	}
+
+	bodyresp := new(SuccessResponse)
+	if err := prepareJSONResponse(response, bodyresp); err != nil {
+		return nil, fmt.Errorf("DisableKmsKey: prepare Json response: %w", err)
+	}
+
+	return bodyresp, nil
+}
+
+// Disable the periodic rotation of a KMS Key.
+func (c Client) DisableKmsKeyRotation(ctx context.Context, id UUID) (*DisableKmsKeyRotationResponse, error) {
+	path := fmt.Sprintf("/kms-key/%v/disable-key-rotation", id)
+
+	request, err := http.NewRequestWithContext(ctx, "POST", c.serverEndpoint+path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("DisableKmsKeyRotation: new request: %w", err)
+	}
+
+	request.Header.Add("User-Agent", c.getUserAgent())
+
+	if err := c.executeRequestInterceptors(ctx, request); err != nil {
+		return nil, fmt.Errorf("DisableKmsKeyRotation: execute request editors: %w", err)
+	}
+
+	if err := c.signRequest(request); err != nil {
+		return nil, fmt.Errorf("DisableKmsKeyRotation: sign request: %w", err)
+	}
+
+	if c.trace {
+		dumpRequest(request, "disable-kms-key-rotation")
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("DisableKmsKeyRotation: http client do: %w", err)
+	}
+
+	if c.trace {
+		dumpResponse(response)
+	}
+
+	if err := handleHTTPErrorResp(response); err != nil {
+		return nil, fmt.Errorf("DisableKmsKeyRotation: http response: %w", err)
+	}
+
+	bodyresp := new(DisableKmsKeyRotationResponse)
+	if err := prepareJSONResponse(response, bodyresp); err != nil {
+		return nil, fmt.Errorf("DisableKmsKeyRotation: prepare Json response: %w", err)
+	}
+
+	return bodyresp, nil
+}
+
+// Enable a KMS Key"
+func (c Client) EnableKmsKey(ctx context.Context, id UUID) (*SuccessResponse, error) {
+	path := fmt.Sprintf("/kms-key/%v/enable", id)
+
+	request, err := http.NewRequestWithContext(ctx, "POST", c.serverEndpoint+path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("EnableKmsKey: new request: %w", err)
+	}
+
+	request.Header.Add("User-Agent", c.getUserAgent())
+
+	if err := c.executeRequestInterceptors(ctx, request); err != nil {
+		return nil, fmt.Errorf("EnableKmsKey: execute request editors: %w", err)
+	}
+
+	if err := c.signRequest(request); err != nil {
+		return nil, fmt.Errorf("EnableKmsKey: sign request: %w", err)
+	}
+
+	if c.trace {
+		dumpRequest(request, "enable-kms-key")
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("EnableKmsKey: http client do: %w", err)
+	}
+
+	if c.trace {
+		dumpResponse(response)
+	}
+
+	if err := handleHTTPErrorResp(response); err != nil {
+		return nil, fmt.Errorf("EnableKmsKey: http response: %w", err)
+	}
+
+	bodyresp := new(SuccessResponse)
+	if err := prepareJSONResponse(response, bodyresp); err != nil {
+		return nil, fmt.Errorf("EnableKmsKey: prepare Json response: %w", err)
+	}
+
+	return bodyresp, nil
+}
+
+// Enable the periodic rotation of a KMS Key.
+func (c Client) EnableKmsKeyRotation(ctx context.Context, id UUID, req EnableKmsKeyRotationRequest) (*EnableKmsKeyRotationResponse, error) {
+	path := fmt.Sprintf("/kms-key/%v/enable-key-rotation", id)
+
+	body, err := prepareJSONBody(req)
+	if err != nil {
+		return nil, fmt.Errorf("EnableKmsKeyRotation: prepare Json body: %w", err)
+	}
+
+	request, err := http.NewRequestWithContext(ctx, "POST", c.serverEndpoint+path, body)
+	if err != nil {
+		return nil, fmt.Errorf("EnableKmsKeyRotation: new request: %w", err)
+	}
+
+	request.Header.Add("User-Agent", c.getUserAgent())
+
+	request.Header.Add("Content-Type", "application/json")
+
+	if err := c.executeRequestInterceptors(ctx, request); err != nil {
+		return nil, fmt.Errorf("EnableKmsKeyRotation: execute request editors: %w", err)
+	}
+
+	if err := c.signRequest(request); err != nil {
+		return nil, fmt.Errorf("EnableKmsKeyRotation: sign request: %w", err)
+	}
+
+	if c.trace {
+		dumpRequest(request, "enable-kms-key-rotation")
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("EnableKmsKeyRotation: http client do: %w", err)
+	}
+
+	if c.trace {
+		dumpResponse(response)
+	}
+
+	if err := handleHTTPErrorResp(response); err != nil {
+		return nil, fmt.Errorf("EnableKmsKeyRotation: http response: %w", err)
+	}
+
+	bodyresp := new(EnableKmsKeyRotationResponse)
+	if err := prepareJSONResponse(response, bodyresp); err != nil {
+		return nil, fmt.Errorf("EnableKmsKeyRotation: prepare Json response: %w", err)
+	}
+
+	return bodyresp, nil
+}
+
+// Encrypt a plaintext.
+func (c Client) Encrypt(ctx context.Context, id UUID, req EncryptRequest) (*EncryptResponse, error) {
+	path := fmt.Sprintf("/kms-key/%v/encrypt", id)
+
+	body, err := prepareJSONBody(req)
+	if err != nil {
+		return nil, fmt.Errorf("Encrypt: prepare Json body: %w", err)
+	}
+
+	request, err := http.NewRequestWithContext(ctx, "POST", c.serverEndpoint+path, body)
+	if err != nil {
+		return nil, fmt.Errorf("Encrypt: new request: %w", err)
+	}
+
+	request.Header.Add("User-Agent", c.getUserAgent())
+
+	request.Header.Add("Content-Type", "application/json")
+
+	if err := c.executeRequestInterceptors(ctx, request); err != nil {
+		return nil, fmt.Errorf("Encrypt: execute request editors: %w", err)
+	}
+
+	if err := c.signRequest(request); err != nil {
+		return nil, fmt.Errorf("Encrypt: sign request: %w", err)
+	}
+
+	if c.trace {
+		dumpRequest(request, "encrypt")
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("Encrypt: http client do: %w", err)
+	}
+
+	if c.trace {
+		dumpResponse(response)
+	}
+
+	if err := handleHTTPErrorResp(response); err != nil {
+		return nil, fmt.Errorf("Encrypt: http response: %w", err)
+	}
+
+	bodyresp := new(EncryptResponse)
+	if err := prepareJSONResponse(response, bodyresp); err != nil {
+		return nil, fmt.Errorf("Encrypt: prepare Json response: %w", err)
+	}
+
+	return bodyresp, nil
+}
+
+// Generate a Data Encryption Key from a given KMS Key.
+func (c Client) GenerateDataKey(ctx context.Context, id UUID, req GenerateDataKeyRequest) (*GenerateDataKeyResponse, error) {
+	path := fmt.Sprintf("/kms-key/%v/generate-data-key", id)
+
+	body, err := prepareJSONBody(req)
+	if err != nil {
+		return nil, fmt.Errorf("GenerateDataKey: prepare Json body: %w", err)
+	}
+
+	request, err := http.NewRequestWithContext(ctx, "POST", c.serverEndpoint+path, body)
+	if err != nil {
+		return nil, fmt.Errorf("GenerateDataKey: new request: %w", err)
+	}
+
+	request.Header.Add("User-Agent", c.getUserAgent())
+
+	request.Header.Add("Content-Type", "application/json")
+
+	if err := c.executeRequestInterceptors(ctx, request); err != nil {
+		return nil, fmt.Errorf("GenerateDataKey: execute request editors: %w", err)
+	}
+
+	if err := c.signRequest(request); err != nil {
+		return nil, fmt.Errorf("GenerateDataKey: sign request: %w", err)
+	}
+
+	if c.trace {
+		dumpRequest(request, "generate-data-key")
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("GenerateDataKey: http client do: %w", err)
+	}
+
+	if c.trace {
+		dumpResponse(response)
+	}
+
+	if err := handleHTTPErrorResp(response); err != nil {
+		return nil, fmt.Errorf("GenerateDataKey: http response: %w", err)
+	}
+
+	bodyresp := new(GenerateDataKeyResponse)
+	if err := prepareJSONResponse(response, bodyresp); err != nil {
+		return nil, fmt.Errorf("GenerateDataKey: prepare Json response: %w", err)
+	}
+
+	return bodyresp, nil
+}
+
+// List all the key material versions of a KMS Key.
+func (c Client) ListKmsKeyRotations(ctx context.Context, id UUID) (*ListKmsKeyRotationsResponse, error) {
+	path := fmt.Sprintf("/kms-key/%v/list-key-rotations", id)
+
+	request, err := http.NewRequestWithContext(ctx, "GET", c.serverEndpoint+path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("ListKmsKeyRotations: new request: %w", err)
+	}
+
+	request.Header.Add("User-Agent", c.getUserAgent())
+
+	if err := c.executeRequestInterceptors(ctx, request); err != nil {
+		return nil, fmt.Errorf("ListKmsKeyRotations: execute request editors: %w", err)
+	}
+
+	if err := c.signRequest(request); err != nil {
+		return nil, fmt.Errorf("ListKmsKeyRotations: sign request: %w", err)
+	}
+
+	if c.trace {
+		dumpRequest(request, "list-kms-key-rotations")
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("ListKmsKeyRotations: http client do: %w", err)
+	}
+
+	if c.trace {
+		dumpResponse(response)
+	}
+
+	if err := handleHTTPErrorResp(response); err != nil {
+		return nil, fmt.Errorf("ListKmsKeyRotations: http response: %w", err)
+	}
+
+	bodyresp := new(ListKmsKeyRotationsResponse)
+	if err := prepareJSONResponse(response, bodyresp); err != nil {
+		return nil, fmt.Errorf("ListKmsKeyRotations: prepare Json response: %w", err)
+	}
+
+	return bodyresp, nil
+}
+
+// Decrypts an existing ciphertext using its original key material and re-encrypts the underlying plaintext using a specified KMS key or the latest key material of the same KMS Key.
+func (c Client) ReEncrypt(ctx context.Context, id UUID, req ReEncryptRequest) (*ReEncryptResponse, error) {
+	path := fmt.Sprintf("/kms-key/%v/re-encrypt", id)
+
+	body, err := prepareJSONBody(req)
+	if err != nil {
+		return nil, fmt.Errorf("ReEncrypt: prepare Json body: %w", err)
+	}
+
+	request, err := http.NewRequestWithContext(ctx, "POST", c.serverEndpoint+path, body)
+	if err != nil {
+		return nil, fmt.Errorf("ReEncrypt: new request: %w", err)
+	}
+
+	request.Header.Add("User-Agent", c.getUserAgent())
+
+	request.Header.Add("Content-Type", "application/json")
+
+	if err := c.executeRequestInterceptors(ctx, request); err != nil {
+		return nil, fmt.Errorf("ReEncrypt: execute request editors: %w", err)
+	}
+
+	if err := c.signRequest(request); err != nil {
+		return nil, fmt.Errorf("ReEncrypt: sign request: %w", err)
+	}
+
+	if c.trace {
+		dumpRequest(request, "re-encrypt")
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("ReEncrypt: http client do: %w", err)
+	}
+
+	if c.trace {
+		dumpResponse(response)
+	}
+
+	if err := handleHTTPErrorResp(response); err != nil {
+		return nil, fmt.Errorf("ReEncrypt: http response: %w", err)
+	}
+
+	bodyresp := new(ReEncryptResponse)
+	if err := prepareJSONResponse(response, bodyresp); err != nil {
+		return nil, fmt.Errorf("ReEncrypt: prepare Json response: %w", err)
+	}
+
+	return bodyresp, nil
+}
+
+// Replicate a KMS key to a target zone.
+func (c Client) ReplicateKmsKey(ctx context.Context, id UUID, req ReplicateKmsKeyRequest) (*SuccessResponse, error) {
+	path := fmt.Sprintf("/kms-key/%v/replicate", id)
+
+	body, err := prepareJSONBody(req)
+	if err != nil {
+		return nil, fmt.Errorf("ReplicateKmsKey: prepare Json body: %w", err)
+	}
+
+	request, err := http.NewRequestWithContext(ctx, "POST", c.serverEndpoint+path, body)
+	if err != nil {
+		return nil, fmt.Errorf("ReplicateKmsKey: new request: %w", err)
+	}
+
+	request.Header.Add("User-Agent", c.getUserAgent())
+
+	request.Header.Add("Content-Type", "application/json")
+
+	if err := c.executeRequestInterceptors(ctx, request); err != nil {
+		return nil, fmt.Errorf("ReplicateKmsKey: execute request editors: %w", err)
+	}
+
+	if err := c.signRequest(request); err != nil {
+		return nil, fmt.Errorf("ReplicateKmsKey: sign request: %w", err)
+	}
+
+	if c.trace {
+		dumpRequest(request, "replicate-kms-key")
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("ReplicateKmsKey: http client do: %w", err)
+	}
+
+	if c.trace {
+		dumpResponse(response)
+	}
+
+	if err := handleHTTPErrorResp(response); err != nil {
+		return nil, fmt.Errorf("ReplicateKmsKey: http response: %w", err)
+	}
+
+	bodyresp := new(SuccessResponse)
+	if err := prepareJSONResponse(response, bodyresp); err != nil {
+		return nil, fmt.Errorf("ReplicateKmsKey: prepare Json response: %w", err)
+	}
+
+	return bodyresp, nil
+}
+
+// Perform a manual rotation of the key material for a symmetric key.
+func (c Client) RotateKmsKey(ctx context.Context, id UUID) (*RotateKmsKeyResponse, error) {
+	path := fmt.Sprintf("/kms-key/%v/rotate", id)
+
+	request, err := http.NewRequestWithContext(ctx, "POST", c.serverEndpoint+path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("RotateKmsKey: new request: %w", err)
+	}
+
+	request.Header.Add("User-Agent", c.getUserAgent())
+
+	if err := c.executeRequestInterceptors(ctx, request); err != nil {
+		return nil, fmt.Errorf("RotateKmsKey: execute request editors: %w", err)
+	}
+
+	if err := c.signRequest(request); err != nil {
+		return nil, fmt.Errorf("RotateKmsKey: sign request: %w", err)
+	}
+
+	if c.trace {
+		dumpRequest(request, "rotate-kms-key")
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("RotateKmsKey: http client do: %w", err)
+	}
+
+	if c.trace {
+		dumpResponse(response)
+	}
+
+	if err := handleHTTPErrorResp(response); err != nil {
+		return nil, fmt.Errorf("RotateKmsKey: http response: %w", err)
+	}
+
+	bodyresp := new(RotateKmsKeyResponse)
+	if err := prepareJSONResponse(response, bodyresp); err != nil {
+		return nil, fmt.Errorf("RotateKmsKey: prepare Json response: %w", err)
+	}
+
+	return bodyresp, nil
+}
+
+// Schedule a KMS key for deletion after a delay.
+func (c Client) ScheduleKmsKeyDeletion(ctx context.Context, id UUID, req ScheduleKmsKeyDeletionRequest) (*SuccessResponse, error) {
+	path := fmt.Sprintf("/kms-key/%v/schedule-deletion", id)
+
+	body, err := prepareJSONBody(req)
+	if err != nil {
+		return nil, fmt.Errorf("ScheduleKmsKeyDeletion: prepare Json body: %w", err)
+	}
+
+	request, err := http.NewRequestWithContext(ctx, "POST", c.serverEndpoint+path, body)
+	if err != nil {
+		return nil, fmt.Errorf("ScheduleKmsKeyDeletion: new request: %w", err)
+	}
+
+	request.Header.Add("User-Agent", c.getUserAgent())
+
+	request.Header.Add("Content-Type", "application/json")
+
+	if err := c.executeRequestInterceptors(ctx, request); err != nil {
+		return nil, fmt.Errorf("ScheduleKmsKeyDeletion: execute request editors: %w", err)
+	}
+
+	if err := c.signRequest(request); err != nil {
+		return nil, fmt.Errorf("ScheduleKmsKeyDeletion: sign request: %w", err)
+	}
+
+	if c.trace {
+		dumpRequest(request, "schedule-kms-key-deletion")
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("ScheduleKmsKeyDeletion: http client do: %w", err)
+	}
+
+	if c.trace {
+		dumpResponse(response)
+	}
+
+	if err := handleHTTPErrorResp(response); err != nil {
+		return nil, fmt.Errorf("ScheduleKmsKeyDeletion: http response: %w", err)
+	}
+
+	bodyresp := new(SuccessResponse)
+	if err := prepareJSONResponse(response, bodyresp); err != nil {
+		return nil, fmt.Errorf("ScheduleKmsKeyDeletion: prepare Json response: %w", err)
 	}
 
 	return bodyresp, nil
@@ -15341,7 +16810,7 @@ type CreateSKSNodepoolRequest struct {
 	Addons []string `json:"addons,omitempty"`
 	// Nodepool Anti-affinity Groups
 	AntiAffinityGroups []AntiAffinityGroup `json:"anti-affinity-groups,omitempty"`
-	// Deploy target
+	// Deploy target reference
 	DeployTarget *DeployTarget `json:"deploy-target,omitempty"`
 	// Nodepool description
 	Description string `json:"description,omitempty" validate:"omitempty,lte=255"`
@@ -15349,7 +16818,7 @@ type CreateSKSNodepoolRequest struct {
 	DiskSize int64 `json:"disk-size" validate:"required,gte=20,lte=51200"`
 	// Prefix to apply to instances names (default: pool), lowercase only
 	InstancePrefix string `json:"instance-prefix,omitempty" validate:"omitempty,gte=1,lte=30"`
-	// Compute instance type
+	// Instance type reference
 	InstanceType *InstanceType `json:"instance-type" validate:"required"`
 	// Kubelet image GC options
 	KubeletImageGC *KubeletImageGC   `json:"kubelet-image-gc,omitempty"`
@@ -15518,7 +16987,7 @@ const (
 type UpdateSKSNodepoolRequest struct {
 	// Nodepool Anti-affinity Groups
 	AntiAffinityGroups []AntiAffinityGroup `json:"anti-affinity-groups,omitempty"`
-	// Deploy target
+	// Deploy target reference
 	DeployTarget *DeployTarget `json:"deploy-target"`
 	// Nodepool description
 	Description string `json:"description,omitempty" validate:"omitempty,lte=255"`
@@ -15526,9 +16995,11 @@ type UpdateSKSNodepoolRequest struct {
 	DiskSize int64 `json:"disk-size,omitempty" validate:"omitempty,gte=20,lte=51200"`
 	// Prefix to apply to managed instances names (default: pool), lowercase only
 	InstancePrefix string `json:"instance-prefix,omitempty" validate:"omitempty,gte=1,lte=30"`
-	// Compute instance type
-	InstanceType *InstanceType     `json:"instance-type,omitempty"`
-	Labels       SKSNodepoolLabels `json:"labels,omitempty"`
+	// Instance type reference
+	InstanceType *InstanceType `json:"instance-type,omitempty"`
+	// Kubelet image GC options
+	KubeletImageGC *KubeletImageGC   `json:"kubelet-image-gc,omitempty"`
+	Labels         SKSNodepoolLabels `json:"labels,omitempty"`
 	// Nodepool name, lowercase only
 	Name string `json:"name,omitempty" validate:"omitempty,gte=1,lte=255"`
 	// Nodepool Private Networks
