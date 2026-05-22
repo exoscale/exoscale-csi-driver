@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.35.0
+
+### Improvements
+
+* chore(deploy): bump CSI sidecars to client-go v0.35 (provisioner v6.2.0, attacher v4.11.0, snapshotter v8.5.0, snapshot-controller v8.5.0, resizer v2.1.0, livenessprobe v2.18.0); `WatchListClient` / `RequestWatchProgress` is now on by default
+* chore(rbac): add `VolumeAttributesClass` (resizer v2) and `VolumeGroupSnapshot` (snapshotter v8) permissions, drop unused `customresourcedefinitions` grant, de-duplicate `leases`
+* chore(crds): regenerate `crds.yaml` from external-snapshotter v8.5.0 (adds `VolumeGroupSnapshot*` CRDs)
+
+### Compatibility
+
+* Minimum Kubernetes version is now 1.34 (bundled `csi-provisioner` v6.2.0 requirement)
+
 ## v0.34.0
 * fix(manifests): update safe dependencies in latest manifests and enable renovate #146
 

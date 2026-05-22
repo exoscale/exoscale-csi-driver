@@ -23,7 +23,7 @@ spec:
       serviceAccount: exoscale-csi-controller
       containers:
         - name: exoscale-csi-plugin
-          image: exoscale/csi-driver:latest
+          image: exoscale/csi-driver:0.35.0
           imagePullPolicy: Always
           args :
             - "--endpoint=$(CSI_ENDPOINT)"
