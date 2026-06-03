@@ -96,5 +96,8 @@ For example, CSI `0.99` would be compatible with Kubernetes versions `1.99`, `1.
 
 | CSI version | supported Kubernetes versions |
 |-------------|-------------------------------|
+| 0.35        | 1.35, 1.34                    |
 | 0.31        | 1.31, 1.30                    |
 | 0.29        | 1.29, 1.28, 1.27              |
+
+> Note: `0.35` requires Kubernetes >= 1.34 because the bundled `csi-provisioner` v6.2.0 declares that as its minimum supported version. From `0.35` onward, the CSI sidecars are built against `client-go` v0.35 so the `WatchListClient` feature gate (and the `RequestWatchProgress` watch-stream optimization that backs it) is enabled by default; no extra configuration is required on the kube-apiserver side from Kubernetes 1.31+, where `WatchList` and `ConsistentListFromCache` are Beta-on.
