@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.34.1
 * fix(driver): correctly look up zone metadata from node CCM
 
 ## v0.34.0
