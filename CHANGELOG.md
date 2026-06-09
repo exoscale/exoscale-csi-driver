@@ -1,5 +1,8 @@
 # Changelog
 
+## Unreleased
+* fix(driver): correctly look up zone metadata from node CCM
+
 ## v0.34.0
 * fix(manifests): update safe dependencies in latest manifests and enable renovate #146
 
