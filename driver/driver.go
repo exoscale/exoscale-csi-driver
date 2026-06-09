@@ -216,7 +216,7 @@ func getExoscaleNodeMetadataFromCCM() (*nodeMetadata, error) {
 		return nil, fmt.Errorf("failed to get nodes: %w", err)
 	}
 
-	region, ok := node.Labels["topology.kubernetes.io/region"]
+	zone, ok := node.Labels["topology.kubernetes.io/zone"]
 	if !ok {
 		return nil, fmt.Errorf("no zone found on node, missing Exoscale CCM")
 	}
@@ -231,7 +231,7 @@ func getExoscaleNodeMetadataFromCCM() (*nodeMetadata, error) {
 	}
 
 	return &nodeMetadata{
-		zoneName:   v3.ZoneName(region),
+		zoneName:   v3.ZoneName(zone),
 		InstanceID: instanceID,
 	}, nil
 }
