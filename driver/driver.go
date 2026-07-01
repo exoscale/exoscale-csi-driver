@@ -240,7 +240,7 @@ func getExoscaleNodeMetadataFromCCM() (*nodeMetadata, error) {
 }
 
 func getExoscaleNodeMetadataFromServer() (*nodeMetadata, error) {
-	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Second*5))
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	zone, err := metadata.Get(ctx, metadata.AvailabilityZone)
 	if err != nil {
