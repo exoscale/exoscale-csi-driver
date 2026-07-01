@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.34.2
 
 ### Bug fixes
 * Driver (fix): Fallback on CCM zone/region labels (#160)
