@@ -70,15 +70,15 @@ func NewDriver(config *DriverConfig) (*Driver, error) {
 	klog.Infof("driver: %s version: %s", DriverName, buildinfo.Version)
 	nodeMeta, err := getExoscaleNodeMetadataFromCCM()
 	if err != nil {
-		klog.Warningf("error to get exoscale node metadata from K8S Node: %v", err)
+		klog.Infof("unable to get exoscale node metadata from K8S Node: %v", err)
 		klog.Info("fallback on CD-ROM")
 		nodeMeta, err = getExoscaleNodeMetadataFromCdRom()
 		if err != nil {
-			klog.Warningf("error to get exoscale node metadata from CD-ROM: %v", err)
+			klog.Infof("unable to get exoscale node metadata from CD-ROM: %v", err)
 			klog.Info("fallback on server metadata")
 			nodeMeta, err = getExoscaleNodeMetadataFromServer()
 			if err != nil {
-				klog.Errorf("error to get exoscale node metadata from server: %v", err)
+				klog.Infof("unable to get exoscale node metadata from server: %v", err)
 				return nil, fmt.Errorf("new driver get metadata: %w", err)
 			}
 		}
@@ -218,7 +218,10 @@ func getExoscaleNodeMetadataFromCCM() (*nodeMetadata, error) {
 
 	zone, ok := node.Labels["topology.kubernetes.io/zone"]
 	if !ok {
-		return nil, fmt.Errorf("no zone found on node, missing Exoscale CCM")
+		zone, ok = node.Labels["topology.kubernetes.io/region"]
+		if !ok {
+			return nil, fmt.Errorf("no zone found on node, missing Exoscale CCM")
+		}
 	}
 
 	if !strings.HasPrefix(node.Spec.ProviderID, "exoscale://") {
@@ -237,7 +240,7 @@ func getExoscaleNodeMetadataFromCCM() (*nodeMetadata, error) {
 }
 
 func getExoscaleNodeMetadataFromServer() (*nodeMetadata, error) {
-	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Minute))
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Second*5))
 	defer cancel()
 	zone, err := metadata.Get(ctx, metadata.AvailabilityZone)
 	if err != nil {
