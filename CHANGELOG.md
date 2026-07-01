@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Bug fixes
+* Driver (fix): Fallback on CCM zone/region labels (#160)
+
 ## v0.34.1
 * fix(driver): correctly look up zone metadata from node CCM
 
