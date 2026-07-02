@@ -1,8 +1,5 @@
-//go:build go1.19
-// +build go1.19
-
 /*
-Copyright 2022 The Kubernetes Authors.
+Copyright The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,24 +14,17 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package exec
+package internalversion
 
 import (
-	"errors"
-	osexec "os/exec"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/conversion"
 )
 
-// maskErrDotCmd reverts the behavior of osexec.Cmd to what it was before go1.19
-// specifically set the Err field to nil (LookPath returns a new error when the file
-// is resolved to the current directory.
-func maskErrDotCmd(cmd *osexec.Cmd) *osexec.Cmd {
-	cmd.Err = maskErrDot(cmd.Err)
-	return cmd
+func Convert_v1_ListOptions_To_internalversion_ListOptions(in *v1.ListOptions, out *ListOptions, s conversion.Scope) error {
+	return autoConvert_v1_ListOptions_To_internalversion_ListOptions(in, out, s)
 }
 
-func maskErrDot(err error) error {
-	if err != nil && errors.Is(err, osexec.ErrDot) {
-		return nil
-	}
-	return err
+func Convert_internalversion_ListOptions_To_v1_ListOptions(in *ListOptions, out *v1.ListOptions, s conversion.Scope) error {
+	return autoConvert_internalversion_ListOptions_To_v1_ListOptions(in, out, s)
 }

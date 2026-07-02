@@ -5,8 +5,8 @@ go 1.26
 require (
 	github.com/exoscale/egoscale/v3 v3.1.38
 	github.com/stretchr/testify v1.11.1
-	k8s.io/api v0.34.3
-	k8s.io/apimachinery v0.34.3
+	k8s.io/api v0.36.2
+	k8s.io/apimachinery v0.36.2
 	k8s.io/client-go v0.34.3
 )
 
