@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Improvements
+* fix(driver): Improve startup logging and timeout
+
 ## v0.34.2
 
 ### Bug fixes

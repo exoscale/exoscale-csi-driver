@@ -73,6 +73,8 @@ func main() {
 		}
 	}
 
+	klog.Info("initializing new driver")
+
 	exoDriver, err := driver.NewDriver(&driver.DriverConfig{
 		Endpoint:     *endpoint,
 		Mode:         driver.Mode(*mode),
@@ -86,14 +88,14 @@ func main() {
 		klog.Fatalln(err)
 	}
 
-	klog.Info("NewDriver OK")
+	klog.Info("new driver OK")
 
 	if err := exoDriver.Run(); err != nil {
 		klog.Error(err)
 		klog.Fatalln(err)
 	}
 
-	klog.Info("Run OK")
+	klog.Info("run OK")
 }
 
 func inClusterClient() (*kubernetes.Clientset, error) {

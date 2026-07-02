@@ -84,6 +84,8 @@ func NewDriver(config *DriverConfig) (*Driver, error) {
 		}
 	}
 
+	klog.Infof("successfully got metadata zone: %s instance ID: %s", nodeMeta.zoneName, nodeMeta.InstanceID)
+
 	driver := &Driver{
 		config: config,
 	}
@@ -98,12 +100,16 @@ func NewDriver(config *DriverConfig) (*Driver, error) {
 		return nil, fmt.Errorf("new driver: %w", err)
 	}
 
+	klog.Info("new egoscale client done")
+
 	// Setup the client with the same zone endpoint as the node zone.
 	endpoint, err := client.GetZoneAPIEndpoint(context.Background(), nodeMeta.zoneName)
 	if err != nil {
 		return nil, fmt.Errorf("new driver: %w", err)
 	}
 	client = client.WithEndpoint(endpoint)
+
+	klog.Info("egoscale zone client setup done")
 
 	switch config.Mode {
 	case ControllerMode:
@@ -211,7 +217,10 @@ func getExoscaleNodeMetadataFromCCM() (*nodeMetadata, error) {
 		return nil, err
 	}
 
-	node, err := clientset.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	node, err := clientset.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get nodes: %w", err)
 	}
