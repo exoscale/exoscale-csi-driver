@@ -5,7 +5,7 @@ github.com/davecgh/go-spew/spew
 ## explicit; go 1.13
 github.com/emicklei/go-restful/v3
 github.com/emicklei/go-restful/v3/log
-# github.com/exoscale/egoscale/v3 v3.1.38
+# github.com/exoscale/egoscale/v3 v3.1.40
 ## explicit; go 1.25
 github.com/exoscale/egoscale/v3
 github.com/exoscale/egoscale/v3/credentials
