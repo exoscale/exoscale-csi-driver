@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.34.3
 
 ### Improvements
 * fix(driver): Improve startup logging and timeout
