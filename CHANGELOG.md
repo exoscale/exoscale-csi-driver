@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Improvements
+- Prevent silent metadata server error #172
+
 ## v0.34.3
 
 ### Improvements
