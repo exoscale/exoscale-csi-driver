@@ -337,6 +337,36 @@ func (d *controllerService) ControllerUnpublishVolume(ctx context.Context, req *
 		return nil, err
 	}
 
+	volume, err := client.GetBlockStorageVolume(ctx, volumeID)
+	if err != nil {
+		if errors.Is(err, v3.ErrNotFound) {
+			return &csi.ControllerUnpublishVolumeResponse{}, nil
+		}
+
+		klog.Errorf("get block storage volume %s: %v", volumeID, err)
+		return nil, err
+	}
+
+	// UnpublishVolume idempotent: the volume may already be detached
+	// e.g. a previous detach outlived the csi-attache (CO) deadline, or the instance was destroyed.
+	if volume.Instance == nil {
+		return &csi.ControllerUnpublishVolumeResponse{}, nil
+	}
+
+	// NodeId is optional: when unset, the volume must be detached from any node.
+	if req.NodeId != "" {
+		_, instanceID, err := getExoscaleID(req.NodeId)
+		if err != nil {
+			klog.Errorf("parse node ID %s: %v", req.NodeId, err)
+			return nil, err
+		}
+
+		// Attached to another instance: never detach it from there.
+		if volume.Instance.ID != instanceID {
+			return &csi.ControllerUnpublishVolumeResponse{}, nil
+		}
+	}
+
 	op, err := client.DetachBlockStorageVolume(ctx, volumeID)
 	if err != nil {
 		if errors.Is(err, v3.ErrNotFound) || strings.Contains(err.Error(), "Volume not attached") {
