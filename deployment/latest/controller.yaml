@@ -95,6 +95,7 @@ spec:
           args:
             - "--v=5"
             - "--csi-address=$(CSI_ADDRESS)"
+            - "--timeout=2m"
             - "--leader-election"
             - "--leader-election-lease-duration=30s"
             - "--leader-election-renew-deadline=20s"
