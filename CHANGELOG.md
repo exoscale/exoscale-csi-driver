@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.34.5
 
 ### Bug fixes
 - Bump egoscale to v3.1.49 so API error messages are surfaced
