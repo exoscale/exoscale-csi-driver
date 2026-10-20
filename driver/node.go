@@ -88,8 +88,20 @@ func (d *nodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStageVol
 		if blockDevice {
 			return nil, status.Errorf(codes.Unknown, "block device mounted as stagingTargetPath %s for volume %s", stagingTargetPath, volumeID)
 		}
-		klog.V(4).Infof("volume %s is already mounted on %s", volumeID, stagingTargetPath)
-		return &csi.NodeStageVolumeResponse{}, nil
+
+		if err := d.diskUtils.CheckMountHealth(stagingTargetPath); err != nil {
+			// The backing device disappeared under the mount (e.g. it was
+			// detached while mounted): the mount stays in the mount table
+			// but every I/O on it fails. Unmount it and stage freshly
+			// instead of reporting the broken mount as staged.
+			klog.Warningf("volume %s is mounted on %s but the mount is broken (%s), unmounting it to stage it freshly", volumeID, stagingTargetPath, err)
+			if err := d.diskUtils.Unmount(stagingTargetPath); err != nil {
+				return nil, status.Errorf(codes.Internal, "unmount broken mount %s: %s", stagingTargetPath, err.Error())
+			}
+		} else {
+			klog.V(4).Infof("volume %s is already mounted on %s", volumeID, stagingTargetPath)
+			return &csi.NodeStageVolumeResponse{}, nil
+		}
 	}
 
 	mountCap := volumeCapability.GetMount()
@@ -241,8 +253,18 @@ func (d *nodeService) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 			return nil, status.Errorf(codes.AlreadyExists, "volume with ID %s does not match the given mount mode for the request", volumeID)
 		}
 
-		klog.V(4).Infof("Volume %s is already mounted on %s", volumeID, stagingTargetPath)
-		return &csi.NodePublishVolumeResponse{}, nil
+		if err := d.diskUtils.CheckMountHealth(targetPath); err != nil {
+			// The backing device disappeared under the mount (e.g. it was
+			// detached while mounted): unmount the broken target and publish
+			// freshly instead of reporting it as mounted.
+			klog.Warningf("volume %s is mounted on %s but the mount is broken (%s), unmounting it to publish it freshly", volumeID, targetPath, err)
+			if err := d.diskUtils.Unmount(targetPath); err != nil {
+				return nil, status.Errorf(codes.Internal, "unmount broken mount %s: %s", targetPath, err.Error())
+			}
+		} else {
+			klog.V(4).Infof("Volume %s is already mounted on %s", volumeID, stagingTargetPath)
+			return &csi.NodePublishVolumeResponse{}, nil
+		}
 	}
 
 	var sourcePath string
@@ -268,6 +290,23 @@ func (d *nodeService) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		sourcePath = stagingTargetPath
 		fsType = mount.GetFsType()
 		mountOptions = mount.GetMountFlags()
+
+		// The staging mount this bind mount sources from may itself be
+		// broken (device detached while mounted). kubelet will not call
+		// NodeStageVolume again as long as it believes the device is staged,
+		// so recover the staging mount here before bind-mounting it.
+		stagingMounted, err := d.diskUtils.IsSharedMounted(stagingTargetPath, "")
+		if err == nil && stagingMounted {
+			if err := d.diskUtils.CheckMountHealth(stagingTargetPath); err != nil {
+				klog.Warningf("staging mount %s of volume %s is broken (%s), remounting it from %s", stagingTargetPath, volumeID, err, devicePath)
+				if err := d.diskUtils.Unmount(stagingTargetPath); err != nil {
+					return nil, status.Errorf(codes.Internal, "unmount broken staging mount %s: %s", stagingTargetPath, err.Error())
+				}
+				if err := d.diskUtils.FormatAndMount(stagingTargetPath, devicePath, fsType, mountOptions); err != nil {
+					return nil, status.Errorf(codes.Internal, "restage volume %s on %s: %s", volumeID, stagingTargetPath, err.Error())
+				}
+			}
+		}
 	}
 
 	mountOptions = append(mountOptions, "bind")
