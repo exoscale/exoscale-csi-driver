@@ -23,6 +23,7 @@ var (
 	prefix      = flag.String("prefix", "", "Prefix to add in block volume name")
 	versionFlag = flag.Bool("version", false, "Print the version and exit")
 	mode        = flag.String("mode", string(driver.AllMode), "The mode in which the CSI driver will be run (all, node, controller)")
+	credsDir    = flag.String("credentials-dir", "", "Directory holding the EXOSCALE_API_KEY and EXOSCALE_API_SECRET files (a mounted Secret); reloaded when they change. Overrides the environment variables")
 	zones       = flag.String("zones", "", "Subset of zones to watch (comma separated, by default CSI looks for volumes in all zones)")
 
 	// These are set during build time via -ldflags
@@ -76,12 +77,13 @@ func main() {
 	klog.Info("initializing new driver")
 
 	exoDriver, err := driver.NewDriver(&driver.DriverConfig{
-		Endpoint:     *endpoint,
-		Mode:         driver.Mode(*mode),
-		Prefix:       *prefix,
-		Credentials:  credentials.NewEnvCredentials(),
-		ZoneEndpoint: v3.Endpoint(apiEndpoint),
-		ZoneScope:    zoneScope,
+		Endpoint:       *endpoint,
+		Mode:           driver.Mode(*mode),
+		Prefix:         *prefix,
+		Credentials:    credentials.NewEnvCredentials(),
+		CredentialsDir: *credsDir,
+		ZoneEndpoint:   v3.Endpoint(apiEndpoint),
+		ZoneScope:      zoneScope,
 	})
 	if err != nil {
 		klog.Error(err)

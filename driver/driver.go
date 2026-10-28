@@ -46,13 +46,16 @@ const (
 
 // DriverConfig is used to configure a new Driver
 type DriverConfig struct {
-	Endpoint     string
-	Prefix       string
-	Mode         Mode
-	Credentials  *credentials.Credentials
-	RestConfig   *rest.Config
-	ZoneEndpoint v3.Endpoint
-	ZoneScope    []v3.ZoneName
+	Endpoint    string
+	Prefix      string
+	Mode        Mode
+	Credentials *credentials.Credentials
+	// CredentialsDir, if set, holds the API key and secret as files (a mounted Secret).
+	// It replaces Credentials, and the driver reloads them when the files change.
+	CredentialsDir string
+	RestConfig     *rest.Config
+	ZoneEndpoint   v3.Endpoint
+	ZoneScope      []v3.ZoneName
 }
 
 // Driver implements the interfaces csi.IdentityServer, csi.ControllerServer and csi.NodeServer
@@ -95,7 +98,18 @@ func NewDriver(config *DriverConfig) (*Driver, error) {
 		clientOpts = append(clientOpts, v3.ClientOptWithEndpoint(config.ZoneEndpoint))
 	}
 
-	client, err := v3.NewClient(config.Credentials, clientOpts...)
+	var credsValue credentials.Value
+	if config.CredentialsDir != "" {
+		klog.Infof("reading (watching) Exoscale API credentials from %s", config.CredentialsDir)
+		credsValue, err = readCredentialsDir(config.CredentialsDir)
+	} else {
+		credsValue, err = config.Credentials.Get()
+	}
+	if err != nil {
+		return nil, fmt.Errorf("new driver: credentials: %w", err)
+	}
+
+	client, err := v3.NewClient(credentials.NewStaticCredentials(credsValue.APIKey, credsValue.APISecret), clientOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("new driver: %w", err)
 	}
@@ -107,20 +121,28 @@ func NewDriver(config *DriverConfig) (*Driver, error) {
 	if err != nil {
 		return nil, fmt.Errorf("new driver: %w", err)
 	}
-	client = client.WithEndpoint(endpoint)
+
+	rc, err := newRefreshableClient(credsValue, config.CredentialsDir, endpoint, clientOpts)
+	if err != nil {
+		return nil, fmt.Errorf("new driver: %w", err)
+	}
 
 	klog.Info("egoscale zone client setup done")
 
 	switch config.Mode {
 	case ControllerMode:
-		driver.controllerService = newControllerService(client, nodeMeta, config.ZoneScope)
+		driver.controllerService = newControllerService(rc, nodeMeta, config.ZoneScope)
 	case NodeMode:
-		driver.nodeService = newNodeService(client, nodeMeta)
+		driver.nodeService = newNodeService(rc, nodeMeta)
 	case AllMode:
-		driver.controllerService = newControllerService(client, nodeMeta, config.ZoneScope)
-		driver.nodeService = newNodeService(client, nodeMeta)
+		driver.controllerService = newControllerService(rc, nodeMeta, config.ZoneScope)
+		driver.nodeService = newNodeService(rc, nodeMeta)
 	default:
 		return nil, fmt.Errorf("unknown mode for driver: %s", config.Mode)
+	}
+
+	if config.CredentialsDir != "" {
+		rc.startWatch(context.Background(), credentialsResyncPeriod)
 	}
 
 	return driver, nil
