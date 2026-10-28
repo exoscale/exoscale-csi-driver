@@ -289,7 +289,13 @@ func (d *controllerService) ControllerPublishVolume(ctx context.Context, req *cs
 		// "attached" state lets kubelet stage a device that can still
 		// disappear from the instance while the job completes, leaving a
 		// mount whose every I/O fails with EIO.
-		if volume.State != v3.BlockStorageVolumeStateAttached {
+		switch volume.State {
+		case v3.BlockStorageVolumeStateAttached:
+		case v3.BlockStorageVolumeStateError:
+			// Won't settle by itself, but keep Aborted (non-final) so the CO still
+			// calls ControllerUnpublishVolume if the attachment is abandoned.
+			return nil, status.Errorf(codes.Aborted, "volume %s is in error state on instance %s", volumeID, instanceID)
+		default:
 			return nil, status.Errorf(codes.Aborted, "volume %s is still in state %q on instance %s", volumeID, volume.State, instanceID)
 		}
 
