@@ -80,14 +80,14 @@ const (
 )
 
 type controllerService struct {
-	client    *v3.Client
+	client    *refreshableClient
 	zoneName  v3.ZoneName
 	zoneScope []v3.ZoneName // limit the scope of zones when listing volumes / snapshots
 
 	csi.UnimplementedControllerServer
 }
 
-func newControllerService(client *v3.Client, nodeMeta *nodeMetadata, zoneScope []v3.ZoneName) controllerService {
+func newControllerService(client *refreshableClient, nodeMeta *nodeMetadata, zoneScope []v3.ZoneName) controllerService {
 	return controllerService{
 		client:    client,
 		zoneName:  nodeMeta.zoneName,
@@ -106,7 +106,7 @@ func (d *controllerService) CreateVolume(ctx context.Context, req *csi.CreateVol
 		return nil, err
 	}
 
-	client, err := newClientZone(ctx, d.client, zoneName)
+	client, err := newClientZone(ctx, d.client.Get(), zoneName)
 	if err != nil {
 		klog.Errorf("create volume: new client zone: %v", err)
 		return nil, err
@@ -224,7 +224,7 @@ func (d *controllerService) DeleteVolume(ctx context.Context, req *csi.DeleteVol
 		return nil, err
 	}
 
-	client, err := newClientZone(ctx, d.client, zoneName)
+	client, err := newClientZone(ctx, d.client.Get(), zoneName)
 	if err != nil {
 		klog.Errorf("delete volume: new client zone: %v", err)
 		return nil, err
@@ -260,7 +260,7 @@ func (d *controllerService) ControllerPublishVolume(ctx context.Context, req *cs
 		return nil, err
 	}
 
-	client, err := newClientZone(ctx, d.client, zoneName)
+	client, err := newClientZone(ctx, d.client.Get(), zoneName)
 	if err != nil {
 		klog.Errorf("publish volume: new client zone: %v", err)
 		return nil, err
@@ -331,7 +331,7 @@ func (d *controllerService) ControllerUnpublishVolume(ctx context.Context, req *
 		return nil, err
 	}
 
-	client, err := newClientZone(ctx, d.client, zoneName)
+	client, err := newClientZone(ctx, d.client.Get(), zoneName)
 	if err != nil {
 		klog.Errorf("unpublish volume: new client zone: %v", err)
 		return nil, err
@@ -399,7 +399,7 @@ func (d *controllerService) ValidateVolumeCapabilities(ctx context.Context, req 
 		return nil, err
 	}
 
-	client, err := newClientZone(ctx, d.client, zoneName)
+	client, err := newClientZone(ctx, d.client.Get(), zoneName)
 	if err != nil {
 		klog.Errorf("validate volume capabilities: new client zone: %v", err)
 		return nil, err
@@ -446,7 +446,9 @@ func (d *controllerService) ListVolumes(ctx context.Context, req *csi.ListVolume
 		}
 	}
 
-	zones, err := d.client.ListZones(ctx)
+	// One client for the whole request, so that a credentials reload can't split it.
+	baseClient := d.client.Get()
+	zones, err := baseClient.ListZones(ctx)
 	if err != nil {
 		klog.Errorf("create block storage volume list zones: %v", err)
 		return nil, err
@@ -459,7 +461,7 @@ func (d *controllerService) ListVolumes(ctx context.Context, req *csi.ListVolume
 			continue
 		}
 
-		client := d.client.WithEndpoint(zone.APIEndpoint)
+		client := baseClient.WithEndpoint(zone.APIEndpoint)
 
 		volumesResp, err := client.ListBlockStorageVolumes(ctx)
 		if err != nil {
@@ -542,7 +544,7 @@ func (d *controllerService) CreateSnapshot(ctx context.Context, req *csi.CreateS
 		return nil, err
 	}
 
-	client, err := newClientZone(ctx, d.client, zoneName)
+	client, err := newClientZone(ctx, d.client.Get(), zoneName)
 	if err != nil {
 		klog.Errorf("create snapshot: new client zone: %v", err)
 		return nil, err
@@ -620,7 +622,7 @@ func (d *controllerService) DeleteSnapshot(ctx context.Context, req *csi.DeleteS
 		return nil, err
 	}
 
-	client, err := newClientZone(ctx, d.client, zoneName)
+	client, err := newClientZone(ctx, d.client.Get(), zoneName)
 	if err != nil {
 		klog.Errorf("delete snapshot: new client zone: %v", err)
 		return nil, err
@@ -655,7 +657,9 @@ func (d *controllerService) ListSnapshots(ctx context.Context, req *csi.ListSnap
 		}
 	}
 
-	zones, err := d.client.ListZones(ctx)
+	// One client for the whole request, so that a credentials reload can't split it.
+	baseClient := d.client.Get()
+	zones, err := baseClient.ListZones(ctx)
 	if err != nil {
 		klog.Errorf("create block storage volume list zones: %v", err)
 		return nil, err
@@ -668,7 +672,7 @@ func (d *controllerService) ListSnapshots(ctx context.Context, req *csi.ListSnap
 			continue
 		}
 
-		client := d.client.WithEndpoint(zone.APIEndpoint)
+		client := baseClient.WithEndpoint(zone.APIEndpoint)
 
 		snapResp, err := client.ListBlockStorageSnapshots(ctx)
 		if err != nil {
@@ -720,7 +724,7 @@ func (d *controllerService) ControllerExpandVolume(ctx context.Context, req *csi
 		return nil, err
 	}
 
-	client, err := newClientZone(ctx, d.client, zoneName)
+	client, err := newClientZone(ctx, d.client.Get(), zoneName)
 	if err != nil {
 		klog.Errorf("expand volume: new client zone: %v", err)
 		return nil, err
@@ -791,7 +795,7 @@ func (d *controllerService) ControllerGetVolume(ctx context.Context, req *csi.Co
 		return nil, err
 	}
 
-	client, err := newClientZone(ctx, d.client, zoneName)
+	client, err := newClientZone(ctx, d.client.Get(), zoneName)
 	if err != nil {
 		klog.Errorf("expand volume: new client zone: %v", err)
 		return nil, err
