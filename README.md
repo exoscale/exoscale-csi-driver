@@ -29,6 +29,25 @@ Exoscale Block Storage Container Storage Interface Driver.
     deployment/exoscale-secret.sh
     ```
 
+### Rotating the API key
+
+The manifests mount the `exoscale-credentials` Secret at `/etc/exoscale-credentials` and start the
+driver with `--credentials-dir=/etc/exoscale-credentials`. The driver watches that directory and
+switches to the new key when the Secret is updated, without restarting the pods. Before switching, it
+checks the new key against the API: a key the API rejects is not used, and the driver keeps the
+current key and tries the new one again every minute.
+
+The kubelet takes a while to update the Secret in each pod (usually one to two minutes), so rotate in
+this order:
+
+1. Create the new API key.
+2. Update the `exoscale-credentials` Secret.
+3. Wait for `Exoscale API credentials reloaded` in the logs of the controller and of every node pod.
+4. Revoke the old API key.
+
+Without `--credentials-dir` the key is read from the `EXOSCALE_API_KEY` and `EXOSCALE_API_SECRET`
+environment variables once, at startup, and the pods must be restarted after a rotation.
+
 ## Deployment
 
 ```
