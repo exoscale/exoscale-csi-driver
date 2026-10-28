@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.34.5
+
+### Bug fixes
+- Bump egoscale to v3.1.49 so API error messages are surfaced
+- ControllerUnpublishVolume: succeed when the volume is already detached or attached to another instance
+- manifests: raise csi-attacher `--timeout` from the 15s (default) to 2m, attach operations can exceed 15s
+
+## v0.34.4
+
+### Improvements
+- Prevent silent metadata server error #172
+
 ## v0.34.3
 
 ### Improvements
