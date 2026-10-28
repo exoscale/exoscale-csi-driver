@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Bug fixes
+- ControllerPublishVolume: don't report a volume as published while it is still attaching (#164)
+
 ## v0.34.5
 
 ### Bug fixes
