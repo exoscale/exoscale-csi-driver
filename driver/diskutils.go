@@ -43,6 +43,7 @@ type DiskUtils interface {
 	MountToTarget(sourcePath, targetPath, fsType string, mountOptions []string) error
 	Unmount(target string) error
 	GetStatfs(path string) (*unix.Statfs_t, error)
+	CheckMountHealth(path string) error
 	Resize(targetPath string, devicePath string) error
 }
 
@@ -246,6 +247,15 @@ func (d *diskUtils) GetStatfs(path string) (*unix.Statfs_t, error) {
 	fs := &unix.Statfs_t{}
 	err := unix.Statfs(path, fs)
 	return fs, err
+}
+
+// CheckMountHealth probes an existing mount point to detect mounts whose
+// backing device disappeared (e.g. it was detached while mounted): such a
+// mount stays in the mount table, but every operation on it fails with EIO
+// until it is unmounted.
+func (d *diskUtils) CheckMountHealth(path string) error {
+	_, err := d.GetStatfs(path)
+	return err
 }
 
 func (d *diskUtils) Resize(targetPath string, devicePath string) error {
