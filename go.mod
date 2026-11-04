@@ -5,6 +5,7 @@ go 1.26
 require (
 	github.com/container-storage-interface/spec v1.12.0
 	github.com/exoscale/egoscale/v3 v3.1.49
+	github.com/fsnotify/fsnotify v1.7.0
 	github.com/golang/protobuf v1.5.4
 	github.com/kubernetes-sigs/aws-ebs-csi-driver v1.53.0
 	github.com/stretchr/testify v1.11.1
@@ -23,7 +24,6 @@ require (
 	github.com/diskfs/go-diskfs v1.4.0 // indirect
 	github.com/elliotwutingfeng/asciiset v0.0.0-20230602022725-51bbb787efab // indirect
 	github.com/emicklei/go-restful/v3 v3.13.0 // indirect
-	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.9.0 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
