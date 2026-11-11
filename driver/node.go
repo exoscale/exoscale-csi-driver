@@ -22,12 +22,12 @@ type nodeService struct {
 	nodeID    v3.UUID
 	zoneName  v3.ZoneName
 	diskUtils *diskUtils
-	client    *refreshableClient
+	client    *v3.Client
 
 	csi.UnimplementedNodeServer
 }
 
-func newNodeService(client *refreshableClient, meta *nodeMetadata) nodeService {
+func newNodeService(client *v3.Client, meta *nodeMetadata) nodeService {
 	return nodeService{
 		nodeID:    meta.InstanceID,
 		zoneName:  meta.zoneName,
@@ -416,7 +416,7 @@ func (d *nodeService) NodeGetInfo(ctx context.Context, req *csi.NodeGetInfoReque
 	klog.V(4).Infof("NodeGetInfo")
 
 	maxVolumesPerNode := defaultMaxVolumesPerNode
-	quotas, err := d.client.Get().ListQuotas(ctx)
+	quotas, err := d.client.ListQuotas(ctx)
 	if err != nil {
 		klog.Errorf("failed to list quotas: %v", err)
 	} else {
