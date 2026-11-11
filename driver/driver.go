@@ -19,6 +19,7 @@ import (
 	"github.com/exoscale/exoscale-csi-driver/cmd/exoscale-csi-driver/buildinfo"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
+	"github.com/go-logr/logr"
 	"google.golang.org/grpc"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -98,18 +99,12 @@ func NewDriver(config *DriverConfig) (*Driver, error) {
 		clientOpts = append(clientOpts, v3.ClientOptWithEndpoint(config.ZoneEndpoint))
 	}
 
-	var credsValue credentials.Value
-	if config.CredentialsDir != "" {
-		klog.Infof("reading (watching) Exoscale API credentials from %s", config.CredentialsDir)
-		credsValue, err = readCredentialsDir(config.CredentialsDir)
-	} else {
-		credsValue, err = config.Credentials.Get()
-	}
+	creds, err := newCredentials(context.Background(), config, clientOpts)
 	if err != nil {
 		return nil, fmt.Errorf("new driver: credentials: %w", err)
 	}
 
-	client, err := v3.NewClient(credentials.NewStaticCredentials(credsValue.APIKey, credsValue.APISecret), clientOpts...)
+	client, err := v3.NewClient(creds, clientOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("new driver: %w", err)
 	}
@@ -121,31 +116,41 @@ func NewDriver(config *DriverConfig) (*Driver, error) {
 	if err != nil {
 		return nil, fmt.Errorf("new driver: %w", err)
 	}
-
-	rc, err := newRefreshableClient(credsValue, config.CredentialsDir, endpoint, clientOpts)
-	if err != nil {
-		return nil, fmt.Errorf("new driver: %w", err)
-	}
+	client = client.WithEndpoint(endpoint)
 
 	klog.Info("egoscale zone client setup done")
 
 	switch config.Mode {
 	case ControllerMode:
-		driver.controllerService = newControllerService(rc, nodeMeta, config.ZoneScope)
+		driver.controllerService = newControllerService(client, nodeMeta, config.ZoneScope)
 	case NodeMode:
-		driver.nodeService = newNodeService(rc, nodeMeta)
+		driver.nodeService = newNodeService(client, nodeMeta)
 	case AllMode:
-		driver.controllerService = newControllerService(rc, nodeMeta, config.ZoneScope)
-		driver.nodeService = newNodeService(rc, nodeMeta)
+		driver.controllerService = newControllerService(client, nodeMeta, config.ZoneScope)
+		driver.nodeService = newNodeService(client, nodeMeta)
 	default:
 		return nil, fmt.Errorf("unknown mode for driver: %s", config.Mode)
 	}
 
-	if config.CredentialsDir != "" {
-		rc.startWatch(context.Background(), credentialsResyncPeriod)
+	return driver, nil
+}
+
+// newCredentials returns the credentials of the Exoscale API client.
+// With a credentials directory (a mounted Secret), they are re-read periodically, and when the
+// API rejects the key, until ctx is done: the client then uses a rotated key without a restart.
+// New credentials are checked against the API, with clientOpts, before they are used.
+func newCredentials(ctx context.Context, config *DriverConfig, clientOpts []v3.ClientOpt) (*credentials.Credentials, error) {
+	if config.CredentialsDir == "" {
+		return config.Credentials, nil
 	}
 
-	return driver, nil
+	klog.Infof("reading Exoscale API credentials from %s, reloaded when they change", config.CredentialsDir)
+
+	return credentials.NewReloadableCredentials(ctx,
+		credentials.SecretDirSource(config.CredentialsDir),
+		credentials.ReloadableOptWithValidator(v3.CredentialsValidator(clientOpts...)),
+		credentials.ReloadableOptWithLogHandler(logr.ToSlogHandler(klog.Background())),
+	)
 }
 
 // Run starts the CSI plugin on the given endpoint

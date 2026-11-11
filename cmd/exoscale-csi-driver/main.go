@@ -23,7 +23,7 @@ var (
 	prefix      = flag.String("prefix", "", "Prefix to add in block volume name")
 	versionFlag = flag.Bool("version", false, "Print the version and exit")
 	mode        = flag.String("mode", string(driver.AllMode), "The mode in which the CSI driver will be run (all, node, controller)")
-	credsDir    = flag.String("credentials-dir", "", "Directory holding the EXOSCALE_API_KEY and EXOSCALE_API_SECRET files (a mounted Secret); reloaded when they change. Overrides the environment variables")
+	credsDir    = flag.String("credentials-dir", "", "Directory holding the EXOSCALE_API_KEY and EXOSCALE_API_SECRET files (a mounted Secret), reloaded when they change. Overrides the environment variables")
 	zones       = flag.String("zones", "", "Subset of zones to watch (comma separated, by default CSI looks for volumes in all zones)")
 
 	// These are set during build time via -ldflags
