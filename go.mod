@@ -4,7 +4,8 @@ go 1.26
 
 require (
 	github.com/container-storage-interface/spec v1.12.0
-	github.com/exoscale/egoscale/v3 v3.1.49
+	github.com/exoscale/egoscale/v3 v3.1.64-0.20261111095042-f216e2952e9e
+	github.com/go-logr/logr v1.4.3
 	github.com/golang/protobuf v1.5.4
 	github.com/kubernetes-sigs/aws-ebs-csi-driver v1.53.0
 	github.com/stretchr/testify v1.11.1
@@ -25,7 +26,6 @@ require (
 	github.com/emicklei/go-restful/v3 v3.13.0 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.9.0 // indirect
-	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/go-openapi/jsonpointer v0.22.2 // indirect
 	github.com/go-openapi/jsonreference v0.21.3 // indirect

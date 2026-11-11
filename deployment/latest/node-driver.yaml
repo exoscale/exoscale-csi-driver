@@ -26,6 +26,7 @@ spec:
             - "--endpoint=$(CSI_ENDPOINT)"
             - "--v=4"
             - "--mode=node"
+            - "--credentials-dir=/etc/exoscale-credentials"
           env:
             - name: CSI_ENDPOINT
               value: unix:///csi/csi.sock
@@ -51,6 +52,9 @@ spec:
             periodSeconds: 2
             failureThreshold: 5
           volumeMounts:
+            - name: exoscale-credentials
+              mountPath: /etc/exoscale-credentials
+              readOnly: true
             - name: plugin-dir
               mountPath: /csi
             - name: kubelet-dir
@@ -114,6 +118,9 @@ spec:
               cpu: 10m
               memory: 20Mi
       volumes:
+        - name: exoscale-credentials
+          secret:
+            secretName: exoscale-credentials
         - name: registration-dir
           hostPath:
             path: /var/lib/kubelet/plugins_registry/

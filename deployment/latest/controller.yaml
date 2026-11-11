@@ -28,6 +28,7 @@ spec:
           args :
             - "--endpoint=$(CSI_ENDPOINT)"
             - "--mode=controller"
+            - "--credentials-dir=/etc/exoscale-credentials"
             - "--v=4"
           env:
             - name: CSI_ENDPOINT
@@ -42,6 +43,9 @@ spec:
             - secretRef:
                 name: exoscale-credentials
           volumeMounts:
+            - name: exoscale-credentials
+              mountPath: /etc/exoscale-credentials
+              readOnly: true
             - name: socket-dir
               mountPath: /var/lib/csi/sockets/pluginproxy/
             - name: device-dir
@@ -197,6 +201,9 @@ spec:
             matchLabels:
               app: exoscale-csi-controller
       volumes:
+        - name: exoscale-credentials
+          secret:
+            secretName: exoscale-credentials
         - name: socket-dir
           emptyDir: {}
         - name: device-dir
