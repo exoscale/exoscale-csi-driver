@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.34.6
 
 - Use egoscale v3.1.63 (#178)
 
