@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Use egoscale v3.1.63 (#178)
+
 ## v0.34.5
 
 ### Bug fixes

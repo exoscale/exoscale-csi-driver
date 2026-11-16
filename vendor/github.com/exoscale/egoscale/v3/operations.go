@@ -64,7 +64,9 @@ func (c Client) ListAIAPIKeys(ctx context.Context) (*ListAIAPIKeysResponse, erro
 	}
 
 	if err := handleHTTPErrorResp(response); err != nil {
-		return nil, fmt.Errorf("ListAIAPIKeys: http response: %w", err)
+		return nil, fmt.Errorf("ListAIAPIKeys: http response: %w", decodeAPIErrorResponse(err, map[int]func() any{
+			403: func() any { return new(ErrorResponse) },
+		}))
 	}
 
 	bodyresp := new(ListAIAPIKeysResponse)
@@ -115,56 +117,16 @@ func (c Client) CreateAIAPIKey(ctx context.Context, req CreateAIAPIKeyRequest) (
 	}
 
 	if err := handleHTTPErrorResp(response); err != nil {
-		return nil, fmt.Errorf("CreateAIAPIKey: http response: %w", err)
+		return nil, fmt.Errorf("CreateAIAPIKey: http response: %w", decodeAPIErrorResponse(err, map[int]func() any{
+			400: func() any { return new(ErrorResponse) },
+			403: func() any { return new(ErrorResponse) },
+			404: func() any { return new(ErrorResponse) },
+		}))
 	}
 
 	bodyresp := new(CreateAIAPIKeyResponse)
 	if err := prepareJSONResponse(response, bodyresp); err != nil {
 		return nil, fmt.Errorf("CreateAIAPIKey: prepare JSON response: %w", err)
-	}
-
-	return bodyresp, nil
-}
-
-// Delete AI API key
-func (c Client) DeleteAIAPIKey(ctx context.Context, id UUID) (*Operation, error) {
-	path := fmt.Sprintf("/ai/api-key/%v", id)
-
-	request, err := http.NewRequestWithContext(ctx, "DELETE", c.serverEndpoint+path, nil)
-	if err != nil {
-		return nil, fmt.Errorf("DeleteAIAPIKey: new request: %w", err)
-	}
-
-	request.Header.Add("User-Agent", c.getUserAgent())
-
-	if err := c.executeRequestInterceptors(ctx, request); err != nil {
-		return nil, fmt.Errorf("DeleteAIAPIKey: execute request editors: %w", err)
-	}
-
-	if err := c.signRequest(request); err != nil {
-		return nil, fmt.Errorf("DeleteAIAPIKey: sign request: %w", err)
-	}
-
-	if c.trace {
-		dumpRequest(request, "delete-ai-api-key")
-	}
-
-	response, err := c.httpClient.Do(request)
-	if err != nil {
-		return nil, fmt.Errorf("DeleteAIAPIKey: http client do: %w", err)
-	}
-
-	if c.trace {
-		dumpResponse(response)
-	}
-
-	if err := handleHTTPErrorResp(response); err != nil {
-		return nil, fmt.Errorf("DeleteAIAPIKey: http response: %w", err)
-	}
-
-	bodyresp := new(Operation)
-	if err := prepareJSONResponse(response, bodyresp); err != nil {
-		return nil, fmt.Errorf("DeleteAIAPIKey: prepare JSON response: %w", err)
 	}
 
 	return bodyresp, nil
@@ -203,12 +165,118 @@ func (c Client) GetAIAPIKey(ctx context.Context, id UUID) (*GetAIAPIKeyResponse,
 	}
 
 	if err := handleHTTPErrorResp(response); err != nil {
-		return nil, fmt.Errorf("GetAIAPIKey: http response: %w", err)
+		return nil, fmt.Errorf("GetAIAPIKey: http response: %w", decodeAPIErrorResponse(err, map[int]func() any{
+			403: func() any { return new(ErrorResponse) },
+			404: func() any { return new(ErrorResponse) },
+		}))
 	}
 
 	bodyresp := new(GetAIAPIKeyResponse)
 	if err := prepareJSONResponse(response, bodyresp); err != nil {
 		return nil, fmt.Errorf("GetAIAPIKey: prepare JSON response: %w", err)
+	}
+
+	return bodyresp, nil
+}
+
+// Update the models and deployments accessible by an AI API key.
+func (c Client) UpdateAIAPIKey(ctx context.Context, id UUID, req UpdateAIAPIKeyRequest) (*UpdateAIAPIKeyResponse, error) {
+	path := fmt.Sprintf("/ai/api-key/%v", id)
+
+	body, err := prepareJSONBody(req)
+	if err != nil {
+		return nil, fmt.Errorf("UpdateAIAPIKey: prepare JSON body: %w", err)
+	}
+
+	request, err := http.NewRequestWithContext(ctx, "PUT", c.serverEndpoint+path, body)
+	if err != nil {
+		return nil, fmt.Errorf("UpdateAIAPIKey: new request: %w", err)
+	}
+
+	request.Header.Add("User-Agent", c.getUserAgent())
+
+	request.Header.Add("Content-Type", "application/json")
+
+	if err := c.executeRequestInterceptors(ctx, request); err != nil {
+		return nil, fmt.Errorf("UpdateAIAPIKey: execute request editors: %w", err)
+	}
+
+	if err := c.signRequest(request); err != nil {
+		return nil, fmt.Errorf("UpdateAIAPIKey: sign request: %w", err)
+	}
+
+	if c.trace {
+		dumpRequest(request, "update-ai-api-key")
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("UpdateAIAPIKey: http client do: %w", err)
+	}
+
+	if c.trace {
+		dumpResponse(response)
+	}
+
+	if err := handleHTTPErrorResp(response); err != nil {
+		return nil, fmt.Errorf("UpdateAIAPIKey: http response: %w", decodeAPIErrorResponse(err, map[int]func() any{
+			400: func() any { return new(ErrorResponse) },
+			403: func() any { return new(ErrorResponse) },
+			404: func() any { return new(ErrorResponse) },
+		}))
+	}
+
+	bodyresp := new(UpdateAIAPIKeyResponse)
+	if err := prepareJSONResponse(response, bodyresp); err != nil {
+		return nil, fmt.Errorf("UpdateAIAPIKey: prepare JSON response: %w", err)
+	}
+
+	return bodyresp, nil
+}
+
+// Revoke an AI API key. Key will be deleted after 30 days of retention
+func (c Client) RevokeAIAPIKey(ctx context.Context, id UUID) (*Operation, error) {
+	path := fmt.Sprintf("/ai/api-key/%v/revoke", id)
+
+	request, err := http.NewRequestWithContext(ctx, "POST", c.serverEndpoint+path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("RevokeAIAPIKey: new request: %w", err)
+	}
+
+	request.Header.Add("User-Agent", c.getUserAgent())
+
+	if err := c.executeRequestInterceptors(ctx, request); err != nil {
+		return nil, fmt.Errorf("RevokeAIAPIKey: execute request editors: %w", err)
+	}
+
+	if err := c.signRequest(request); err != nil {
+		return nil, fmt.Errorf("RevokeAIAPIKey: sign request: %w", err)
+	}
+
+	if c.trace {
+		dumpRequest(request, "revoke-ai-api-key")
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("RevokeAIAPIKey: http client do: %w", err)
+	}
+
+	if c.trace {
+		dumpResponse(response)
+	}
+
+	if err := handleHTTPErrorResp(response); err != nil {
+		return nil, fmt.Errorf("RevokeAIAPIKey: http response: %w", decodeAPIErrorResponse(err, map[int]func() any{
+			403: func() any { return new(ErrorResponse) },
+			404: func() any { return new(ErrorResponse) },
+			500: func() any { return new(ErrorResponse) },
+		}))
+	}
+
+	bodyresp := new(Operation)
+	if err := prepareJSONResponse(response, bodyresp); err != nil {
+		return nil, fmt.Errorf("RevokeAIAPIKey: prepare JSON response: %w", err)
 	}
 
 	return bodyresp, nil
@@ -233,16 +301,8 @@ func (l ListDeploymentsResponse) FindListDeploymentsResponseEntry(nameOrID strin
 	return ListDeploymentsResponseEntry{}, fmt.Errorf("%q not found in ListDeploymentsResponse: %w", nameOrID, ErrNotFound)
 }
 
-type ListDeploymentsOpt func(url.Values)
-
-func ListDeploymentsWithVisibility(visibility string) ListDeploymentsOpt {
-	return func(q url.Values) {
-		q.Add("visibility", fmt.Sprint(visibility))
-	}
-}
-
 // List Deployments
-func (c Client) ListDeployments(ctx context.Context, opts ...ListDeploymentsOpt) (*ListDeploymentsResponse, error) {
+func (c Client) ListDeployments(ctx context.Context) (*ListDeploymentsResponse, error) {
 	path := "/ai/deployment"
 
 	request, err := http.NewRequestWithContext(ctx, "GET", c.serverEndpoint+path, nil)
@@ -251,14 +311,6 @@ func (c Client) ListDeployments(ctx context.Context, opts ...ListDeploymentsOpt)
 	}
 
 	request.Header.Add("User-Agent", c.getUserAgent())
-
-	if len(opts) > 0 {
-		q := request.URL.Query()
-		for _, opt := range opts {
-			opt(q)
-		}
-		request.URL.RawQuery = q.Encode()
-	}
 
 	if err := c.executeRequestInterceptors(ctx, request); err != nil {
 		return nil, fmt.Errorf("ListDeployments: execute request editors: %w", err)
@@ -282,7 +334,9 @@ func (c Client) ListDeployments(ctx context.Context, opts ...ListDeploymentsOpt)
 	}
 
 	if err := handleHTTPErrorResp(response); err != nil {
-		return nil, fmt.Errorf("ListDeployments: http response: %w", err)
+		return nil, fmt.Errorf("ListDeployments: http response: %w", decodeAPIErrorResponse(err, map[int]func() any{
+			400: func() any { return new(ErrorResponse) },
+		}))
 	}
 
 	bodyresp := new(ListDeploymentsResponse)
@@ -333,7 +387,11 @@ func (c Client) CreateDeployment(ctx context.Context, req CreateDeploymentReques
 	}
 
 	if err := handleHTTPErrorResp(response); err != nil {
-		return nil, fmt.Errorf("CreateDeployment: http response: %w", err)
+		return nil, fmt.Errorf("CreateDeployment: http response: %w", decodeAPIErrorResponse(err, map[int]func() any{
+			400: func() any { return new(ErrorResponse) },
+			403: func() any { return new(ErrorResponse) },
+			412: func() any { return new(ErrorResponse) },
+		}))
 	}
 
 	bodyresp := new(Operation)
@@ -377,7 +435,11 @@ func (c Client) DeleteDeployment(ctx context.Context, id UUID) (*Operation, erro
 	}
 
 	if err := handleHTTPErrorResp(response); err != nil {
-		return nil, fmt.Errorf("DeleteDeployment: http response: %w", err)
+		return nil, fmt.Errorf("DeleteDeployment: http response: %w", decodeAPIErrorResponse(err, map[int]func() any{
+			403: func() any { return new(ErrorResponse) },
+			404: func() any { return new(ErrorResponse) },
+			409: func() any { return new(ErrorResponse) },
+		}))
 	}
 
 	bodyresp := new(Operation)
@@ -421,7 +483,9 @@ func (c Client) GetDeployment(ctx context.Context, id UUID) (*GetDeploymentRespo
 	}
 
 	if err := handleHTTPErrorResp(response); err != nil {
-		return nil, fmt.Errorf("GetDeployment: http response: %w", err)
+		return nil, fmt.Errorf("GetDeployment: http response: %w", decodeAPIErrorResponse(err, map[int]func() any{
+			404: func() any { return new(ErrorResponse) },
+		}))
 	}
 
 	bodyresp := new(GetDeploymentResponse)
@@ -472,56 +536,17 @@ func (c Client) UpdateDeployment(ctx context.Context, id UUID, req UpdateDeploym
 	}
 
 	if err := handleHTTPErrorResp(response); err != nil {
-		return nil, fmt.Errorf("UpdateDeployment: http response: %w", err)
+		return nil, fmt.Errorf("UpdateDeployment: http response: %w", decodeAPIErrorResponse(err, map[int]func() any{
+			400: func() any { return new(ErrorResponse) },
+			403: func() any { return new(ErrorResponse) },
+			404: func() any { return new(ErrorResponse) },
+			409: func() any { return new(ErrorResponse) },
+		}))
 	}
 
 	bodyresp := new(Operation)
 	if err := prepareJSONResponse(response, bodyresp); err != nil {
 		return nil, fmt.Errorf("UpdateDeployment: prepare JSON response: %w", err)
-	}
-
-	return bodyresp, nil
-}
-
-// Get Deployment API Key
-func (c Client) RevealDeploymentAPIKey(ctx context.Context, id UUID) (*RevealDeploymentAPIKeyResponse, error) {
-	path := fmt.Sprintf("/ai/deployment/%v/api-key", id)
-
-	request, err := http.NewRequestWithContext(ctx, "GET", c.serverEndpoint+path, nil)
-	if err != nil {
-		return nil, fmt.Errorf("RevealDeploymentAPIKey: new request: %w", err)
-	}
-
-	request.Header.Add("User-Agent", c.getUserAgent())
-
-	if err := c.executeRequestInterceptors(ctx, request); err != nil {
-		return nil, fmt.Errorf("RevealDeploymentAPIKey: execute request editors: %w", err)
-	}
-
-	if err := c.signRequest(request); err != nil {
-		return nil, fmt.Errorf("RevealDeploymentAPIKey: sign request: %w", err)
-	}
-
-	if c.trace {
-		dumpRequest(request, "reveal-deployment-api-key")
-	}
-
-	response, err := c.httpClient.Do(request)
-	if err != nil {
-		return nil, fmt.Errorf("RevealDeploymentAPIKey: http client do: %w", err)
-	}
-
-	if c.trace {
-		dumpResponse(response)
-	}
-
-	if err := handleHTTPErrorResp(response); err != nil {
-		return nil, fmt.Errorf("RevealDeploymentAPIKey: http response: %w", err)
-	}
-
-	bodyresp := new(RevealDeploymentAPIKeyResponse)
-	if err := prepareJSONResponse(response, bodyresp); err != nil {
-		return nil, fmt.Errorf("RevealDeploymentAPIKey: prepare JSON response: %w", err)
 	}
 
 	return bodyresp, nil
@@ -541,7 +566,7 @@ func GetDeploymentLogsWithTail(tail int64) GetDeploymentLogsOpt {
 	}
 }
 
-// Return logs for the vLLM deployment (deploy/<release-name>--deployment-vllm). Optional ?stream=true to request streaming (may not be supported).
+// Return logs for the vLLM deployment (dedicated inference: deploy/<release-name>--deployment-vllm; llm-d: deploy/<release-name>-vllm). Optional ?stream=true to request streaming (may not be supported).
 func (c Client) GetDeploymentLogs(ctx context.Context, id UUID, opts ...GetDeploymentLogsOpt) (*GetDeploymentLogsResponse, error) {
 	path := fmt.Sprintf("/ai/deployment/%v/logs", id)
 
@@ -582,7 +607,11 @@ func (c Client) GetDeploymentLogs(ctx context.Context, id UUID, opts ...GetDeplo
 	}
 
 	if err := handleHTTPErrorResp(response); err != nil {
-		return nil, fmt.Errorf("GetDeploymentLogs: http response: %w", err)
+		return nil, fmt.Errorf("GetDeploymentLogs: http response: %w", decodeAPIErrorResponse(err, map[int]func() any{
+			400: func() any { return new(ErrorResponse) },
+			404: func() any { return new(ErrorResponse) },
+			500: func() any { return new(ErrorResponse) },
+		}))
 	}
 
 	bodyresp := new(GetDeploymentLogsResponse)
@@ -633,7 +662,12 @@ func (c Client) ScaleDeployment(ctx context.Context, id UUID, req ScaleDeploymen
 	}
 
 	if err := handleHTTPErrorResp(response); err != nil {
-		return nil, fmt.Errorf("ScaleDeployment: http response: %w", err)
+		return nil, fmt.Errorf("ScaleDeployment: http response: %w", decodeAPIErrorResponse(err, map[int]func() any{
+			403: func() any { return new(ErrorResponse) },
+			404: func() any { return new(ErrorResponse) },
+			409: func() any { return new(ErrorResponse) },
+			412: func() any { return new(ErrorResponse) },
+		}))
 	}
 
 	bodyresp := new(Operation)
@@ -767,8 +801,16 @@ func (l ListModelsResponse) FindListModelsResponseEntry(nameOrID string) (ListMo
 	return ListModelsResponseEntry{}, fmt.Errorf("%q not found in ListModelsResponse: %w", nameOrID, ErrNotFound)
 }
 
+type ListModelsOpt func(url.Values)
+
+func ListModelsWithVisibility(visibility string) ListModelsOpt {
+	return func(q url.Values) {
+		q.Add("visibility", fmt.Sprint(visibility))
+	}
+}
+
 // List Models
-func (c Client) ListModels(ctx context.Context) (*ListModelsResponse, error) {
+func (c Client) ListModels(ctx context.Context, opts ...ListModelsOpt) (*ListModelsResponse, error) {
 	path := "/ai/model"
 
 	request, err := http.NewRequestWithContext(ctx, "GET", c.serverEndpoint+path, nil)
@@ -777,6 +819,14 @@ func (c Client) ListModels(ctx context.Context) (*ListModelsResponse, error) {
 	}
 
 	request.Header.Add("User-Agent", c.getUserAgent())
+
+	if len(opts) > 0 {
+		q := request.URL.Query()
+		for _, opt := range opts {
+			opt(q)
+		}
+		request.URL.RawQuery = q.Encode()
+	}
 
 	if err := c.executeRequestInterceptors(ctx, request); err != nil {
 		return nil, fmt.Errorf("ListModels: execute request editors: %w", err)
@@ -853,7 +903,9 @@ func (c Client) CreateModel(ctx context.Context, req CreateModelRequest) (*Opera
 	}
 
 	if err := handleHTTPErrorResp(response); err != nil {
-		return nil, fmt.Errorf("CreateModel: http response: %w", err)
+		return nil, fmt.Errorf("CreateModel: http response: %w", decodeAPIErrorResponse(err, map[int]func() any{
+			403: func() any { return new(ErrorResponse) },
+		}))
 	}
 
 	bodyresp := new(Operation)
@@ -897,7 +949,11 @@ func (c Client) DeleteModel(ctx context.Context, id UUID) (*Operation, error) {
 	}
 
 	if err := handleHTTPErrorResp(response); err != nil {
-		return nil, fmt.Errorf("DeleteModel: http response: %w", err)
+		return nil, fmt.Errorf("DeleteModel: http response: %w", decodeAPIErrorResponse(err, map[int]func() any{
+			403: func() any { return new(ErrorResponse) },
+			404: func() any { return new(ErrorResponse) },
+			412: func() any { return new(DeleteModelConflictResponse) },
+		}))
 	}
 
 	bodyresp := new(Operation)
@@ -941,7 +997,9 @@ func (c Client) GetModel(ctx context.Context, id UUID) (*GetModelResponse, error
 	}
 
 	if err := handleHTTPErrorResp(response); err != nil {
-		return nil, fmt.Errorf("GetModel: http response: %w", err)
+		return nil, fmt.Errorf("GetModel: http response: %w", decodeAPIErrorResponse(err, map[int]func() any{
+			404: func() any { return new(ErrorResponse) },
+		}))
 	}
 
 	bodyresp := new(GetModelResponse)
@@ -985,7 +1043,9 @@ func (c Client) GetUserOrgConsumptionQuota(ctx context.Context) (*OrgConsumption
 	}
 
 	if err := handleHTTPErrorResp(response); err != nil {
-		return nil, fmt.Errorf("GetUserOrgConsumptionQuota: http response: %w", err)
+		return nil, fmt.Errorf("GetUserOrgConsumptionQuota: http response: %w", decodeAPIErrorResponse(err, map[int]func() any{
+			404: func() any { return new(ErrorResponse) },
+		}))
 	}
 
 	bodyresp := new(OrgConsumptionQuotaResponse)
@@ -2343,7 +2403,7 @@ type CreateDBAASServiceClickhouseRequest struct {
 	ClickhouseSettings *JSONSchemaClickhouse `json:"clickhouse-settings,omitempty"`
 	ForkFromService    DBAASServiceName      `json:"fork-from-service,omitempty" validate:"omitempty,gte=0,lte=63"`
 	// Allow incoming connections from CIDR address block, e.g. '10.20.0.0/16'
-	IPFilter []string `json:"ip-filter,omitempty"`
+	IPFilter []string `json:"ip-filter"`
 	// Automatic maintenance settings
 	Maintenance *CreateDBAASServiceClickhouseRequestMaintenance `json:"maintenance,omitempty"`
 	// Subscription plan
@@ -2431,7 +2491,7 @@ type UpdateDBAASServiceClickhouseRequest struct {
 	// ClickHouse settings
 	ClickhouseSettings *JSONSchemaClickhouse `json:"clickhouse-settings,omitempty"`
 	// Allow incoming connections from CIDR address block, e.g. '10.20.0.0/16'
-	IPFilter []string `json:"ip-filter,omitempty"`
+	IPFilter []string `json:"ip-filter"`
 	// Automatic maintenance settings
 	Maintenance *UpdateDBAASServiceClickhouseRequestMaintenance `json:"maintenance,omitempty"`
 	// Subscription plan
@@ -4395,7 +4455,7 @@ type CreateDBAASServiceGrafanaRequest struct {
 	// Grafana settings
 	GrafanaSettings *JSONSchemaGrafana `json:"grafana-settings,omitempty"`
 	// Allowed CIDR address blocks for incoming connections
-	IPFilter []string `json:"ip-filter,omitempty"`
+	IPFilter []string `json:"ip-filter"`
 	// Automatic maintenance settings
 	Maintenance *CreateDBAASServiceGrafanaRequestMaintenance `json:"maintenance,omitempty"`
 	// Subscription plan
@@ -4480,7 +4540,7 @@ type UpdateDBAASServiceGrafanaRequest struct {
 	// Grafana settings
 	GrafanaSettings *JSONSchemaGrafana `json:"grafana-settings,omitempty"`
 	// Allowed CIDR address blocks for incoming connections
-	IPFilter []string `json:"ip-filter,omitempty"`
+	IPFilter []string `json:"ip-filter"`
 	// Automatic maintenance settings
 	Maintenance *UpdateDBAASServiceGrafanaRequestMaintenance `json:"maintenance,omitempty"`
 	// Subscription plan
@@ -4937,7 +4997,7 @@ type UpdateDBAASIntegrationRequest struct {
 	Settings map[string]any `json:"settings" validate:"required"`
 }
 
-// [BETA] Update a existing DBaaS integration
+// [BETA] Update an existing DBaaS integration
 func (c Client) UpdateDBAASIntegration(ctx context.Context, id UUID, req UpdateDBAASIntegrationRequest) (*Operation, error) {
 	path := fmt.Sprintf("/dbaas-integration/%v", id)
 
@@ -5107,7 +5167,7 @@ type CreateDBAASServiceKafkaRequest struct {
 	// Kafka authentication methods
 	AuthenticationMethods *CreateDBAASServiceKafkaRequestAuthenticationMethods `json:"authentication-methods,omitempty"`
 	// Allow incoming connections from CIDR address block, e.g. '10.20.0.0/16'
-	IPFilter []string `json:"ip-filter,omitempty"`
+	IPFilter []string `json:"ip-filter"`
 	// Allow clients to connect to kafka_connect from the public internet for service nodes that are in a project VPC or another type of private network
 	KafkaConnectEnabled *bool `json:"kafka-connect-enabled,omitempty"`
 	// Kafka Connect configuration values
@@ -5216,7 +5276,7 @@ type UpdateDBAASServiceKafkaRequest struct {
 	// Kafka authentication methods
 	AuthenticationMethods *UpdateDBAASServiceKafkaRequestAuthenticationMethods `json:"authentication-methods,omitempty"`
 	// Allow incoming connections from CIDR address block, e.g. '10.20.0.0/16'
-	IPFilter []string `json:"ip-filter,omitempty"`
+	IPFilter []string `json:"ip-filter"`
 	// Allow clients to connect to kafka_connect from the public internet for service nodes that are in a project VPC or another type of private network
 	KafkaConnectEnabled *bool `json:"kafka-connect-enabled,omitempty"`
 	// Kafka Connect configuration values
@@ -6006,7 +6066,7 @@ type CreateDBAASServiceMysqlRequest struct {
 	// Service integrations to be enabled when creating the service.
 	Integrations []CreateDBAASServiceMysqlRequestIntegrations `json:"integrations,omitempty"`
 	// Allow incoming connections from CIDR address block, e.g. '10.20.0.0/16'
-	IPFilter []string `json:"ip-filter,omitempty"`
+	IPFilter []string `json:"ip-filter"`
 	// Automatic maintenance settings
 	Maintenance *CreateDBAASServiceMysqlRequestMaintenance `json:"maintenance,omitempty"`
 	// Migrate data from existing server
@@ -6126,7 +6186,7 @@ type UpdateDBAASServiceMysqlRequest struct {
 	// The minimum amount of time in seconds to keep binlog entries before deletion. This may be extended for services that require binlog entries for longer than the default for example if using the MySQL Debezium Kafka connector.
 	BinlogRetentionPeriod int64 `json:"binlog-retention-period,omitempty" validate:"omitempty,gte=600,lte=86400"`
 	// Allow incoming connections from CIDR address block, e.g. '10.20.0.0/16'
-	IPFilter []string `json:"ip-filter,omitempty"`
+	IPFilter []string `json:"ip-filter"`
 	// Automatic maintenance settings
 	Maintenance *UpdateDBAASServiceMysqlRequestMaintenance `json:"maintenance,omitempty"`
 	// Migrate data from existing server
@@ -6413,6 +6473,62 @@ func (c Client) DeleteDBAASMysqlDatabase(ctx context.Context, serviceName string
 	bodyresp := new(Operation)
 	if err := prepareJSONResponse(response, bodyresp); err != nil {
 		return nil, fmt.Errorf("DeleteDBAASMysqlDatabase: prepare JSON response: %w", err)
+	}
+
+	return bodyresp, nil
+}
+
+type CreateDBAASMysqlUpgradeCheckRequest struct {
+	// Target version for upgrade
+	TargetVersion string `json:"target-version" validate:"required,gte=1,lte=32"`
+}
+
+// Check whether you can upgrade MySQL service to a newer version
+func (c Client) CreateDBAASMysqlUpgradeCheck(ctx context.Context, serviceName string, req CreateDBAASMysqlUpgradeCheckRequest) (*DBAASTask, error) {
+	path := fmt.Sprintf("/dbaas-mysql/%v/upgrade-check", serviceName)
+
+	body, err := prepareJSONBody(req)
+	if err != nil {
+		return nil, fmt.Errorf("CreateDBAASMysqlUpgradeCheck: prepare JSON body: %w", err)
+	}
+
+	request, err := http.NewRequestWithContext(ctx, "POST", c.serverEndpoint+path, body)
+	if err != nil {
+		return nil, fmt.Errorf("CreateDBAASMysqlUpgradeCheck: new request: %w", err)
+	}
+
+	request.Header.Add("User-Agent", c.getUserAgent())
+
+	request.Header.Add("Content-Type", "application/json")
+
+	if err := c.executeRequestInterceptors(ctx, request); err != nil {
+		return nil, fmt.Errorf("CreateDBAASMysqlUpgradeCheck: execute request editors: %w", err)
+	}
+
+	if err := c.signRequest(request); err != nil {
+		return nil, fmt.Errorf("CreateDBAASMysqlUpgradeCheck: sign request: %w", err)
+	}
+
+	if c.trace {
+		dumpRequest(request, "create-dbaas-mysql-upgrade-check")
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("CreateDBAASMysqlUpgradeCheck: http client do: %w", err)
+	}
+
+	if c.trace {
+		dumpResponse(response)
+	}
+
+	if err := handleHTTPErrorResp(response); err != nil {
+		return nil, fmt.Errorf("CreateDBAASMysqlUpgradeCheck: http response: %w", err)
+	}
+
+	bodyresp := new(DBAASTask)
+	if err := prepareJSONResponse(response, bodyresp); err != nil {
+		return nil, fmt.Errorf("CreateDBAASMysqlUpgradeCheck: prepare JSON response: %w", err)
 	}
 
 	return bodyresp, nil
@@ -6766,7 +6882,7 @@ type CreateDBAASServiceOpensearchRequest struct {
 	// Template settings for all new indexes
 	IndexTemplate *CreateDBAASServiceOpensearchRequestIndexTemplate `json:"index-template,omitempty"`
 	// Allow incoming connections from CIDR address block, e.g. '10.20.0.0/16'
-	IPFilter []string `json:"ip-filter,omitempty"`
+	IPFilter []string `json:"ip-filter"`
 	// Aiven automation resets index.refresh_interval to default value for every index to be sure that indices are always visible to search. If it doesn't fit your case, you can disable this by setting up this flag to true.
 	KeepIndexRefreshInterval *bool `json:"keep-index-refresh-interval,omitempty"`
 	// Automatic maintenance settings
@@ -6901,7 +7017,7 @@ type UpdateDBAASServiceOpensearchRequest struct {
 	// Template settings for all new indexes
 	IndexTemplate *UpdateDBAASServiceOpensearchRequestIndexTemplate `json:"index-template,omitempty"`
 	// Allow incoming connections from CIDR address block, e.g. '10.20.0.0/16'
-	IPFilter []string `json:"ip-filter,omitempty"`
+	IPFilter []string `json:"ip-filter"`
 	// Aiven automation resets index.refresh_interval to default value for every index to be sure that indices are always visible to search. If it doesn't fit your case, you can disable this by setting up this flag to true.
 	KeepIndexRefreshInterval *bool `json:"keep-index-refresh-interval,omitempty"`
 	// Automatic maintenance settings
@@ -7461,7 +7577,7 @@ type CreateDBAASServicePGRequest struct {
 	// Service integrations to be enabled when creating the service.
 	Integrations []CreateDBAASServicePGRequestIntegrations `json:"integrations,omitempty"`
 	// Allow incoming connections from CIDR address block, e.g. '10.20.0.0/16'
-	IPFilter []string `json:"ip-filter,omitempty"`
+	IPFilter []string `json:"ip-filter"`
 	// Automatic maintenance settings
 	Maintenance *CreateDBAASServicePGRequestMaintenance `json:"maintenance,omitempty"`
 	// Migrate data from existing server
@@ -7591,7 +7707,7 @@ type UpdateDBAASServicePGRequestMigration struct {
 type UpdateDBAASServicePGRequest struct {
 	BackupSchedule *UpdateDBAASServicePGRequestBackupSchedule `json:"backup-schedule,omitempty"`
 	// Allow incoming connections from CIDR address block, e.g. '10.20.0.0/16'
-	IPFilter []string `json:"ip-filter,omitempty"`
+	IPFilter []string `json:"ip-filter"`
 	// Automatic maintenance settings
 	Maintenance *UpdateDBAASServicePGRequestMaintenance `json:"maintenance,omitempty"`
 	// Migrate data from existing server
@@ -9435,7 +9551,7 @@ type CreateDBAASServiceThanosRequestMaintenance struct {
 
 type CreateDBAASServiceThanosRequest struct {
 	// Allowed CIDR address blocks for incoming connections
-	IPFilter []string `json:"ip-filter,omitempty"`
+	IPFilter []string `json:"ip-filter"`
 	// Automatic maintenance settings
 	Maintenance *CreateDBAASServiceThanosRequestMaintenance `json:"maintenance,omitempty"`
 	// Subscription plan
@@ -9520,7 +9636,7 @@ type UpdateDBAASServiceThanosRequestMaintenance struct {
 
 type UpdateDBAASServiceThanosRequest struct {
 	// Allowed CIDR address blocks for incoming connections
-	IPFilter []string `json:"ip-filter,omitempty"`
+	IPFilter []string `json:"ip-filter"`
 	// Automatic maintenance settings
 	Maintenance *UpdateDBAASServiceThanosRequestMaintenance `json:"maintenance,omitempty"`
 	// Subscription plan
@@ -9798,7 +9914,7 @@ type CreateDBAASServiceValkeyRequestMigration struct {
 type CreateDBAASServiceValkeyRequest struct {
 	ForkFromService DBAASServiceName `json:"fork-from-service,omitempty" validate:"omitempty,gte=0,lte=63"`
 	// Allow incoming connections from CIDR address block, e.g. '10.20.0.0/16'
-	IPFilter []string `json:"ip-filter,omitempty"`
+	IPFilter []string `json:"ip-filter"`
 	// Automatic maintenance settings
 	Maintenance *CreateDBAASServiceValkeyRequestMaintenance `json:"maintenance,omitempty"`
 	// Migrate data from existing server
@@ -9908,7 +10024,7 @@ type UpdateDBAASServiceValkeyRequestMigration struct {
 
 type UpdateDBAASServiceValkeyRequest struct {
 	// Allow incoming connections from CIDR address block, e.g. '10.20.0.0/16'
-	IPFilter []string `json:"ip-filter,omitempty"`
+	IPFilter []string `json:"ip-filter"`
 	// Automatic maintenance settings
 	Maintenance *UpdateDBAASServiceValkeyRequestMaintenance `json:"maintenance,omitempty"`
 	// Migrate data from existing server
@@ -11468,23 +11584,29 @@ func (c Client) DetachInstanceFromElasticIP(ctx context.Context, id UUID, req De
 	return bodyresp, nil
 }
 
-// [BETA] Returns environmental impact reports for an organization
-func (c Client) GetEnvImpact(ctx context.Context, period string) (*EnvImpactReport, error) {
+// Endpoint removed
+type GetEnvImpactResponse410 struct {
+	// Explains that the endpoint was removed
+	Message string `json:"message,omitempty"`
+}
+
+// [REMOVED] This endpoint is no longer available: it always returns 410 Gone with a message. Use get-impact-report endpoint instead.
+func (c Client) GetEnvImpact(ctx context.Context, period string) error {
 	path := fmt.Sprintf("/env-impact/%v", period)
 
 	request, err := http.NewRequestWithContext(ctx, "GET", c.serverEndpoint+path, nil)
 	if err != nil {
-		return nil, fmt.Errorf("GetEnvImpact: new request: %w", err)
+		return fmt.Errorf("GetEnvImpact: new request: %w", err)
 	}
 
 	request.Header.Add("User-Agent", c.getUserAgent())
 
 	if err := c.executeRequestInterceptors(ctx, request); err != nil {
-		return nil, fmt.Errorf("GetEnvImpact: execute request editors: %w", err)
+		return fmt.Errorf("GetEnvImpact: execute request editors: %w", err)
 	}
 
 	if err := c.signRequest(request); err != nil {
-		return nil, fmt.Errorf("GetEnvImpact: sign request: %w", err)
+		return fmt.Errorf("GetEnvImpact: sign request: %w", err)
 	}
 
 	if c.trace {
@@ -11493,7 +11615,7 @@ func (c Client) GetEnvImpact(ctx context.Context, period string) (*EnvImpactRepo
 
 	response, err := c.httpClient.Do(request)
 	if err != nil {
-		return nil, fmt.Errorf("GetEnvImpact: http client do: %w", err)
+		return fmt.Errorf("GetEnvImpact: http client do: %w", err)
 	}
 
 	if c.trace {
@@ -11501,15 +11623,13 @@ func (c Client) GetEnvImpact(ctx context.Context, period string) (*EnvImpactRepo
 	}
 
 	if err := handleHTTPErrorResp(response); err != nil {
-		return nil, fmt.Errorf("GetEnvImpact: http response: %w", err)
+		return fmt.Errorf("GetEnvImpact: http response: %w", decodeAPIErrorResponse(err, map[int]func() any{
+			410: func() any { return new(GetEnvImpactResponse410) },
+		}))
 	}
 
-	bodyresp := new(EnvImpactReport)
-	if err := prepareJSONResponse(response, bodyresp); err != nil {
-		return nil, fmt.Errorf("GetEnvImpact: prepare JSON response: %w", err)
-	}
-
-	return bodyresp, nil
+	_ = response.Body.Close()
+	return nil
 }
 
 type GetImpactEstimateResponseImpact map[string]ImpactValueWithUnit
@@ -11520,8 +11640,9 @@ type GetImpactEstimateResponse struct {
 }
 
 type GetImpactEstimateRequest struct {
+	// Product-specific configuration details
 	Metadata map[string]any `json:"metadata,omitempty"`
-	// Product SKU, e.g. compute:ch-gva-2:instance:standard:medium; can also include wildcards, e.g. compute:*:instance:standard:* for all standard instances in all zones
+	// Product SKU, e.g. compute:ch-gva-2:instance:standard:medium; can also include wildcards, e.g. compute:\*:instance:standard:\* for all standard instances in all zones
 	Sku string `json:"sku" validate:"required"`
 }
 
@@ -11565,7 +11686,10 @@ func (c Client) GetImpactEstimate(ctx context.Context, req GetImpactEstimateRequ
 	}
 
 	if err := handleHTTPErrorResp(response); err != nil {
-		return nil, fmt.Errorf("GetImpactEstimate: http response: %w", err)
+		return nil, fmt.Errorf("GetImpactEstimate: http response: %w", decodeAPIErrorResponse(err, map[int]func() any{
+			400: func() any { return new(ImpactErrorResponse) },
+			500: func() any { return new(ImpactErrorResponse) },
+		}))
 	}
 
 	bodyresp := new(GetImpactEstimateResponse)
@@ -11631,7 +11755,10 @@ func (c Client) GetImpactReport(ctx context.Context, opts ...GetImpactReportOpt)
 	}
 
 	if err := handleHTTPErrorResp(response); err != nil {
-		return nil, fmt.Errorf("GetImpactReport: http response: %w", err)
+		return nil, fmt.Errorf("GetImpactReport: http response: %w", decodeAPIErrorResponse(err, map[int]func() any{
+			400: func() any { return new(ImpactErrorResponse) },
+			500: func() any { return new(ImpactErrorResponse) },
+		}))
 	}
 
 	bodyresp := new(ImpactBreakdown)
@@ -11658,7 +11785,7 @@ func ListEventsWithTo(to time.Time) ListEventsOpt {
 
 // Retrieve Mutation Events for a given date range. Defaults to retrieving Events for the past 24 hours.
 // Both a `from` and `to` arguments can be specified to filter Events over a specific period.
-// Events will be the the most descriptive possible but not all fields are mandatory
+// Events will be the most descriptive possible but not all fields are mandatory
 func (c Client) ListEvents(ctx context.Context, opts ...ListEventsOpt) ([]Event, error) {
 	path := "/event"
 
@@ -11705,6 +11832,50 @@ func (c Client) ListEvents(ctx context.Context, opts ...ListEventsOpt) ([]Event,
 	bodyresp := []Event{}
 	if err := prepareJSONResponse(response, &bodyresp); err != nil {
 		return nil, fmt.Errorf("ListEvents: prepare JSON response: %w", err)
+	}
+
+	return bodyresp, nil
+}
+
+// [BETA] Returns a presigned URL for the organization's focus report for the period
+func (c Client) GetFocusReport(ctx context.Context, period string) (*FocusReport, error) {
+	path := fmt.Sprintf("/focus-report/%v", period)
+
+	request, err := http.NewRequestWithContext(ctx, "GET", c.serverEndpoint+path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("GetFocusReport: new request: %w", err)
+	}
+
+	request.Header.Add("User-Agent", c.getUserAgent())
+
+	if err := c.executeRequestInterceptors(ctx, request); err != nil {
+		return nil, fmt.Errorf("GetFocusReport: execute request editors: %w", err)
+	}
+
+	if err := c.signRequest(request); err != nil {
+		return nil, fmt.Errorf("GetFocusReport: sign request: %w", err)
+	}
+
+	if c.trace {
+		dumpRequest(request, "get-focus-report")
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("GetFocusReport: http client do: %w", err)
+	}
+
+	if c.trace {
+		dumpResponse(response)
+	}
+
+	if err := handleHTTPErrorResp(response); err != nil {
+		return nil, fmt.Errorf("GetFocusReport: http response: %w", err)
+	}
+
+	bodyresp := new(FocusReport)
+	if err := prepareJSONResponse(response, bodyresp); err != nil {
+		return nil, fmt.Errorf("GetFocusReport: prepare JSON response: %w", err)
 	}
 
 	return bodyresp, nil
@@ -12254,6 +12425,73 @@ func (c Client) UpdateIAMRolePolicy(ctx context.Context, id UUID, req IAMPolicy)
 	return bodyresp, nil
 }
 
+type ListIAMSystemRolesResponse struct {
+	IAMSystemRoles []IAMSystemRole `json:"iam-system-roles,omitempty"`
+}
+
+// FindIAMSystemRole attempts to find an IAMSystemRole by nameOrID.
+func (l ListIAMSystemRolesResponse) FindIAMSystemRole(nameOrID string) (IAMSystemRole, error) {
+	var result []IAMSystemRole
+	for i, elem := range l.IAMSystemRoles {
+		if string(elem.Name) == nameOrID || string(elem.ID) == nameOrID {
+			result = append(result, l.IAMSystemRoles[i])
+		}
+	}
+	if len(result) == 1 {
+		return result[0], nil
+	}
+
+	if len(result) > 1 {
+		return IAMSystemRole{}, fmt.Errorf("%q too many found in ListIAMSystemRolesResponse: %w", nameOrID, ErrConflict)
+	}
+
+	return IAMSystemRole{}, fmt.Errorf("%q not found in ListIAMSystemRolesResponse: %w", nameOrID, ErrNotFound)
+}
+
+// List IAM System Roles
+func (c Client) ListIAMSystemRoles(ctx context.Context) (*ListIAMSystemRolesResponse, error) {
+	path := "/iam-system-role"
+
+	request, err := http.NewRequestWithContext(ctx, "GET", c.serverEndpoint+path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("ListIAMSystemRoles: new request: %w", err)
+	}
+
+	request.Header.Add("User-Agent", c.getUserAgent())
+
+	if err := c.executeRequestInterceptors(ctx, request); err != nil {
+		return nil, fmt.Errorf("ListIAMSystemRoles: execute request editors: %w", err)
+	}
+
+	if err := c.signRequest(request); err != nil {
+		return nil, fmt.Errorf("ListIAMSystemRoles: sign request: %w", err)
+	}
+
+	if c.trace {
+		dumpRequest(request, "list-iam-system-roles")
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("ListIAMSystemRoles: http client do: %w", err)
+	}
+
+	if c.trace {
+		dumpResponse(response)
+	}
+
+	if err := handleHTTPErrorResp(response); err != nil {
+		return nil, fmt.Errorf("ListIAMSystemRoles: http response: %w", err)
+	}
+
+	bodyresp := new(ListIAMSystemRolesResponse)
+	if err := prepareJSONResponse(response, bodyresp); err != nil {
+		return nil, fmt.Errorf("ListIAMSystemRoles: prepare JSON response: %w", err)
+	}
+
+	return bodyresp, nil
+}
+
 // Private Network
 type ListInstancesResponseInstancesPrivateNetworks struct {
 	// Private Network ID
@@ -12402,6 +12640,22 @@ func (c Client) ListInstances(ctx context.Context, opts ...ListInstancesOpt) (*L
 	return bodyresp, nil
 }
 
+// VPC Subnet attachment
+type CreateInstanceRequestVpcSubnets struct {
+	// Subnet ID
+	ID UUID `json:"id" validate:"required"`
+	// Instance IPv4. Random one if unset
+	Ipv4 net.IP `json:"ipv4,omitempty"`
+}
+
+// Attach the Instance to VPC Subnets
+type CreateInstanceRequestVpc struct {
+	// VPC ID
+	ID UUID `json:"id" validate:"required"`
+	// VPC Subnets to attach the Instance to
+	Subnets []CreateInstanceRequestVpcSubnets `json:"subnets" validate:"required"`
+}
+
 type CreateInstanceRequest struct {
 	// Instance Anti-affinity Groups
 	AntiAffinityGroups []AntiAffinityGroup `json:"anti-affinity-groups,omitempty"`
@@ -12415,7 +12669,9 @@ type CreateInstanceRequest struct {
 	DiskSize int64 `json:"disk-size" validate:"required,gte=10,lte=51200"`
 	// Instance type reference
 	InstanceType *InstanceType `json:"instance-type" validate:"required"`
-	// Enable IPv6. DEPRECATED: use `public-ip-assignments`.
+	// Whether the instance can act as a router in a VPC network
+	IPForwarding *bool `json:"ip-forwarding,omitempty"`
+	// Enable IPv6. DEPRECATED: use `public-ip-assignment`.
 	Ipv6Enabled *bool  `json:"ipv6-enabled,omitempty"`
 	Labels      Labels `json:"labels,omitempty"`
 	// Instance name
@@ -12435,6 +12691,8 @@ type CreateInstanceRequest struct {
 	TpmEnabled *bool `json:"tpm-enabled,omitempty"`
 	// Instance Cloud-init user-data (base64 encoded)
 	UserData string `json:"user-data,omitempty" validate:"omitempty,gte=1,lte=32768"`
+	// Attach the Instance to VPC Subnets
+	Vpc *CreateInstanceRequestVpc `json:"vpc,omitempty"`
 }
 
 // Create a Compute instance
@@ -13969,6 +14227,361 @@ func (c Client) RevertInstanceToSnapshot(ctx context.Context, instanceID UUID, r
 	return bodyresp, nil
 }
 
+// FindListKeyStoresResponseEntry attempts to find an ListKeyStoresResponseEntry by nameOrID.
+func (l ListKeyStoresResponse) FindListKeyStoresResponseEntry(nameOrID string) (ListKeyStoresResponseEntry, error) {
+	var result []ListKeyStoresResponseEntry
+	for i, elem := range l.KeyStores {
+		if string(elem.Name) == nameOrID || string(elem.ID) == nameOrID {
+			result = append(result, l.KeyStores[i])
+		}
+	}
+	if len(result) == 1 {
+		return result[0], nil
+	}
+
+	if len(result) > 1 {
+		return ListKeyStoresResponseEntry{}, fmt.Errorf("%q too many found in ListKeyStoresResponse: %w", nameOrID, ErrConflict)
+	}
+
+	return ListKeyStoresResponseEntry{}, fmt.Errorf("%q not found in ListKeyStoresResponse: %w", nameOrID, ErrNotFound)
+}
+
+// Lists all key stores configured for an organization.
+func (c Client) ListKeyStores(ctx context.Context) (*ListKeyStoresResponse, error) {
+	path := "/key-store"
+
+	request, err := http.NewRequestWithContext(ctx, "GET", c.serverEndpoint+path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("ListKeyStores: new request: %w", err)
+	}
+
+	request.Header.Add("User-Agent", c.getUserAgent())
+
+	if err := c.executeRequestInterceptors(ctx, request); err != nil {
+		return nil, fmt.Errorf("ListKeyStores: execute request editors: %w", err)
+	}
+
+	if err := c.signRequest(request); err != nil {
+		return nil, fmt.Errorf("ListKeyStores: sign request: %w", err)
+	}
+
+	if c.trace {
+		dumpRequest(request, "list-key-stores")
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("ListKeyStores: http client do: %w", err)
+	}
+
+	if c.trace {
+		dumpResponse(response)
+	}
+
+	if err := handleHTTPErrorResp(response); err != nil {
+		return nil, fmt.Errorf("ListKeyStores: http response: %w", decodeAPIErrorResponse(err, map[int]func() any{
+			400: func() any { return new(ErrorResponse) },
+		}))
+	}
+
+	bodyresp := new(ListKeyStoresResponse)
+	if err := prepareJSONResponse(response, bodyresp); err != nil {
+		return nil, fmt.Errorf("ListKeyStores: prepare JSON response: %w", err)
+	}
+
+	return bodyresp, nil
+}
+
+// Create an External Key Store after validating the configured customer-managed XKS proxy.
+func (c Client) CreateKeyStore(ctx context.Context, req CreateKeyStoreRequest) (*ListKeyStoresResponseEntry, error) {
+	path := "/key-store"
+
+	body, err := prepareJSONBody(req)
+	if err != nil {
+		return nil, fmt.Errorf("CreateKeyStore: prepare JSON body: %w", err)
+	}
+
+	request, err := http.NewRequestWithContext(ctx, "POST", c.serverEndpoint+path, body)
+	if err != nil {
+		return nil, fmt.Errorf("CreateKeyStore: new request: %w", err)
+	}
+
+	request.Header.Add("User-Agent", c.getUserAgent())
+
+	request.Header.Add("Content-Type", "application/json")
+
+	if err := c.executeRequestInterceptors(ctx, request); err != nil {
+		return nil, fmt.Errorf("CreateKeyStore: execute request editors: %w", err)
+	}
+
+	if err := c.signRequest(request); err != nil {
+		return nil, fmt.Errorf("CreateKeyStore: sign request: %w", err)
+	}
+
+	if c.trace {
+		dumpRequest(request, "create-key-store")
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("CreateKeyStore: http client do: %w", err)
+	}
+
+	if c.trace {
+		dumpResponse(response)
+	}
+
+	if err := handleHTTPErrorResp(response); err != nil {
+		return nil, fmt.Errorf("CreateKeyStore: http response: %w", decodeAPIErrorResponse(err, map[int]func() any{
+			400: func() any { return new(ErrorResponse) },
+		}))
+	}
+
+	bodyresp := new(ListKeyStoresResponseEntry)
+	if err := prepareJSONResponse(response, bodyresp); err != nil {
+		return nil, fmt.Errorf("CreateKeyStore: prepare JSON response: %w", err)
+	}
+
+	return bodyresp, nil
+}
+
+// Deletes an External Key Store when no KMS keys reference it.
+func (c Client) DeleteKeyStore(ctx context.Context, id UUID) (*SuccessResponse, error) {
+	path := fmt.Sprintf("/key-store/%v", id)
+
+	request, err := http.NewRequestWithContext(ctx, "DELETE", c.serverEndpoint+path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("DeleteKeyStore: new request: %w", err)
+	}
+
+	request.Header.Add("User-Agent", c.getUserAgent())
+
+	if err := c.executeRequestInterceptors(ctx, request); err != nil {
+		return nil, fmt.Errorf("DeleteKeyStore: execute request editors: %w", err)
+	}
+
+	if err := c.signRequest(request); err != nil {
+		return nil, fmt.Errorf("DeleteKeyStore: sign request: %w", err)
+	}
+
+	if c.trace {
+		dumpRequest(request, "delete-key-store")
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("DeleteKeyStore: http client do: %w", err)
+	}
+
+	if c.trace {
+		dumpResponse(response)
+	}
+
+	if err := handleHTTPErrorResp(response); err != nil {
+		return nil, fmt.Errorf("DeleteKeyStore: http response: %w", decodeAPIErrorResponse(err, map[int]func() any{
+			400: func() any { return new(ErrorResponse) },
+		}))
+	}
+
+	bodyresp := new(SuccessResponse)
+	if err := prepareJSONResponse(response, bodyresp); err != nil {
+		return nil, fmt.Errorf("DeleteKeyStore: prepare JSON response: %w", err)
+	}
+
+	return bodyresp, nil
+}
+
+// Fetch an External Key Store including its latest XKS health observation when available.
+func (c Client) GetKeyStore(ctx context.Context, id UUID) (*GetKeyStoreResponse, error) {
+	path := fmt.Sprintf("/key-store/%v", id)
+
+	request, err := http.NewRequestWithContext(ctx, "GET", c.serverEndpoint+path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("GetKeyStore: new request: %w", err)
+	}
+
+	request.Header.Add("User-Agent", c.getUserAgent())
+
+	if err := c.executeRequestInterceptors(ctx, request); err != nil {
+		return nil, fmt.Errorf("GetKeyStore: execute request editors: %w", err)
+	}
+
+	if err := c.signRequest(request); err != nil {
+		return nil, fmt.Errorf("GetKeyStore: sign request: %w", err)
+	}
+
+	if c.trace {
+		dumpRequest(request, "get-key-store")
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("GetKeyStore: http client do: %w", err)
+	}
+
+	if c.trace {
+		dumpResponse(response)
+	}
+
+	if err := handleHTTPErrorResp(response); err != nil {
+		return nil, fmt.Errorf("GetKeyStore: http response: %w", decodeAPIErrorResponse(err, map[int]func() any{
+			400: func() any { return new(ErrorResponse) },
+		}))
+	}
+
+	bodyresp := new(GetKeyStoreResponse)
+	if err := prepareJSONResponse(response, bodyresp); err != nil {
+		return nil, fmt.Errorf("GetKeyStore: prepare JSON response: %w", err)
+	}
+
+	return bodyresp, nil
+}
+
+// Connects an External Key Store once its customer-managed XKS proxy passes a health check, then resumes periodic proxy health checks and lets keys backed by this store be used for cryptographic operations.
+func (c Client) ConnectKeyStore(ctx context.Context, id UUID) (*SuccessResponse, error) {
+	path := fmt.Sprintf("/key-store/%v/connect", id)
+
+	request, err := http.NewRequestWithContext(ctx, "POST", c.serverEndpoint+path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("ConnectKeyStore: new request: %w", err)
+	}
+
+	request.Header.Add("User-Agent", c.getUserAgent())
+
+	if err := c.executeRequestInterceptors(ctx, request); err != nil {
+		return nil, fmt.Errorf("ConnectKeyStore: execute request editors: %w", err)
+	}
+
+	if err := c.signRequest(request); err != nil {
+		return nil, fmt.Errorf("ConnectKeyStore: sign request: %w", err)
+	}
+
+	if c.trace {
+		dumpRequest(request, "connect-key-store")
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("ConnectKeyStore: http client do: %w", err)
+	}
+
+	if c.trace {
+		dumpResponse(response)
+	}
+
+	if err := handleHTTPErrorResp(response); err != nil {
+		return nil, fmt.Errorf("ConnectKeyStore: http response: %w", decodeAPIErrorResponse(err, map[int]func() any{
+			400: func() any { return new(ErrorResponse) },
+		}))
+	}
+
+	bodyresp := new(SuccessResponse)
+	if err := prepareJSONResponse(response, bodyresp); err != nil {
+		return nil, fmt.Errorf("ConnectKeyStore: prepare JSON response: %w", err)
+	}
+
+	return bodyresp, nil
+}
+
+// Disconnects an External Key Store and suspends periodic proxy health checks; keys backed by this store remain intact but cannot be used for cryptographic operations until it is reconnected.
+func (c Client) DisconnectKeyStore(ctx context.Context, id UUID) (*SuccessResponse, error) {
+	path := fmt.Sprintf("/key-store/%v/disconnect", id)
+
+	request, err := http.NewRequestWithContext(ctx, "POST", c.serverEndpoint+path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("DisconnectKeyStore: new request: %w", err)
+	}
+
+	request.Header.Add("User-Agent", c.getUserAgent())
+
+	if err := c.executeRequestInterceptors(ctx, request); err != nil {
+		return nil, fmt.Errorf("DisconnectKeyStore: execute request editors: %w", err)
+	}
+
+	if err := c.signRequest(request); err != nil {
+		return nil, fmt.Errorf("DisconnectKeyStore: sign request: %w", err)
+	}
+
+	if c.trace {
+		dumpRequest(request, "disconnect-key-store")
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("DisconnectKeyStore: http client do: %w", err)
+	}
+
+	if c.trace {
+		dumpResponse(response)
+	}
+
+	if err := handleHTTPErrorResp(response); err != nil {
+		return nil, fmt.Errorf("DisconnectKeyStore: http response: %w", decodeAPIErrorResponse(err, map[int]func() any{
+			400: func() any { return new(ErrorResponse) },
+		}))
+	}
+
+	bodyresp := new(SuccessResponse)
+	if err := prepareJSONResponse(response, bodyresp); err != nil {
+		return nil, fmt.Errorf("DisconnectKeyStore: prepare JSON response: %w", err)
+	}
+
+	return bodyresp, nil
+}
+
+// Updates an External Key Store with a new description, endpoint, or credentials.
+func (c Client) UpdateKeyStore(ctx context.Context, id UUID, req UpdateKeyStoreRequest) (*GetKeyStoreResponse, error) {
+	path := fmt.Sprintf("/key-store/%v/update", id)
+
+	body, err := prepareJSONBody(req)
+	if err != nil {
+		return nil, fmt.Errorf("UpdateKeyStore: prepare JSON body: %w", err)
+	}
+
+	request, err := http.NewRequestWithContext(ctx, "POST", c.serverEndpoint+path, body)
+	if err != nil {
+		return nil, fmt.Errorf("UpdateKeyStore: new request: %w", err)
+	}
+
+	request.Header.Add("User-Agent", c.getUserAgent())
+
+	request.Header.Add("Content-Type", "application/json")
+
+	if err := c.executeRequestInterceptors(ctx, request); err != nil {
+		return nil, fmt.Errorf("UpdateKeyStore: execute request editors: %w", err)
+	}
+
+	if err := c.signRequest(request); err != nil {
+		return nil, fmt.Errorf("UpdateKeyStore: sign request: %w", err)
+	}
+
+	if c.trace {
+		dumpRequest(request, "update-key-store")
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("UpdateKeyStore: http client do: %w", err)
+	}
+
+	if c.trace {
+		dumpResponse(response)
+	}
+
+	if err := handleHTTPErrorResp(response); err != nil {
+		return nil, fmt.Errorf("UpdateKeyStore: http response: %w", decodeAPIErrorResponse(err, map[int]func() any{
+			400: func() any { return new(ErrorResponse) },
+		}))
+	}
+
+	bodyresp := new(GetKeyStoreResponse)
+	if err := prepareJSONResponse(response, bodyresp); err != nil {
+		return nil, fmt.Errorf("UpdateKeyStore: prepare JSON response: %w", err)
+	}
+
+	return bodyresp, nil
+}
+
 // FindListKmsKeysResponseEntry attempts to find an ListKmsKeysResponseEntry by nameOrID.
 func (l ListKmsKeysResponse) FindListKmsKeysResponseEntry(nameOrID string) (ListKmsKeysResponseEntry, error) {
 	var result []ListKmsKeysResponseEntry
@@ -14021,7 +14634,9 @@ func (c Client) ListKmsKeys(ctx context.Context) (*ListKmsKeysResponse, error) {
 	}
 
 	if err := handleHTTPErrorResp(response); err != nil {
-		return nil, fmt.Errorf("ListKmsKeys: http response: %w", err)
+		return nil, fmt.Errorf("ListKmsKeys: http response: %w", decodeAPIErrorResponse(err, map[int]func() any{
+			400: func() any { return new(ErrorResponse) },
+		}))
 	}
 
 	bodyresp := new(ListKmsKeysResponse)
@@ -14072,7 +14687,9 @@ func (c Client) CreateKmsKey(ctx context.Context, req CreateKmsKeyRequest) (*Cre
 	}
 
 	if err := handleHTTPErrorResp(response); err != nil {
-		return nil, fmt.Errorf("CreateKmsKey: http response: %w", err)
+		return nil, fmt.Errorf("CreateKmsKey: http response: %w", decodeAPIErrorResponse(err, map[int]func() any{
+			400: func() any { return new(ErrorResponse) },
+		}))
 	}
 
 	bodyresp := new(CreateKmsKeyResponse)
@@ -14116,7 +14733,9 @@ func (c Client) GetKmsKey(ctx context.Context, id UUID) (*GetKmsKeyResponse, err
 	}
 
 	if err := handleHTTPErrorResp(response); err != nil {
-		return nil, fmt.Errorf("GetKmsKey: http response: %w", err)
+		return nil, fmt.Errorf("GetKmsKey: http response: %w", decodeAPIErrorResponse(err, map[int]func() any{
+			400: func() any { return new(ErrorResponse) },
+		}))
 	}
 
 	bodyresp := new(GetKmsKeyResponse)
@@ -14160,7 +14779,9 @@ func (c Client) CancelKmsKeyDeletion(ctx context.Context, id UUID) (*SuccessResp
 	}
 
 	if err := handleHTTPErrorResp(response); err != nil {
-		return nil, fmt.Errorf("CancelKmsKeyDeletion: http response: %w", err)
+		return nil, fmt.Errorf("CancelKmsKeyDeletion: http response: %w", decodeAPIErrorResponse(err, map[int]func() any{
+			400: func() any { return new(ErrorResponse) },
+		}))
 	}
 
 	bodyresp := new(SuccessResponse)
@@ -14211,7 +14832,9 @@ func (c Client) Decrypt(ctx context.Context, id UUID, req DecryptRequest) (*Decr
 	}
 
 	if err := handleHTTPErrorResp(response); err != nil {
-		return nil, fmt.Errorf("Decrypt: http response: %w", err)
+		return nil, fmt.Errorf("Decrypt: http response: %w", decodeAPIErrorResponse(err, map[int]func() any{
+			400: func() any { return new(ErrorResponse) },
+		}))
 	}
 
 	bodyresp := new(DecryptResponse)
@@ -14255,7 +14878,9 @@ func (c Client) DisableKmsKey(ctx context.Context, id UUID) (*SuccessResponse, e
 	}
 
 	if err := handleHTTPErrorResp(response); err != nil {
-		return nil, fmt.Errorf("DisableKmsKey: http response: %w", err)
+		return nil, fmt.Errorf("DisableKmsKey: http response: %w", decodeAPIErrorResponse(err, map[int]func() any{
+			400: func() any { return new(ErrorResponse) },
+		}))
 	}
 
 	bodyresp := new(SuccessResponse)
@@ -14299,7 +14924,9 @@ func (c Client) DisableKmsKeyRotation(ctx context.Context, id UUID) (*DisableKms
 	}
 
 	if err := handleHTTPErrorResp(response); err != nil {
-		return nil, fmt.Errorf("DisableKmsKeyRotation: http response: %w", err)
+		return nil, fmt.Errorf("DisableKmsKeyRotation: http response: %w", decodeAPIErrorResponse(err, map[int]func() any{
+			400: func() any { return new(ErrorResponse) },
+		}))
 	}
 
 	bodyresp := new(DisableKmsKeyRotationResponse)
@@ -14343,7 +14970,9 @@ func (c Client) EnableKmsKey(ctx context.Context, id UUID) (*SuccessResponse, er
 	}
 
 	if err := handleHTTPErrorResp(response); err != nil {
-		return nil, fmt.Errorf("EnableKmsKey: http response: %w", err)
+		return nil, fmt.Errorf("EnableKmsKey: http response: %w", decodeAPIErrorResponse(err, map[int]func() any{
+			400: func() any { return new(ErrorResponse) },
+		}))
 	}
 
 	bodyresp := new(SuccessResponse)
@@ -14394,7 +15023,9 @@ func (c Client) EnableKmsKeyRotation(ctx context.Context, id UUID, req EnableKms
 	}
 
 	if err := handleHTTPErrorResp(response); err != nil {
-		return nil, fmt.Errorf("EnableKmsKeyRotation: http response: %w", err)
+		return nil, fmt.Errorf("EnableKmsKeyRotation: http response: %w", decodeAPIErrorResponse(err, map[int]func() any{
+			400: func() any { return new(ErrorResponse) },
+		}))
 	}
 
 	bodyresp := new(EnableKmsKeyRotationResponse)
@@ -14445,7 +15076,9 @@ func (c Client) Encrypt(ctx context.Context, id UUID, req EncryptRequest) (*Encr
 	}
 
 	if err := handleHTTPErrorResp(response); err != nil {
-		return nil, fmt.Errorf("Encrypt: http response: %w", err)
+		return nil, fmt.Errorf("Encrypt: http response: %w", decodeAPIErrorResponse(err, map[int]func() any{
+			400: func() any { return new(ErrorResponse) },
+		}))
 	}
 
 	bodyresp := new(EncryptResponse)
@@ -14496,12 +15129,60 @@ func (c Client) GenerateDataKey(ctx context.Context, id UUID, req GenerateDataKe
 	}
 
 	if err := handleHTTPErrorResp(response); err != nil {
-		return nil, fmt.Errorf("GenerateDataKey: http response: %w", err)
+		return nil, fmt.Errorf("GenerateDataKey: http response: %w", decodeAPIErrorResponse(err, map[int]func() any{
+			400: func() any { return new(ErrorResponse) },
+		}))
 	}
 
 	bodyresp := new(GenerateDataKeyResponse)
 	if err := prepareJSONResponse(response, bodyresp); err != nil {
 		return nil, fmt.Errorf("GenerateDataKey: prepare JSON response: %w", err)
+	}
+
+	return bodyresp, nil
+}
+
+// Retrieve the public key material of an asymmetric KMS key.
+func (c Client) GetPublicKey(ctx context.Context, id UUID) (*GetPublicKeyResponse, error) {
+	path := fmt.Sprintf("/kms-key/%v/get-public-key", id)
+
+	request, err := http.NewRequestWithContext(ctx, "GET", c.serverEndpoint+path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("GetPublicKey: new request: %w", err)
+	}
+
+	request.Header.Add("User-Agent", c.getUserAgent())
+
+	if err := c.executeRequestInterceptors(ctx, request); err != nil {
+		return nil, fmt.Errorf("GetPublicKey: execute request editors: %w", err)
+	}
+
+	if err := c.signRequest(request); err != nil {
+		return nil, fmt.Errorf("GetPublicKey: sign request: %w", err)
+	}
+
+	if c.trace {
+		dumpRequest(request, "get-public-key")
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("GetPublicKey: http client do: %w", err)
+	}
+
+	if c.trace {
+		dumpResponse(response)
+	}
+
+	if err := handleHTTPErrorResp(response); err != nil {
+		return nil, fmt.Errorf("GetPublicKey: http response: %w", decodeAPIErrorResponse(err, map[int]func() any{
+			400: func() any { return new(ErrorResponse) },
+		}))
+	}
+
+	bodyresp := new(GetPublicKeyResponse)
+	if err := prepareJSONResponse(response, bodyresp); err != nil {
+		return nil, fmt.Errorf("GetPublicKey: prepare JSON response: %w", err)
 	}
 
 	return bodyresp, nil
@@ -14540,7 +15221,9 @@ func (c Client) ListKmsKeyRotations(ctx context.Context, id UUID) (*ListKmsKeyRo
 	}
 
 	if err := handleHTTPErrorResp(response); err != nil {
-		return nil, fmt.Errorf("ListKmsKeyRotations: http response: %w", err)
+		return nil, fmt.Errorf("ListKmsKeyRotations: http response: %w", decodeAPIErrorResponse(err, map[int]func() any{
+			400: func() any { return new(ErrorResponse) },
+		}))
 	}
 
 	bodyresp := new(ListKmsKeyRotationsResponse)
@@ -14551,7 +15234,7 @@ func (c Client) ListKmsKeyRotations(ctx context.Context, id UUID) (*ListKmsKeyRo
 	return bodyresp, nil
 }
 
-// Decrypts an existing ciphertext using its original key material and re-encrypts the underlying plaintext using a specified KMS key or the latest key material of the same KMS Key.
+// Decrypts an existing ciphertext using its original key material and re-encrypts the underlying plaintext using a specified KMS key or the latest key material of the same KMS Key. Source and destination keys must belong to the same key family. IAM policies are evaluated for both the source and the destination key.
 func (c Client) ReEncrypt(ctx context.Context, id UUID, req ReEncryptRequest) (*ReEncryptResponse, error) {
 	path := fmt.Sprintf("/kms-key/%v/re-encrypt", id)
 
@@ -14591,7 +15274,9 @@ func (c Client) ReEncrypt(ctx context.Context, id UUID, req ReEncryptRequest) (*
 	}
 
 	if err := handleHTTPErrorResp(response); err != nil {
-		return nil, fmt.Errorf("ReEncrypt: http response: %w", err)
+		return nil, fmt.Errorf("ReEncrypt: http response: %w", decodeAPIErrorResponse(err, map[int]func() any{
+			400: func() any { return new(ErrorResponse) },
+		}))
 	}
 
 	bodyresp := new(ReEncryptResponse)
@@ -14642,7 +15327,9 @@ func (c Client) ReplicateKmsKey(ctx context.Context, id UUID, req ReplicateKmsKe
 	}
 
 	if err := handleHTTPErrorResp(response); err != nil {
-		return nil, fmt.Errorf("ReplicateKmsKey: http response: %w", err)
+		return nil, fmt.Errorf("ReplicateKmsKey: http response: %w", decodeAPIErrorResponse(err, map[int]func() any{
+			400: func() any { return new(ErrorResponse) },
+		}))
 	}
 
 	bodyresp := new(SuccessResponse)
@@ -14686,7 +15373,9 @@ func (c Client) RotateKmsKey(ctx context.Context, id UUID) (*RotateKmsKeyRespons
 	}
 
 	if err := handleHTTPErrorResp(response); err != nil {
-		return nil, fmt.Errorf("RotateKmsKey: http response: %w", err)
+		return nil, fmt.Errorf("RotateKmsKey: http response: %w", decodeAPIErrorResponse(err, map[int]func() any{
+			400: func() any { return new(ErrorResponse) },
+		}))
 	}
 
 	bodyresp := new(RotateKmsKeyResponse)
@@ -14737,12 +15426,120 @@ func (c Client) ScheduleKmsKeyDeletion(ctx context.Context, id UUID, req Schedul
 	}
 
 	if err := handleHTTPErrorResp(response); err != nil {
-		return nil, fmt.Errorf("ScheduleKmsKeyDeletion: http response: %w", err)
+		return nil, fmt.Errorf("ScheduleKmsKeyDeletion: http response: %w", decodeAPIErrorResponse(err, map[int]func() any{
+			400: func() any { return new(ErrorResponse) },
+		}))
 	}
 
 	bodyresp := new(ScheduleKmsKeyDeletionResponse)
 	if err := prepareJSONResponse(response, bodyresp); err != nil {
 		return nil, fmt.Errorf("ScheduleKmsKeyDeletion: prepare JSON response: %w", err)
+	}
+
+	return bodyresp, nil
+}
+
+// Signs a message or digest using a KMS key with usage `sign-verify`.
+func (c Client) Sign(ctx context.Context, id UUID, req SignRequest) (*SignResponse, error) {
+	path := fmt.Sprintf("/kms-key/%v/sign", id)
+
+	body, err := prepareJSONBody(req)
+	if err != nil {
+		return nil, fmt.Errorf("Sign: prepare JSON body: %w", err)
+	}
+
+	request, err := http.NewRequestWithContext(ctx, "POST", c.serverEndpoint+path, body)
+	if err != nil {
+		return nil, fmt.Errorf("Sign: new request: %w", err)
+	}
+
+	request.Header.Add("User-Agent", c.getUserAgent())
+
+	request.Header.Add("Content-Type", "application/json")
+
+	if err := c.executeRequestInterceptors(ctx, request); err != nil {
+		return nil, fmt.Errorf("Sign: execute request editors: %w", err)
+	}
+
+	if err := c.signRequest(request); err != nil {
+		return nil, fmt.Errorf("Sign: sign request: %w", err)
+	}
+
+	if c.trace {
+		dumpRequest(request, "sign")
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("Sign: http client do: %w", err)
+	}
+
+	if c.trace {
+		dumpResponse(response)
+	}
+
+	if err := handleHTTPErrorResp(response); err != nil {
+		return nil, fmt.Errorf("Sign: http response: %w", decodeAPIErrorResponse(err, map[int]func() any{
+			400: func() any { return new(ErrorResponse) },
+		}))
+	}
+
+	bodyresp := new(SignResponse)
+	if err := prepareJSONResponse(response, bodyresp); err != nil {
+		return nil, fmt.Errorf("Sign: prepare JSON response: %w", err)
+	}
+
+	return bodyresp, nil
+}
+
+// Verifies a signature against the public key of a KMS key with usage `sign-verify`.
+func (c Client) Verify(ctx context.Context, id UUID, req VerifyRequest) (*VerifyResponse, error) {
+	path := fmt.Sprintf("/kms-key/%v/verify", id)
+
+	body, err := prepareJSONBody(req)
+	if err != nil {
+		return nil, fmt.Errorf("Verify: prepare JSON body: %w", err)
+	}
+
+	request, err := http.NewRequestWithContext(ctx, "POST", c.serverEndpoint+path, body)
+	if err != nil {
+		return nil, fmt.Errorf("Verify: new request: %w", err)
+	}
+
+	request.Header.Add("User-Agent", c.getUserAgent())
+
+	request.Header.Add("Content-Type", "application/json")
+
+	if err := c.executeRequestInterceptors(ctx, request); err != nil {
+		return nil, fmt.Errorf("Verify: execute request editors: %w", err)
+	}
+
+	if err := c.signRequest(request); err != nil {
+		return nil, fmt.Errorf("Verify: sign request: %w", err)
+	}
+
+	if c.trace {
+		dumpRequest(request, "verify")
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("Verify: http client do: %w", err)
+	}
+
+	if c.trace {
+		dumpResponse(response)
+	}
+
+	if err := handleHTTPErrorResp(response); err != nil {
+		return nil, fmt.Errorf("Verify: http response: %w", decodeAPIErrorResponse(err, map[int]func() any{
+			400: func() any { return new(ErrorResponse) },
+		}))
+	}
+
+	bodyresp := new(VerifyResponse)
+	if err := prepareJSONResponse(response, bodyresp); err != nil {
+		return nil, fmt.Errorf("Verify: prepare JSON response: %w", err)
 	}
 
 	return bodyresp, nil
@@ -14781,7 +15578,9 @@ func (c Client) GetLiveBalance(ctx context.Context) (*LiveBalance, error) {
 	}
 
 	if err := handleHTTPErrorResp(response); err != nil {
-		return nil, fmt.Errorf("GetLiveBalance: http response: %w", err)
+		return nil, fmt.Errorf("GetLiveBalance: http response: %w", decodeAPIErrorResponse(err, map[int]func() any{
+			429: func() any { return new(RateLimited) },
+		}))
 	}
 
 	bodyresp := new(LiveBalance)
@@ -14859,7 +15658,16 @@ func (c Client) ListLoadBalancers(ctx context.Context) (*ListLoadBalancersRespon
 	return bodyresp, nil
 }
 
+type CreateLoadBalancerRequestAddressfamily string
+
+const (
+	CreateLoadBalancerRequestAddressfamilyInet4 CreateLoadBalancerRequestAddressfamily = "inet4"
+	CreateLoadBalancerRequestAddressfamilyInet6 CreateLoadBalancerRequestAddressfamily = "inet6"
+)
+
 type CreateLoadBalancerRequest struct {
+	// Load Balancer address family (default: :inet4)
+	Addressfamily CreateLoadBalancerRequestAddressfamily `json:"addressfamily,omitempty"`
 	// Load Balancer description
 	Description string `json:"description,omitempty" validate:"omitempty,lte=255"`
 	Labels      Labels `json:"labels,omitempty"`
@@ -15008,10 +15816,10 @@ func (c Client) GetLoadBalancer(ctx context.Context, id UUID) (*LoadBalancer, er
 
 type UpdateLoadBalancerRequest struct {
 	// Load Balancer description
-	Description string `json:"description,omitempty" validate:"omitempty,lte=255"`
-	Labels      Labels `json:"labels,omitempty"`
+	Description *string `json:"description,omitempty" validate:"omitempty,lte=255"`
+	Labels      Labels  `json:"labels"`
 	// Load Balancer name
-	Name string `json:"name,omitempty" validate:"omitempty,gte=1,lte=255"`
+	Name *string `json:"name,omitempty" validate:"omitempty,gte=1,lte=255"`
 }
 
 // Update a Load Balancer
@@ -15086,7 +15894,9 @@ type AddServiceToLoadBalancerRequest struct {
 	// Load Balancer Service healthcheck
 	Healthcheck *LoadBalancerServiceHealthcheck `json:"healthcheck" validate:"required"`
 	// Instance Pool
-	InstancePool *InstancePool `json:"instance-pool" validate:"required"`
+	InstancePool *InstancePool `json:"instance-pool,omitempty"`
+	// Label selector: the instances carrying all of its labels are backends
+	LabelSelector *LoadBalancerServiceLabelSelector `json:"label-selector,omitempty"`
 	// Load Balancer Service name
 	Name string `json:"name" validate:"required,gte=1,lte=255"`
 	// Port exposed on the Load Balancer's public IP
@@ -15255,19 +16065,21 @@ const (
 
 type UpdateLoadBalancerServiceRequest struct {
 	// Load Balancer Service description
-	Description string `json:"description,omitempty" validate:"omitempty,lte=255"`
+	Description *string `json:"description,omitempty" validate:"omitempty,lte=255"`
 	// Load Balancer Service healthcheck
 	Healthcheck *LoadBalancerServiceHealthcheck `json:"healthcheck,omitempty"`
+	// Label selector: the instances carrying all of its labels are backends
+	LabelSelector *LoadBalancerServiceLabelSelector `json:"label-selector"`
 	// Load Balancer Service name
-	Name string `json:"name,omitempty" validate:"omitempty,lte=255"`
+	Name *string `json:"name,omitempty" validate:"omitempty,lte=255"`
 	// Port exposed on the Load Balancer's public IP
-	Port int64 `json:"port,omitempty" validate:"omitempty,gte=1,lte=65535"`
+	Port *int64 `json:"port,omitempty" validate:"omitempty,gte=1,lte=65535"`
 	// Network traffic protocol
 	Protocol UpdateLoadBalancerServiceRequestProtocol `json:"protocol,omitempty"`
 	// Load balancing strategy
 	Strategy UpdateLoadBalancerServiceRequestStrategy `json:"strategy,omitempty"`
 	// Port on which the network traffic will be forwarded to on the receiving instance
-	TargetPort int64 `json:"target-port,omitempty" validate:"omitempty,gte=1,lte=65535"`
+	TargetPort *int64 `json:"target-port,omitempty" validate:"omitempty,gte=1,lte=65535"`
 }
 
 // Update a Load Balancer Service
@@ -15324,7 +16136,8 @@ func (c Client) UpdateLoadBalancerService(ctx context.Context, id UUID, serviceI
 type ResetLoadBalancerServiceFieldField string
 
 const (
-	ResetLoadBalancerServiceFieldFieldDescription ResetLoadBalancerServiceFieldField = "description"
+	ResetLoadBalancerServiceFieldFieldDescription   ResetLoadBalancerServiceFieldField = "description"
+	ResetLoadBalancerServiceFieldFieldLabelSelector ResetLoadBalancerServiceFieldField = "label-selector"
 )
 
 // Reset a Load Balancer Service field to its default value
@@ -17096,7 +17909,8 @@ const (
 
 type CreateSKSClusterRequest struct {
 	// Cluster addons
-	Addons []string `json:"addons,omitempty"`
+	Addons          []string                   `json:"addons,omitempty"`
+	AllowedNetworks *SKSClusterAllowedNetworks `json:"allowed-networks,omitempty"`
 	// Kubernetes Audit parameters
 	Audit *SKSAuditCreate `json:"audit,omitempty"`
 	// Enable auto upgrade of the control plane to the latest patch version available
@@ -17110,8 +17924,10 @@ type CreateSKSClusterRequest struct {
 	// Indicates whether to deploy the Kubernetes network proxy. When unspecified, defaults to `true` unless Cilium CNI is selected
 	EnableKubeProxy *bool `json:"enable-kube-proxy,omitempty"`
 	// A list of Kubernetes-only Alpha features to enable for API server component
-	FeatureGates []string         `json:"feature-gates,omitempty"`
-	Labels       SKSClusterLabels `json:"labels,omitempty"`
+	FeatureGates []string `json:"feature-gates,omitempty"`
+	// A list of Karpenter controller feature gates to enable for the Karpenter controller binary
+	KarpenterFeatureGates []string         `json:"karpenter-feature-gates,omitempty"`
+	Labels                SKSClusterLabels `json:"labels,omitempty"`
 	// Cluster service level
 	Level CreateSKSClusterRequestLevel `json:"level" validate:"required"`
 	// Cluster name
@@ -17428,7 +18244,8 @@ func (c Client) GetSKSCluster(ctx context.Context, id UUID) (*SKSCluster, error)
 
 type UpdateSKSClusterRequest struct {
 	// Cluster addons
-	Addons []string `json:"addons,omitempty"`
+	Addons          []string                   `json:"addons,omitempty"`
+	AllowedNetworks *SKSClusterAllowedNetworks `json:"allowed-networks,omitempty"`
 	// Kubernetes Audit parameters
 	Audit *SKSAuditUpdate `json:"audit,omitempty"`
 	// Enable auto upgrade of the control plane to the latest patch version available
@@ -17438,8 +18255,10 @@ type UpdateSKSClusterRequest struct {
 	// Add or remove the operators certificate authority (CA) from the list of trusted CAs of the api server. The default value is true
 	EnableOperatorsCA *bool `json:"enable-operators-ca,omitempty"`
 	// A list of Kubernetes-only Alpha features to enable for API server component
-	FeatureGates []string         `json:"feature-gates"`
-	Labels       SKSClusterLabels `json:"labels,omitempty"`
+	FeatureGates []string `json:"feature-gates"`
+	// A list of Karpenter controller feature gates to enable for the Karpenter controller binary
+	KarpenterFeatureGates []string         `json:"karpenter-feature-gates"`
+	Labels                SKSClusterLabels `json:"labels,omitempty"`
 	// Cluster name
 	Name string `json:"name,omitempty" validate:"omitempty,gte=1,lte=255"`
 	// SKS Cluster OpenID config map
@@ -17707,6 +18526,8 @@ type CreateSKSNodepoolRequest struct {
 	Addons []string `json:"addons,omitempty"`
 	// Nodepool Anti-affinity Groups
 	AntiAffinityGroups []AntiAffinityGroup `json:"anti-affinity-groups,omitempty"`
+	// CPU manager config
+	CPUManagerConfig *CPUManagerConfig `json:"cpu-manager-config"`
 	// Deploy target reference
 	DeployTarget *DeployTarget `json:"deploy-target,omitempty"`
 	// Nodepool description
@@ -17724,6 +18545,8 @@ type CreateSKSNodepoolRequest struct {
 	Labels         SKSNodepoolLabels `json:"labels,omitempty"`
 	// Nodepool name, lowercase only
 	Name string `json:"name" validate:"required,gte=1,lte=255"`
+	// Expose the GPUs with the NVIDIA DRA driver instead of the NVIDIA device plugin. Requires a GPU instance type and Kubernetes 1.34 or greater.
+	NvidiaDraDriver *bool `json:"nvidia-dra-driver,omitempty"`
 	// Nvidia MIG Profiles enabled
 	NvidiaMigProfiles *NvidiaMigProfiles `json:"nvidia-mig-profiles,omitempty"`
 	// Nodepool Private Networks
@@ -17888,6 +18711,8 @@ const (
 type UpdateSKSNodepoolRequest struct {
 	// Nodepool Anti-affinity Groups
 	AntiAffinityGroups []AntiAffinityGroup `json:"anti-affinity-groups,omitempty"`
+	// CPU manager config
+	CPUManagerConfig *CPUManagerConfig `json:"cpu-manager-config"`
 	// Deploy target reference
 	DeployTarget *DeployTarget `json:"deploy-target"`
 	// Nodepool description
@@ -17905,6 +18730,8 @@ type UpdateSKSNodepoolRequest struct {
 	Labels         SKSNodepoolLabels `json:"labels,omitempty"`
 	// Nodepool name, lowercase only
 	Name string `json:"name,omitempty" validate:"omitempty,gte=1,lte=255"`
+	// Expose the GPUs with the NVIDIA DRA driver instead of the NVIDIA device plugin. Requires a GPU instance type and Kubernetes 1.34 or greater.
+	NvidiaDraDriver *bool `json:"nvidia-dra-driver,omitempty"`
 	// Nvidia MIG Profiles enabled
 	NvidiaMigProfiles *NvidiaMigProfiles `json:"nvidia-mig-profiles"`
 	// Nodepool Private Networks
@@ -17916,6 +18743,8 @@ type UpdateSKSNodepoolRequest struct {
 	// Nodepool Security Groups
 	SecurityGroups []SecurityGroup   `json:"security-groups,omitempty"`
 	Taints         SKSNodepoolTaints `json:"taints,omitempty"`
+	// Template reference
+	Template *TemplateRef `json:"template,omitempty"`
 }
 
 // Update an SKS Nodepool
@@ -18351,6 +19180,96 @@ func (c Client) UpgradeSKSClusterServiceLevel(ctx context.Context, id UUID) (*Op
 	bodyresp := new(Operation)
 	if err := prepareJSONResponse(response, bodyresp); err != nil {
 		return nil, fmt.Errorf("UpgradeSKSClusterServiceLevel: prepare JSON response: %w", err)
+	}
+
+	return bodyresp, nil
+}
+
+type ListSKSNodepoolTemplatesResponse struct {
+	SKSNodepoolTemplates []SKSNodepoolTemplate `json:"sks-nodepool-templates,omitempty"`
+}
+
+// FindSKSNodepoolTemplate attempts to find an SKSNodepoolTemplate by nameOrID.
+func (l ListSKSNodepoolTemplatesResponse) FindSKSNodepoolTemplate(nameOrID string) (SKSNodepoolTemplate, error) {
+	var result []SKSNodepoolTemplate
+	for i, elem := range l.SKSNodepoolTemplates {
+		if string(elem.Name) == nameOrID || string(elem.ID) == nameOrID {
+			result = append(result, l.SKSNodepoolTemplates[i])
+		}
+	}
+	if len(result) == 1 {
+		return result[0], nil
+	}
+
+	if len(result) > 1 {
+		return SKSNodepoolTemplate{}, fmt.Errorf("%q too many found in ListSKSNodepoolTemplatesResponse: %w", nameOrID, ErrConflict)
+	}
+
+	return SKSNodepoolTemplate{}, fmt.Errorf("%q not found in ListSKSNodepoolTemplatesResponse: %w", nameOrID, ErrNotFound)
+}
+
+type ListSKSNodepoolTemplatesVariant string
+
+const (
+	ListSKSNodepoolTemplatesVariantStandard ListSKSNodepoolTemplatesVariant = "standard"
+	ListSKSNodepoolTemplatesVariantNvidia   ListSKSNodepoolTemplatesVariant = "nvidia"
+)
+
+type ListSKSNodepoolTemplatesOpt func(url.Values)
+
+func ListSKSNodepoolTemplatesWithVariant(variant ListSKSNodepoolTemplatesVariant) ListSKSNodepoolTemplatesOpt {
+	return func(q url.Values) {
+		q.Add("variant", fmt.Sprint(variant))
+	}
+}
+
+// List the available templates for a given kube version (major.minor or major.minor.patch), of the given variant (standard | nvidia) when provided, latest first
+func (c Client) ListSKSNodepoolTemplates(ctx context.Context, kubeVersion string, opts ...ListSKSNodepoolTemplatesOpt) (*ListSKSNodepoolTemplatesResponse, error) {
+	path := fmt.Sprintf("/sks-template/%v", kubeVersion)
+
+	request, err := http.NewRequestWithContext(ctx, "GET", c.serverEndpoint+path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("ListSKSNodepoolTemplates: new request: %w", err)
+	}
+
+	request.Header.Add("User-Agent", c.getUserAgent())
+
+	if len(opts) > 0 {
+		q := request.URL.Query()
+		for _, opt := range opts {
+			opt(q)
+		}
+		request.URL.RawQuery = q.Encode()
+	}
+
+	if err := c.executeRequestInterceptors(ctx, request); err != nil {
+		return nil, fmt.Errorf("ListSKSNodepoolTemplates: execute request editors: %w", err)
+	}
+
+	if err := c.signRequest(request); err != nil {
+		return nil, fmt.Errorf("ListSKSNodepoolTemplates: sign request: %w", err)
+	}
+
+	if c.trace {
+		dumpRequest(request, "list-sks-nodepool-templates")
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("ListSKSNodepoolTemplates: http client do: %w", err)
+	}
+
+	if c.trace {
+		dumpResponse(response)
+	}
+
+	if err := handleHTTPErrorResp(response); err != nil {
+		return nil, fmt.Errorf("ListSKSNodepoolTemplates: http response: %w", err)
+	}
+
+	bodyresp := new(ListSKSNodepoolTemplatesResponse)
+	if err := prepareJSONResponse(response, bodyresp); err != nil {
+		return nil, fmt.Errorf("ListSKSNodepoolTemplates: prepare JSON response: %w", err)
 	}
 
 	return bodyresp, nil
@@ -19729,7 +20648,7 @@ func (l ListVpcsResponse) FindListVpcEntry(nameOrID string) (ListVpcEntry, error
 	return ListVpcEntry{}, fmt.Errorf("%q not found in ListVpcsResponse: %w", nameOrID, ErrNotFound)
 }
 
-// [BETA] List VPCs
+// List VPCs
 func (c Client) ListVpcs(ctx context.Context) (*ListVpcsResponse, error) {
 	path := "/vpc"
 
@@ -19774,14 +20693,15 @@ func (c Client) ListVpcs(ctx context.Context) (*ListVpcsResponse, error) {
 }
 
 type CreateVpcRequest struct {
-	// VPC description
 	Description string `json:"description,omitempty" validate:"omitempty,lte=4096"`
-	Labels      Labels `json:"labels,omitempty"`
-	// VPC name
+	// VPC DHCP options
+	DHCPOptions *VpcDHCPOptions `json:"dhcp-options,omitempty"`
+	Labels      Labels          `json:"labels,omitempty"`
+	// VPC name, up to 255 characters. Must be unique within its zone
 	Name string `json:"name" validate:"required,gte=1,lte=255"`
 }
 
-// [BETA] Create a VPC
+// Create a VPC
 func (c Client) CreateVpc(ctx context.Context, req CreateVpcRequest) (*Operation, error) {
 	path := "/vpc"
 
@@ -19832,7 +20752,7 @@ func (c Client) CreateVpc(ctx context.Context, req CreateVpcRequest) (*Operation
 	return bodyresp, nil
 }
 
-// [BETA] Delete a VPC
+// Delete a VPC
 func (c Client) DeleteVpc(ctx context.Context, id UUID) error {
 	path := fmt.Sprintf("/vpc/%v", id)
 
@@ -19872,7 +20792,7 @@ func (c Client) DeleteVpc(ctx context.Context, id UUID) error {
 	return nil
 }
 
-// [BETA] Retrieve VPC details
+// Retrieve VPC details
 func (c Client) GetVpc(ctx context.Context, id UUID) (*Vpc, error) {
 	path := fmt.Sprintf("/vpc/%v", id)
 
@@ -19917,14 +20837,14 @@ func (c Client) GetVpc(ctx context.Context, id UUID) (*Vpc, error) {
 }
 
 type UpdateVpcRequest struct {
-	// VPC description
 	Description *string `json:"description,omitempty" validate:"omitempty,lte=4096"`
-	Labels      Labels  `json:"labels"`
-	// VPC name
-	Name *string `json:"name,omitempty" validate:"omitempty,gte=1,lte=255"`
+	// VPC DHCP options
+	DHCPOptions *VpcDHCPOptions `json:"dhcp-options,omitempty"`
+	Labels      Labels          `json:"labels"`
+	Name        *string         `json:"name,omitempty" validate:"omitempty,gte=1,lte=255"`
 }
 
-// [BETA] Update a VPC
+// Update a VPC
 func (c Client) UpdateVpc(ctx context.Context, id UUID, req UpdateVpcRequest) (*Vpc, error) {
 	path := fmt.Sprintf("/vpc/%v", id)
 
@@ -19998,7 +20918,7 @@ func (l ListVpcRoutesResponse) FindListRouteEntry(id string) (ListRouteEntry, er
 	return ListRouteEntry{}, fmt.Errorf("%q not found in ListVpcRoutesResponse: %w", id, ErrNotFound)
 }
 
-// [BETA] List VPC routes
+// List VPC routes
 func (c Client) ListVpcRoutes(ctx context.Context, vpcID UUID) (*ListVpcRoutesResponse, error) {
 	path := fmt.Sprintf("/vpc/%v/route", vpcID)
 
@@ -20065,7 +20985,7 @@ func (l ListSubnetsResponse) FindListSubnetEntry(nameOrID string) (ListSubnetEnt
 	return ListSubnetEntry{}, fmt.Errorf("%q not found in ListSubnetsResponse: %w", nameOrID, ErrNotFound)
 }
 
-// [BETA] List Subnets
+// List Subnets
 func (c Client) ListSubnets(ctx context.Context, vpcID UUID) (*ListSubnetsResponse, error) {
 	path := fmt.Sprintf("/vpc/%v/subnet", vpcID)
 
@@ -20122,20 +21042,19 @@ const (
 )
 
 type CreateSubnetRequest struct {
-	// Subnet address space
+	// Whether the subnet is private or public
 	AddressSpace CreateSubnetRequestAddressSpace `json:"address-space" validate:"required"`
-	// Subnet address family
+	// Whether the subnet supports IPv4 and/or IPv6
 	Addressfamily CreateSubnetRequestAddressfamily `json:"addressfamily" validate:"required"`
-	// Subnet description
-	Description string `json:"description,omitempty" validate:"omitempty,lte=4096"`
-	// Subnet ipv4 CIDR
+	Description   string                           `json:"description,omitempty" validate:"omitempty,lte=4096"`
+	// Subnet ipv4 CIDR. Must not overlap with other CIDRs of this VPC
 	Ipv4Block string `json:"ipv4-block,omitempty"`
 	Labels    Labels `json:"labels,omitempty"`
-	// Subnet name
+	// Subnet name, up to 255 characters. Must be unique between the subnet of the parent VPC
 	Name string `json:"name" validate:"required,gte=1,lte=255"`
 }
 
-// [BETA] Create a Subnet
+// Create a Subnet
 func (c Client) CreateSubnet(ctx context.Context, vpcID UUID, req CreateSubnetRequest) (*Operation, error) {
 	path := fmt.Sprintf("/vpc/%v/subnet", vpcID)
 
@@ -20186,7 +21105,7 @@ func (c Client) CreateSubnet(ctx context.Context, vpcID UUID, req CreateSubnetRe
 	return bodyresp, nil
 }
 
-// [BETA] Delete a Subnet
+// Delete a Subnet
 func (c Client) DeleteSubnet(ctx context.Context, vpcID UUID, id UUID) error {
 	path := fmt.Sprintf("/vpc/%v/subnet/%v", vpcID, id)
 
@@ -20226,7 +21145,7 @@ func (c Client) DeleteSubnet(ctx context.Context, vpcID UUID, id UUID) error {
 	return nil
 }
 
-// [BETA] Retrieve Subnet details
+// Retrieve Subnet details
 func (c Client) GetSubnet(ctx context.Context, vpcID UUID, id UUID) (*Subnet, error) {
 	path := fmt.Sprintf("/vpc/%v/subnet/%v", vpcID, id)
 
@@ -20271,14 +21190,12 @@ func (c Client) GetSubnet(ctx context.Context, vpcID UUID, id UUID) (*Subnet, er
 }
 
 type UpdateSubnetRequest struct {
-	// Subnet description
 	Description *string `json:"description,omitempty" validate:"omitempty,lte=4096"`
 	Labels      Labels  `json:"labels"`
-	// Subnet name
-	Name *string `json:"name,omitempty" validate:"omitempty,gte=1,lte=255"`
+	Name        *string `json:"name,omitempty" validate:"omitempty,gte=1,lte=255"`
 }
 
-// [BETA] Update a Subnet
+// Update a Subnet
 func (c Client) UpdateSubnet(ctx context.Context, vpcID UUID, id UUID, req UpdateSubnetRequest) (*Subnet, error) {
 	path := fmt.Sprintf("/vpc/%v/subnet/%v", vpcID, id)
 
@@ -20332,11 +21249,11 @@ func (c Client) UpdateSubnet(ctx context.Context, vpcID UUID, id UUID, req Updat
 type AttachInstanceToSubnetRequest struct {
 	// Target Instance
 	Instance *InstanceRef `json:"instance" validate:"required"`
-	// Instance IPv4
+	// An optional IPv4 address assign to the instance
 	Ipv4 net.IP `json:"ipv4,omitempty"`
 }
 
-// [BETA] Attach a Compute instance to a Subnet
+// Attach a Compute instance to a Subnet
 func (c Client) AttachInstanceToSubnet(ctx context.Context, vpcID UUID, subnetID UUID, req AttachInstanceToSubnetRequest) (*Operation, error) {
 	path := fmt.Sprintf("/vpc/%v/subnet/%v/attach", vpcID, subnetID)
 
@@ -20392,7 +21309,7 @@ type DetachInstanceFromSubnetRequest struct {
 	Instance *InstanceRef `json:"instance" validate:"required"`
 }
 
-// [BETA] Detach a Compute instance from a Subnet
+// Detach a Compute instance from a Subnet
 func (c Client) DetachInstanceFromSubnet(ctx context.Context, vpcID UUID, subnetID UUID, req DetachInstanceFromSubnetRequest) (*Operation, error) {
 	path := fmt.Sprintf("/vpc/%v/subnet/%v/detach", vpcID, subnetID)
 
@@ -20466,7 +21383,7 @@ func (l ListRoutesResponse) FindListRouteEntry(id string) (ListRouteEntry, error
 	return ListRouteEntry{}, fmt.Errorf("%q not found in ListRoutesResponse: %w", id, ErrNotFound)
 }
 
-// [BETA] List Subnet routes
+// List Subnet routes
 func (c Client) ListRoutes(ctx context.Context, vpcID UUID, subnetID UUID) (*ListRoutesResponse, error) {
 	path := fmt.Sprintf("/vpc/%v/subnet/%v/route", vpcID, subnetID)
 
@@ -20511,15 +21428,14 @@ func (c Client) ListRoutes(ctx context.Context, vpcID UUID, subnetID UUID) (*Lis
 }
 
 type CreateRouteRequest struct {
-	// Route description
 	Description string `json:"description,omitempty" validate:"omitempty,lte=4096"`
-	// Route destination CIDR
+	// The CIDR used to match on which packets the routing rule should be applied
 	Destination string `json:"destination" validate:"required"`
-	// Route target
+	// Where the packets should be sent to. More details on the format can be found here https://community.exoscale.com/product/networking/vpc/how-to/using-routing-rules/
 	Target string `json:"target" validate:"required"`
 }
 
-// [BETA] Create a route
+// Create a route
 func (c Client) CreateRoute(ctx context.Context, vpcID UUID, subnetID UUID, req CreateRouteRequest) (*Route, error) {
 	path := fmt.Sprintf("/vpc/%v/subnet/%v/route", vpcID, subnetID)
 
@@ -20570,7 +21486,7 @@ func (c Client) CreateRoute(ctx context.Context, vpcID UUID, subnetID UUID, req 
 	return bodyresp, nil
 }
 
-// [BETA] Delete a route
+// Delete a route
 func (c Client) DeleteRoute(ctx context.Context, vpcID UUID, subnetID UUID, id UUID) error {
 	path := fmt.Sprintf("/vpc/%v/subnet/%v/route/%v", vpcID, subnetID, id)
 
