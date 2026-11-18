@@ -99,7 +99,7 @@ func NewDriver(config *DriverConfig) (*Driver, error) {
 		clientOpts = append(clientOpts, v3.ClientOptWithEndpoint(config.ZoneEndpoint))
 	}
 
-	creds, err := newCredentials(context.Background(), config, clientOpts)
+	creds, err := newCredentials(context.Background(), config)
 	if err != nil {
 		return nil, fmt.Errorf("new driver: credentials: %w", err)
 	}
@@ -138,8 +138,7 @@ func NewDriver(config *DriverConfig) (*Driver, error) {
 // newCredentials returns the credentials of the Exoscale API client.
 // With a credentials directory (a mounted Secret), they are re-read periodically, and when the
 // API rejects the key, until ctx is done: the client then uses a rotated key without a restart.
-// New credentials are checked against the API, with clientOpts, before they are used.
-func newCredentials(ctx context.Context, config *DriverConfig, clientOpts []v3.ClientOpt) (*credentials.Credentials, error) {
+func newCredentials(ctx context.Context, config *DriverConfig) (*credentials.Credentials, error) {
 	if config.CredentialsDir == "" {
 		return config.Credentials, nil
 	}
@@ -147,8 +146,7 @@ func newCredentials(ctx context.Context, config *DriverConfig, clientOpts []v3.C
 	klog.Infof("reading Exoscale API credentials from %s, reloaded when they change", config.CredentialsDir)
 
 	return credentials.NewReloadableCredentials(ctx,
-		credentials.SecretDirSource(config.CredentialsDir),
-		credentials.ReloadableOptWithValidator(v3.CredentialsValidator(clientOpts...)),
+		credentials.KubernetesSecretSource(config.CredentialsDir, "EXOSCALE_API_KEY", "EXOSCALE_API_SECRET"),
 		credentials.ReloadableOptWithLogHandler(logr.ToSlogHandler(klog.Background())),
 	)
 }

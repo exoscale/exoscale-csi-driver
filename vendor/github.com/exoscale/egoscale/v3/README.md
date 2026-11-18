@@ -70,6 +70,27 @@ func main() {
 }
 ```
 
+### Logging
+
+Egoscale supports debug logs which are off by default. To enable logs, use `ClientOptWithLogHandler` when initializing a client or `WithLogHandler` on existing client and provide `log/slog` compatible log handler to process them. For example, using the built-in JSON handler from `log/slog`, we can setup logs like so:
+
+```go
+	...
+	opts := []v3.ClientOpt{
+		v3.ClientOptWithLogHandler(slog.NewJSONHandler(
+			os.Stdout,
+			&slog.HandlerOptions{Level: slog.LevelDebug},
+		)),
+	}
+	c, err := v3.NewClient(credentials.NewEnvCredentials(), opts...)
+	...
+```
+
+Note that all logs printed by the client are of level Debug. A reloadable credentials provider
+(see below) logs with its own handler, set with `ReloadableOptWithLogHandler`: its reloads at level
+Info, and at level Error when it keeps the last credentials because new ones can't be read or are
+invalid, so that a broken Secret is seen without debug logs.
+
 ### Findable
 
 Most of the list request `ListX()` return a type containing the list of the resource requested and a method `FindX()` to be able to retrieve a resource by its `name` or `id` most of the time.
@@ -93,26 +114,31 @@ The client reads its credentials for every request. With a reloadable provider, 
 program (a Kubernetes controller, a daemon…) uses a rotated API key without being restarted or
 creating a new client.
 
-The provider re-reads its source every 30 seconds, and right away when the API rejects the key a
-request was signed with: the request is then signed again and retried once, if the key changed.
-New complete credentials are used as soon as they are read. If the source can't be read or is
-incomplete, the last credentials are kept and the error is logged on every re-read.
+`credentials.NewReloadableCredentials` re-reads its source every 30 seconds, and right away when the
+API rejects the key a request was signed with: the request is then signed again and retried once,
+if the key changed.
+New credentials are used as soon as they are read. If the source can't be read, is incomplete or
+doesn't have the format of an Exoscale API key and secret, the last credentials are kept and the
+error is logged on every re-read.
 
 Two sources are provided:
-- `credentials.SecretDirSource(dir)`: the `EXOSCALE_API_KEY` and `EXOSCALE_API_SECRET` files of a
-  directory, typically a Kubernetes Secret mounted as a volume.
+- `credentials.KubernetesSecretSource(mountPath, apiKeyFile, apiSecretFile)`: the files of a
+  Kubernetes Secret mounted as a volume, named after the keys of the Secret.
 - `credentials.JSONFileSource(path)`: a JSON file with `api_key` and `api_secret` fields.
 
 Any `func() (credentials.Value, error)` works as a source too.
 
+The pieces can also be used separately: `credentials.NewReloadableProvider(source)` only re-reads
+the source when the API rejects the key, and `credentials.NewPeriodicReloadProvider(ctx, p, interval)`
+adds a periodic re-read to any `credentials.Reloader`, so other reload strategies can be built the
+same way.
+
 ```Golang
 // The periodic re-read stops when ctx is done.
 creds, err := credentials.NewReloadableCredentials(ctx,
-	credentials.SecretDirSource("/etc/exoscale"),
+	credentials.KubernetesSecretSource("/etc/exoscale", "EXOSCALE_API_KEY", "EXOSCALE_API_SECRET"),
 	// Optional: logs the reloads and the errors (nothing is logged by default).
 	credentials.ReloadableOptWithLogHandler(slog.Default().Handler()),
-	// Optional: checks new credentials against the API before using them.
-	credentials.ReloadableOptWithValidator(v3.CredentialsValidator(v3.ClientOptWithEndpoint(endpoint))),
 )
 if err != nil {
 	log.Fatal(err)

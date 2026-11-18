@@ -378,7 +378,7 @@ func (c *Client) retryWithNewCredentials(request *http.Request) (*http.Request, 
 }
 
 // isInvalidKeyResponse reports whether the API rejected the API key of the request
-// (unknown or deleted key, or wrong secret), like isInvalidKeyError.
+// (unknown or deleted key, or wrong secret).
 // It keeps the response body readable.
 func isInvalidKeyResponse(response *http.Response) bool {
 	switch response.StatusCode {
@@ -490,7 +490,7 @@ func (c *Client) send(request *http.Request) (*http.Response, error) {
 }
 
 func cloneClient(c *Client) *Client {
-	return &Client{
+	newc := Client{
 		credentials:         c.credentials,
 		userAgent:           c.userAgent,
 		serverEndpoint:      c.serverEndpoint,
@@ -501,4 +501,12 @@ func cloneClient(c *Client) *Client {
 		validate:            c.validate,
 		logger:              c.logger,
 	}
+
+	if c.defaultHTTPClient != nil {
+		rc := retryablehttp.NewClient()
+		rc.Logger = c.defaultHTTPClient.Logger
+		newc.defaultHTTPClient = rc
+	}
+
+	return &newc
 }

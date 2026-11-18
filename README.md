@@ -34,9 +34,8 @@ Exoscale Block Storage Container Storage Interface Driver.
 The manifests mount the `exoscale-credentials` Secret at `/etc/exoscale-credentials` and start the
 driver with `--credentials-dir=/etc/exoscale-credentials`. The driver re-reads that directory every
 30 seconds, and right away when the API rejects the current key, and switches to the new key without
-restarting the pods: a request rejected for the old key is retried once with the new one. Before
-switching, it checks the new key against the API: a key the API rejects is not used, and the driver
-keeps the current key and tries the new one again on the next re-read.
+restarting the pods: a request rejected for the old key is retried once with the new one. An
+incomplete or malformed Secret is ignored, and the driver keeps the current key.
 
 The kubelet takes a while to update the Secret in each pod (usually one to two minutes), so rotate in
 this order:
