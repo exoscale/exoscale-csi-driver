@@ -4,7 +4,7 @@ go 1.26
 
 require (
 	github.com/container-storage-interface/spec v1.12.0
-	github.com/exoscale/egoscale/v3 v3.1.64-0.20261118110451-5dd5104af4dd
+	github.com/exoscale/egoscale/v3 v3.1.64
 	github.com/go-logr/logr v1.4.3
 	github.com/golang/protobuf v1.5.4
 	github.com/kubernetes-sigs/aws-ebs-csi-driver v1.53.0
