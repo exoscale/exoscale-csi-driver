@@ -36,7 +36,7 @@ jobs:
           gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
           passphrase: ${{ secrets.GPG_PASSPHRASE }}
 
-      - uses: ./go.mk/.github/actions/release
+      - uses: exoscale/go-mk-release-action@main
         with:
           release_github_token: ${{ secrets.GITHUB_TOKEN }}
           registry_username: ${{ secrets.DOCKERHUB_USERNAME }}

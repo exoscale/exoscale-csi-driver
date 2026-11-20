@@ -24,7 +24,7 @@ jobs:
 
       - run: make go.mk
 
-      - uses: ./go.mk/.github/actions/setup
+      - uses: actions/setup-go@v7.0.0
 
       - name: Build Docker image
         run: make docker

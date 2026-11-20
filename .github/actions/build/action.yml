@@ -8,9 +8,10 @@ runs:
 
     - run: make go.mk
       shell: bash
-    - uses: ./go.mk/.github/actions/setup
+    - uses: actions/setup-go@v7.0.0
 
-    - uses: ./go.mk/.github/actions/pre-check
+    - run: make pre-check
+      shell: bash
 
     - run: make build
       shell: bash
