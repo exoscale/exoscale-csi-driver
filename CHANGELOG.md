@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Improvements
+- Reload the Exoscale API credentials when the `exoscale-credentials` Secret changes, without restarting the pods: new `--credentials-dir` flag, and the manifests mount the Secret as a volume. The Secret is re-read every 30 seconds, and when the API rejects the key
+- Bump egoscale to v3.1.64, for its reloadable credentials provider
+- manifests: the `latest` manifests pass `--credentials-dir`, which older images don't know; upgrade the manifests and the image together
+
 ## v0.34.6
 
 - Use egoscale v3.1.63 (#178)
