@@ -282,16 +282,30 @@ func (d *controllerService) ControllerPublishVolume(ctx context.Context, req *cs
 	}
 
 	// PublishVolume idempotent
-	if volume.Instance != nil {
-		if volume.Instance.ID == instanceID {
-			return &csi.ControllerPublishVolumeResponse{
-				PublishContext: map[string]string{
-					exoscaleVolumeName: volume.Name,
-					exoscaleVolumeID:   volume.ID.String(),
-					exoscaleVolumeZone: string(zoneName),
-				},
-			}, nil
+	if volume.Instance != nil && volume.Instance.ID == instanceID {
+		// The API sets the target instance while the attach job is still
+		// running, so the instance ID alone does not mean the attachment
+		// settled. Reporting success before the volume reaches the
+		// "attached" state lets kubelet stage a device that can still
+		// disappear from the instance while the job completes, leaving a
+		// mount whose every I/O fails with EIO.
+		switch volume.State {
+		case v3.BlockStorageVolumeStateAttached:
+		case v3.BlockStorageVolumeStateError:
+			// Won't settle by itself, but keep Aborted (non-final) so the CO still
+			// calls ControllerUnpublishVolume if the attachment is abandoned.
+			return nil, status.Errorf(codes.Aborted, "volume %s is in error state on instance %s", volumeID, instanceID)
+		default:
+			return nil, status.Errorf(codes.Aborted, "volume %s is still in state %q on instance %s", volumeID, volume.State, instanceID)
 		}
+
+		return &csi.ControllerPublishVolumeResponse{
+			PublishContext: map[string]string{
+				exoscaleVolumeName: volume.Name,
+				exoscaleVolumeID:   volume.ID.String(),
+				exoscaleVolumeZone: string(zoneName),
+			},
+		}, nil
 	}
 
 	op, err := client.AttachBlockStorageVolumeToInstance(ctx, volumeID, v3.AttachBlockStorageVolumeToInstanceRequest{

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Bug fixes
+- ControllerPublishVolume: don't report a volume as published while it is still attaching (#164)
+
 ### Improvements
 - Reload the Exoscale API credentials when the `exoscale-credentials` Secret changes, without restarting the pods: new `--credentials-dir` flag, and the manifests mount the Secret as a volume. The Secret is re-read every 30 seconds, and when the API rejects the key
 - Bump egoscale to v3.1.64, for its reloadable credentials provider
