@@ -68,3 +68,63 @@ func TestControllerPublishVolumeAlreadyOnNode(t *testing.T) {
 		})
 	}
 }
+
+func TestControllerExpandVolume(t *testing.T) {
+	const zone = "ch-gva-2"
+	volumeID := v3.UUID("2bd8a3a9-2b84-4e57-8a8b-7f1c5d2a3b10")
+	instanceID := v3.UUID("8c0e7b9e-5c4e-4b1a-9a43-2f6f1d0e9a11")
+
+	tests := []struct {
+		name       string
+		sizeGiB    int64
+		attached   bool
+		wantCode   codes.Code
+		wantResize bool
+	}{
+		{"smaller detached volume is resized", 1, false, codes.OK, true},
+		{"smaller attached volume must be detached first", 1, true, codes.FailedPrecondition, false},
+		{"already resized detached volume", 5, false, codes.OK, false},
+		{"already resized volume attached again", 5, true, codes.OK, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var resizeCalls atomic.Int32
+			mux := http.NewServeMux()
+			srv := httptest.NewServer(mux)
+			t.Cleanup(srv.Close)
+
+			mux.HandleFunc("/zone", func(w http.ResponseWriter, r *http.Request) {
+				fmt.Fprintf(w, `{"zones":[{"name":%q,"api-endpoint":%q}]}`, zone, srv.URL)
+			})
+			mux.HandleFunc("/block-storage/", func(w http.ResponseWriter, r *http.Request) {
+				if strings.HasSuffix(r.URL.Path, ":resize-volume") {
+					resizeCalls.Add(1)
+					fmt.Fprintf(w, `{"id":%q,"name":"vol","size":5}`, volumeID)
+					return
+				}
+				instance := ""
+				if tt.attached {
+					instance = fmt.Sprintf(`,"instance":{"id":%q}`, instanceID)
+				}
+				fmt.Fprintf(w, `{"id":%q,"name":"vol","size":%d%s}`, volumeID, tt.sizeGiB, instance)
+			})
+
+			client, err := v3.NewClient(credentials.NewStaticCredentials("EXOkey", "secret"), v3.ClientOptWithEndpoint(v3.Endpoint(srv.URL)))
+			require.NoError(t, err)
+			d := &controllerService{client: client}
+
+			resp, err := d.ControllerExpandVolume(context.Background(), &csi.ControllerExpandVolumeRequest{
+				VolumeId:      exoscaleID(zone, volumeID),
+				CapacityRange: &csi.CapacityRange{RequiredBytes: 5 * GiB},
+			})
+
+			require.Equal(t, tt.wantCode, status.Code(err), "error: %v", err)
+			if tt.wantCode == codes.OK {
+				require.EqualValues(t, 5*GiB, resp.CapacityBytes)
+				require.True(t, resp.NodeExpansionRequired)
+			}
+			require.Equal(t, tt.wantResize, resizeCalls.Load() == 1, "resize calls: %d", resizeCalls.Load())
+		})
+	}
+}

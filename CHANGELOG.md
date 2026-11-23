@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Bug fixes
+- ControllerExpandVolume: succeed when the volume already has the requested size, instead of a failing API call (csi-resizer v2 calls it again after a successful resize)
+
 ### Improvements
 - Align with Kubernetes 1.37 (supports 1.37, 1.36 and 1.35): bump the `k8s.io` libraries to v0.37
 - manifests: bump the CSI sidecars (csi-provisioner v6.4.0, csi-attacher v4.13.0, csi-snapshotter and snapshot-controller v8.7.0, csi-resizer v2.3.0, csi-node-driver-registrar v2.18.0, livenessprobe v2.20.0) and the VolumeSnapshot CRDs to external-snapshotter v8.7.0 (stop serving `v1beta1`); csi-provisioner v6 and csi-resizer v2 need Kubernetes 1.34+
