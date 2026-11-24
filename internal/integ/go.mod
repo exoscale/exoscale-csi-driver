@@ -1,6 +1,6 @@
 module github.com/exoscale/exoscale/csi-driver/internal/integ
 
-go 1.26.0
+go 1.26.6
 
 require (
 	github.com/exoscale/egoscale/v3 v3.1.38
