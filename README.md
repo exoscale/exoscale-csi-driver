@@ -115,5 +115,6 @@ For example, CSI `0.99` would be compatible with Kubernetes versions `1.99`, `1.
 
 | CSI version | supported Kubernetes versions |
 |-------------|-------------------------------|
+| 0.37        | 1.37, 1.36, 1.35              |
 | 0.31        | 1.31, 1.30                    |
 | 0.29        | 1.29, 1.28, 1.27              |

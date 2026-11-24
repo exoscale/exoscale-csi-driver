@@ -767,6 +767,15 @@ func (d *controllerService) ControllerExpandVolume(ctx context.Context, req *csi
 		return nil, status.Errorf(codes.OutOfRange, "invalid capacity range: %v", err)
 	}
 
+	// csi-resizer calls again after a successful resize when it fails to record it (e.g. PVC
+	// update conflict), and the API rejects a resize to the current size: report success.
+	if currentSizeInBytes := convertGiBToBytes(volume.Size); currentSizeInBytes >= newSizeInBytes {
+		return &csi.ControllerExpandVolumeResponse{
+			CapacityBytes:         currentSizeInBytes,
+			NodeExpansionRequired: nodeExpansionRequired,
+		}, nil
+	}
+
 	// Check if volume is attached to any instance
 	if volume.Instance != nil && volume.Instance.ID != "" {
 		instanceInfo := fmt.Sprintf(" (attached to instance %s)", volume.Instance.ID)

@@ -14,13 +14,17 @@ linters:
     - gocognit
     - godot
     - godox
+    - goconst
     - gomoddirectives
+    - gomodguard
+    - gomodguard_v2
     - gosmopolitan
     - inamedparam
     - intrange
     - ireturn
     - lll
     - musttag
+    - modernize
     - nestif
     - nlreturn
     - nonamedreturns
@@ -44,7 +48,7 @@ linters:
       min-len: 2
       min-occurrences: 3
     gocyclo:
-      min-complexity: 45
+      min-complexity: 25
   exclusions:
     generated: lax
     presets:
