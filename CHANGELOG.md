@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.37.0
 
 ### Bug fixes
 - ControllerExpandVolume: succeed when the volume already has the requested size, instead of a failing API call (csi-resizer v2 calls it again after a successful resize)
