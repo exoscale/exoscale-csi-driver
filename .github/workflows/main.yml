@@ -23,6 +23,8 @@ jobs:
       - run: make go.mk
 
       - uses: actions/setup-go@v7.0.0
+        with:
+          go-version-file: 'go.mod'
 
       - run: make pre-check
 
