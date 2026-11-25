@@ -33,7 +33,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: ./.github/actions/build
+      - uses: $/.github/actions/build
 
   docker-build:
     needs: build
