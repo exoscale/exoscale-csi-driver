@@ -22,9 +22,11 @@ jobs:
 
       - run: make go.mk
 
-      - uses: ./go.mk/.github/actions/setup
+      - uses: actions/setup-go@v7.0.0
+        with:
+          go-version-file: 'go.mod'
 
-      - uses: ./go.mk/.github/actions/pre-check
+      - run: make pre-check
 
   build:
     runs-on: ubuntu-latest
@@ -33,7 +35,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: ./.github/actions/build
+      - uses: $/.github/actions/build
 
   docker-build:
     needs: build
@@ -41,6 +43,6 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: make go.mk
-      - uses: ./go.mk/.github/actions/setup
+      - uses: actions/setup-go@v7.0.0
       - name: Build Docker image
         run: make docker
