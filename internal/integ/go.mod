@@ -3,7 +3,7 @@ module github.com/exoscale/exoscale/csi-driver/internal/integ
 go 1.26.6
 
 require (
-	github.com/exoscale/egoscale/v3 v3.1.38
+	github.com/exoscale/egoscale/v3 v3.1.66
 	github.com/stretchr/testify v1.11.1
 	k8s.io/api v0.37.2
 	k8s.io/apimachinery v0.37.2
