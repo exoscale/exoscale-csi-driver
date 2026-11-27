@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 )
 
 var (
@@ -108,6 +109,16 @@ type APIError struct {
 	Detail string
 	// Errors holds the RFC 9457 "errors" entries.
 	Errors []APIErrorEntry
+	// StatusCode is the HTTP response status code.
+	StatusCode int
+	// Response is the response body decoded into the schema the OpenAPI spec
+	// declares for StatusCode on this operation (e.g. *RateLimited for a 429).
+	// It is nil when the operation declares no schema for that status code
+	// or when the body cannot be decoded into it.
+	Response any
+
+	// body is the raw response body, kept to decode Response.
+	body []byte
 }
 
 // APIErrorEntry is one item from the RFC 9457 "errors" array.
@@ -118,11 +129,27 @@ type APIErrorEntry struct {
 	Location string
 }
 
-func (e *APIError) Error() string { return e.sentinel.Error() }
+// Error returns the status text followed by the non-empty title, message and detail of the response.
+func (e *APIError) Error() string {
+	// Generic problem types repeat the status text as title, so it is skipped there.
+	title := e.Title
+	if title == e.sentinel.Error() {
+		title = ""
+	}
+	var parts []string
+	for _, p := range []string{title, e.Message, e.Detail} {
+		if p != "" {
+			parts = append(parts, p)
+		}
+	}
+	return fmt.Sprintf("%s: %s", e.sentinel.Error(), strings.Join(parts, ": "))
+}
 func (e *APIError) Unwrap() error { return e.sentinel }
 
 func handleHTTPErrorResp(resp *http.Response) error {
 	if resp.StatusCode >= 400 && resp.StatusCode <= 599 {
+		defer resp.Body.Close() // prevent connection leak on error responses
+
 		var res struct {
 			Message string          `json:"message"`
 			Error   string          `json:"error"`
@@ -150,10 +177,12 @@ func handleHTTPErrorResp(resp *http.Response) error {
 		}
 
 		apiErr := &APIError{
-			sentinel: sentinel,
-			Message:  res.Message,
-			Title:    res.Title,
-			Detail:   res.Detail,
+			sentinel:   sentinel,
+			Message:    res.Message,
+			Title:      res.Title,
+			Detail:     res.Detail,
+			StatusCode: resp.StatusCode,
+			body:       data,
 		}
 		if res.Message == "" && res.Error != "" {
 			apiErr.Message = res.Error
@@ -164,6 +193,29 @@ func handleHTTPErrorResp(resp *http.Response) error {
 	}
 
 	return nil
+}
+
+// decodeAPIErrorResponse decodes the body of an *APIError into the type the
+// OpenAPI spec declares for its status code, and stores it in APIError.Response.
+// responses maps each declared status code to a constructor of its body type.
+// err is returned as is, so the caller can wrap it unconditionally.
+func decodeAPIErrorResponse(err error, responses map[int]func() any) error {
+	var apiErr *APIError
+	if !errors.As(err, &apiErr) {
+		return err
+	}
+
+	newResponse, ok := responses[apiErr.StatusCode]
+	if !ok {
+		return err
+	}
+
+	v := newResponse()
+	if json.Unmarshal(apiErr.body, v) == nil {
+		apiErr.Response = v
+	}
+
+	return err
 }
 
 func parseErrorEntries(raw json.RawMessage) []APIErrorEntry {
